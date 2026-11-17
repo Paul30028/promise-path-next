@@ -1,6 +1,6 @@
 # 应许之路 · 新工程
 
-全新工程，位于 `promise-path-next`。旧版 `promise-path` 未被覆盖。本仓库当前是列祖营地的**系统原型**：可操作的三维场景、七名角色、暂停排指令、劳动、侦察、三张情境战术卡、剧情抉择和本地存档。程序几何体用于验证玩法，不代表最终 A 版美术。当前流程短于目标 15—20 分钟，完整样章仍在制作。
+全新工程，位于 `promise-path-next`。旧版 `promise-path` 未被覆盖。本仓库当前是列祖营地的**系统原型**：可操作的三维场景、七名角色、暂停排指令、劳动、侦察、三张情境战术卡、剧情抉择和本地存档。首批 14 个原创 `.glb` 模型已经接入实时场景；它们是可运行的造型样板，尚未达到最终 A 版商业美术质量。当前流程短于目标 15—20 分钟，完整样章仍在制作。
 
 ## 本地运行
 
@@ -10,6 +10,8 @@ npm run dev
 ```
 
 打开 `http://localhost:5180/`。`npm run build` 同时检查 TypeScript 并生成 `dist/`。
+
+`npm run models:build` 重新生成首批模型，`npm run models:check` 检查 GLB 格式与三角面预算。
 
 ## 工程范围
 
@@ -23,6 +25,7 @@ npm run dev
 - `docs/TECH.md`：架构、数据扩展、性能与验证。
 - `docs/REFERENCE_GAMES.md`：竞品拆解、机制转译与开源项目边界。
 - `design/runtime-target/`：可在浏览器渲染的横屏 App 美术原稿、场景目标图、生成提示词与制作验收；场景图尚未制成实时 3D 资产。
+- `design/modeling/`：已接入游戏的首批 `.glb` 模型清单与实际运行截图；源脚本在 `tools/model-assets.mjs`。
 
 ## 设备
 
