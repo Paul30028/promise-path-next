@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">应许之路</string>
+    <string name="title_activity_main">应许之路</string>
+    <string name="package_name">com.promisepath.next</string>
+    <string name="custom_url_scheme">com.promisepath.next</string>
+</resources>
