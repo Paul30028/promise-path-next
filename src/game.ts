@@ -6,6 +6,7 @@ export const targets = { spring: { x: -5, z: 2 }, wood: { x: 5, z: -3 }, tent: {
 const actor = (id: string, name: string, role: Role, color: string, x: number, z: number): Actor => ({ id, name, role, color, x, z, energy: 100, load: 0, queue: [] });
 export function newGame(): Game { return { version: 1, actors: [actor('abram','亚伯兰','leader','#304d70',-2,1),actor('sarai','撒莱','organizer','#b76962',-3,0),actor('lot','罗得','herdsman','#856340',-1.5,-1),actor('eli','以利','scout','#7b8b5c',0,0),actor('nura','努拉','carrier','#568484',-3,2),actor('asa','亚撒','builder','#a66b42',1,1),actor('mara','玛拉','elder','#775f86',-2,-2)], water: 4, timber: 1, tents: 0, trust: 2, herd: 6, day: 1, paused: true, story: 'arrival', encounter: 'hidden', log: ['营地抵达丘陵边。先查看水源、木料与牧道，再安排劳作。'] }; }
 const SAVE = 'promise-path-next-save-v1';
+export function hasSavedGame(): boolean { try { return localStorage.getItem(SAVE)!==null; } catch { return false; } }
 export function loadGame(): Game { try { const raw = localStorage.getItem(SAVE); if (!raw) return newGame(); const data = JSON.parse(raw) as Game; if (data.version !== 1 || !Array.isArray(data.actors) || data.actors.length !== 7 || !Number.isFinite(data.water) || !Number.isFinite(data.timber)) return newGame(); return data; } catch { return newGame(); } }
 export function saveGame(game: Game): boolean { try { localStorage.setItem(SAVE, JSON.stringify(game)); return true; } catch { return false; } }
 export function order(kind: Order['kind'], label: string, x: number, z: number): Order { return { kind, label, x, z }; }

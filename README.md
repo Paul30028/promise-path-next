@@ -26,6 +26,8 @@ npm run dev
 - `docs/REFERENCE_GAMES.md`：竞品拆解、机制转译与开源项目边界。
 - `design/runtime-target/`：可在浏览器渲染的横屏 App 美术原稿、场景目标图、生成提示词与制作验收；场景图尚未制成实时 3D 资产。
 - `design/modeling/`：已接入游戏的首批 `.glb` 模型清单与实际运行截图；源脚本在 `tools/model-assets.mjs`。
+- `design/ui-v2/`：中英文、横竖屏的实际运行截图和界面第二版规范。
+- `docs/ENGINE_REVIEW.md`：现有技术与 Godot 迁移的阶段评审。
 
 ## 设备
 
