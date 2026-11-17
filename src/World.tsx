@@ -25,7 +25,7 @@ function WorldObjects({ game, selected, select, move }: { game:Game; selected:st
     <color attach="background" args={['#c8d8cf']}/>
     <mesh rotation={[-Math.PI/2,0,0]} receiveShadow onClick={groundClick}><planeGeometry args={[19,15]}/><meshStandardMaterial color="#d7bc8d" roughness={1}/></mesh>
     <mesh position={[-6,.015,2.2]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[1.7,32]}/><meshStandardMaterial color="#7eaaa3" roughness={.4}/></mesh>
-    <mesh position={[6,-.05,4]} rotation={[-Math.PI/2,0,0]}><coneGeometry args={[2.8,2.2,5]}/><meshStandardMaterial color="#ab9572" roughness={1}/></mesh>
+    <mesh position={[6,.35,4]} castShadow><coneGeometry args={[2.3,.7,6]}/><meshStandardMaterial color="#ab9572" roughness={1}/></mesh>
     {stones.map((p,i)=><mesh key={i} position={[p.x,p.s*.35,p.z]} castShadow><dodecahedronGeometry args={[p.s]}/><meshStandardMaterial color={i%3?'#aaa18d':'#877d68'} roughness={1}/></mesh>)}
     {[[-7,-3],[-6,-4],[4,-5],[7,-4]].map(([x,z],i)=><group key={i} position={[x,0,z]}><mesh position={[0,.5,0]} castShadow><cylinderGeometry args={[.1,.16,1,8]}/><meshStandardMaterial color="#735636"/></mesh><mesh position={[0,1.2,0]} castShadow><sphereGeometry args={[.65,10,8]}/><meshStandardMaterial color="#758b5c" roughness={1}/></mesh></group>)}
     <Tent x={targets.tent.x} z={targets.tent.z} ready={game.tents>0}/><Tent x={-3} z={-3.5} ready/>

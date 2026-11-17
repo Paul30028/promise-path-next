@@ -12,6 +12,7 @@ export function order(kind: Order['kind'], label: string, x: number, z: number):
 export function pushLog(game: Game, line: string): Game { return { ...game, log: [line, ...game.log].slice(0, 9) }; }
 export function tick(game: Game): Game {
   if (game.paused || game.ending) return game;
+  if (game.actors.every(a => a.queue.length === 0 || a.energy <= 0)) return game;
   let water = game.water, timber = game.timber, tents = game.tents, trust = game.trust, herd = game.herd, story = game.story, encounter = game.encounter;
   const notes: string[] = [];
   const actors = game.actors.map(a => {
