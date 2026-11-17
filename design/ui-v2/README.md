@@ -5,6 +5,8 @@
 - `chinese-landscape-runtime.png`：844×390，中文横屏，初始营地。
 - `english-portrait-runtime.png`：390×844，英文竖屏，初始营地。
 - `chinese-desktop-runtime.png`：1440×900，中文桌面，包含选中人物状态。
+- `android-emulator-english.png`：Android 模拟器中英文切换后的真实 APK 截图。
+- `android-emulator-action.png`：Android 模拟器中努拉取水后的真实 APK 截图。
 
 ## 界面规则
 
@@ -21,6 +23,7 @@
 - 英文取水：努拉取水后水从 4 变为 7，记录显示英文；刷新后资源与语言保留。
 - 新存档显示开场；已有存档刷新不重复显示开场。
 - 浏览器控制台无运行错误。此前缺失的图标已改为工程内 SVG。
+- Android `guardian34` 模拟器：APK 启动、英文切换、选人、取水、执行均通过；水从 4 变为 7。模拟器画面与真机性能不能等同。
 
 ## 仍需达到的商业标准
 

@@ -28,6 +28,7 @@ npm run dev
 - `design/modeling/`：已接入游戏的首批 `.glb` 模型清单与实际运行截图；源脚本在 `tools/model-assets.mjs`。
 - `design/ui-v2/`：中英文、横竖屏的实际运行截图和界面第二版规范。
 - `docs/ENGINE_REVIEW.md`：现有技术与 Godot 迁移的阶段评审。
+- `docs/QUALITY_TOOL_AUDIT.md`：制作技能、插件与 Android 模拟器的可用性和质量优先级。
 
 ## 设备
 
