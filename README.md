@@ -22,6 +22,7 @@ npm run dev
 - `docs/STORYBOARD.md`：样章分镜原稿与审核栏。
 - `docs/TECH.md`：架构、数据扩展、性能与验证。
 - `docs/REFERENCE_GAMES.md`：竞品拆解、机制转译与开源项目边界。
+- `design/runtime-target/`：可在浏览器渲染的横屏 App 美术原稿、场景目标图、生成提示词与制作验收；场景图尚未制成实时 3D 资产。
 
 ## 设备
 
