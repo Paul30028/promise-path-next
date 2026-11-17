@@ -21,6 +21,7 @@ npm run dev
 - `docs/STORY_HISTORY.md`：经文与历史依据、审阅清单。
 - `docs/STORYBOARD.md`：样章分镜原稿与审核栏。
 - `docs/TECH.md`：架构、数据扩展、性能与验证。
+- `docs/REFERENCE_GAMES.md`：竞品拆解、机制转译与开源项目边界。
 
 ## 设备
 
