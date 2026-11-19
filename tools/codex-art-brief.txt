@@ -1,0 +1,35 @@
+You are the Lead Art Director for our commercial Q-version Old Testament strategy & camp-building game in `c:\AI\gemini\promise-path-next`.
+
+Use your built-in `imagegen` (`image_gen` tool) and `frontend-design` skills to create TWO brand-new, high-resolution commercial Q-version art assets AND an HTML/CSS UI composite preview.
+
+### CRITICAL ART DIRECTION RULES (STRICTLY DE-ARABICIZED, AUTHENTIC HEBREW/BIBLICAL + ARTISTIC RE-CREATION):
+1. **NO ARABIC TROPE ELEMENTS**:
+   - Strictly NO Arab keffiyeh headcloths with agal cords (禁止阿拉伯头巾+头箍/绳圈!).
+   - Strictly NO modern Bedouin desert tents, NO Islamic arches/domes, NO curved scimitars, NO barren Sahara-like sand dunes.
+2. **AUTHENTIC OLD TESTAMENT / ANCIENT ISRAELITE & MEDITERRANEAN LEVANTINE AESTHETIC (WITH ARTISTIC RE-CREATION)**:
+   - **Hair & Headwear**: Characters should have expressive uncovered wavy/curled Mediterranean hair, braided crowns, olive-leaf wreaths, or simple ancient Hebrew forehead fillets/miters—NOT Arab head-wraps!
+   - **Garments**: Stylized ancient Hebrew/Israelite tunics in warm unbleached linen, royal Tekhelet (hyacinth/lapis blue) and pomegranate-crimson woven borders, golden geometric embroidery, corner tassels (Tzitzit), shepherd's fleece shoulder capes, and bronze/leather belts.
+   - **Environment ("A Land Flowing with Milk and Honey" - Canaanite Highlands)**: Terraced limestone hills of Bethel and Hebron, lush olive groves, fig trees, grapevines, golden wheat patches, a sparkling hillside rock spring, an authentic unhewn 12-stone biblical altar with a warm sacred flame, and cozy wood-and-linen pavilion tents with woven Israelite tapestries.
+   - **Commercial Q-Version Style**: 2.5-head-tall premium toy-box diorama / handcrafted figurine style (inspired by *The Legend of Zelda: Link's Awakening Switch Remake*, *Thronefall*, and *Fantasy Life i*), bright Mediterranean daylight, ultra-appealing proportions, crisp silhouette readability.
+
+### DELIVERABLES TO GENERATE AND COPY TO TARGET PATHS:
+1. **Image 1 — Commercial Q-Version Gameplay Scene Plate (`codex-q-camp-scene.png`)**:
+   - Call your built-in `image_gen` tool to generate a wide landscape (`1536x1024`) playable isometric 35-degree game scene of the Old Testament camp at Bethel ("A Land of Olive Groves and Stone Altars").
+   - Centerpiece: An ancient biblical unhewn stone altar with a warm golden covenant flame on a terraced limestone plaza, surrounded by a cozy timber-and-tapestry pavilion tent, a terraced olive & fig grove, a crystal hillside spring, fluffy sheep, and 5–7 cute 2.5-head-tall Q-version biblical characters (uncovered curly/braided hair, blue-and-gold bordered Hebrew tunics, shepherd staff, harp/lyre, bronze hammer, clay amphora). No text or HUD baked into the raw image.
+   - Copy the generated image to:
+     - `c:\AI\gemini\promise-path-next\design\codex-q-v1\codex-q-camp-scene.png`
+     - `C:\Users\holyx\.gemini\antigravity\brain\6e568a4c-bd1a-4b4b-8be5-415b1cddfb8e\codex-q-camp-scene.png`
+
+2. **Image 2 — Commercial Q-Version Character Design Sheet (`codex-q-characters.png`)**:
+   - Call your built-in `image_gen` tool to generate a wide landscape (`1536x1024`) character lineup concept sheet on a clean warm parchment background showing 6 distinct 2.5-head-tall Q-version Old Testament heroes standing in a single row, strictly de-Arabicized (wavy hair/braids/fillets, NO keffiyeh+agal):
+     1. **Abraham (Patriarch)**: Silver-streaked wavy hair and full beard (no headcloth), royal Tekhelet-blue & cream fringed Hebrew robe, holding a carved olive-wood shepherd staff with a glowing star emblem.
+     2. **Sarah (Matriarch)**: Braided chestnut hair with a delicate golden olive-leaf tiara and sheer shoulder veil, pomegranate-red and linen dress, holding a glowing terracotta Shabbat/covenant oil lamp.
+     3. **Eliezer (Commander of the 318)**: Short dark curls with a bronze forehead band, olive-and-leather scale vest, recurve bow, holding a blazing pitch torch.
+     4. **Miriam / Hagar (Spring Seer)**: Long dark wavy hair with turquoise ribbon, pleated linen tunic with blue tassels, carrying a two-handled Canaanite water amphora and tambourine.
+     5. **Bezalel / Ur (Master Artisan)**: Curly beard, leather craftsman apron over linen tunic, carrying a bronze builder's mallet and stone chisel.
+     6. **Young David / Shepherd Poet (Levite/Chronicler)**: YouthfulTousled auburn curls, simple shepherd tunic with sling and a small wooden Kinnor (biblical harp/lyre).
+   - Copy the generated image to:
+     - `c:\AI\gemini\promise-path-next\design\codex-q-v1\codex-q-characters.png`
+     - `C:\Users\holyx\.gemini\antigravity\brain\6e568a4c-bd1a-4b4b-8be5-415b1cddfb8e\codex-q-characters.png`
+
+3. Verify both files exist at both destinations and output a concise summary of the generated files.

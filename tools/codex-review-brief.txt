@@ -1,0 +1,20 @@
+You are a Senior Game Designer, Technical Architect, and Biblical Historical Advisor reviewing the new v3.0 design proposal for `c:\AI\gemini\promise-path-next`.
+
+Please read these files carefully:
+1. `design/game-brief-v3-branching.md`
+2. `docs/RESEARCH_AND_SCREEN_SPEC.md`
+3. `docs/STORY_HISTORY.md`
+4. `src/config.ts` and `src/game.ts`
+
+Write a rigorous, candid, constructive review report in **Chinese (Simplified)** covering:
+1. **分支叙事与经文边界评审**：评估“收束式钻石分支 + 跨章因果链（创13→创14）”的合理性，指出是否有任何分支（如第一关派夏甲/乌珥护送罗得、或者创13章出现“四王前哨斥候”）存在圣经逻辑漏洞、节奏拖沓或跨章状态爆炸的风险，并给出修正建议。
+2. **四维策略系统（经营、建营、军事、战争）耦合度评审**：
+   - 6–12 分钟的单关时长能否同时塞下「汲水伐木+建帐棚+修守望台+练兵+山脊夜战+罗得争执三选一」？是否存在前期过于繁琐或后期数值滚雪球/死锁的风险？
+   - 十二圣约祭坛“单关4段点亮+全战役12石”的机制是否自然？有没有需要注意的神学/历史细节（例如《出埃及记》24章才立十二石柱，创世记13章亚伯兰在伯特利筑的是单座石坛，如何用“艺术再创作”圆融解释）？
+3. **手机横竖屏 UX 与技术架构可行性评审**：
+   - 评估当前 `Vite + React + Three.js` 架构下，在 `844×390` 横屏和 `390×844` 竖屏实现「定格拉线+练兵+夜战+手牌」的操作复杂度与性能隐患，给出具体的减负建议。
+4. **综合评分与立项落地建议（Top 5 必须优先修改/固化的事项）**。
+
+Save the complete Markdown report to BOTH:
+- `c:\AI\gemini\promise-path-next\design\codex-review-report.md`
+- `C:\Users\holyx\.gemini\antigravity\brain\6e568a4c-bd1a-4b4b-8be5-415b1cddfb8e\codex-review-report.md`

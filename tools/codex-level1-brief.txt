@@ -1,0 +1,37 @@
+You are executing Step 5 & 6 of the `create-game-assets` skill for `c:\AI\gemini\promise-path-next`.
+Read `design/game-brief.md` and `design/asset-manifest.json` first.
+
+We reviewed your previous `codex-q-v1` output and identified 4 critical issues that MUST be fixed in this new Level 1 production batch (`design/codex-level1/`):
+1. **Fix Historical & Biblical Anachronisms**:
+   - NO Roman pteruges leather strip skirts, NO Greek/Roman golden laurel wreaths, NO cut square stone-paved villa plazas, NO permanent timber pergolas, NO wheat fields or grape trellises! Genesis 13 is a **nomadic tent-dwelling pastoral camp** in the semi-arid hills between Bethel and Ai.
+   - And NO Arab keffiyeh + agal head-cords either!
+2. **Fix Level Playability (`level1-bethel-ground.png`)**:
+   - The scene plate MUST have ** ZERO characters baked in** (characters are rendered as moving sprites on top!).
+   - The center 60% of the map must be **flat, open, walkable warm dirt and sparse highland grass** with clear paths connecting:
+     - Upper-Center: A humble biblical altar made of **12 natural unhewn rounded fieldstones** stacked directly on the earth (NO cut stone steps!) with a warm flame.
+     - Upper-Left: ONE completed nomadic tent made of warm woven goat-hair/linen cloth pitched on wooden poles with guy ropes and a simple woven rug.
+     - Upper-Right: ONE **unfinished wooden tent frame** (bare wooden poles tied with rope, waiting to be built by the player!).
+     - Left: A small natural rock-rimmed hillside spring pool with a trickle of water.
+     - Lower-Right / East: A contested patch of grass with 4 fluffy sheep and a tied bundle of acacia wood logs.
+     - Top / North: A rocky ridge trail with a few olive trees.
+3. **Fix Character Lineup (`level1-characters-sheet.png`) — Include LOT and Distinct Personality Expressions**:
+   - Generate 6 distinct **2.4-head-tall** adorable rounded Q-version handcrafted figurines in a single horizontal row on a flat uniform warm cream background (`#F5EBD6`), feet aligned, generous spacing, NO text:
+     1. **Abram (Patriarch)**: Uncovered silver-streaked wavy hair and full beard, **serene gentle closed-lip smile**, cream linen tunic with Tekhelet-blue & crimson woven borders and corner tassels (tzitzit), sheep-fleece shoulder wrap, holding an olive-wood shepherd crook.
+     2. **Sarai (Matriarch)**: Chestnut braided hair with a simple turquoise-and-linen headband and soft shoulder shawl (NO Greek leaf tiara!), **graceful warm closed-lip smile**, terracotta-red and linen layered Hebrew dress, holding a small clay oil lamp.
+     3. **Lot (Nephew & Herdsman — CRITICAL)**: Dark wavy hair and short beard with a simple woven wool fillet, **slightly worried / conflicted expression** (brows slightly knitted over the pasture dispute), purple-brown tunic, coiled hemp shepherd rope over shoulder, small bronze balance scale at belt.
+     4. **Eliezer (Guard Leader)**: Short dark curls with a plain leather headband, **focused vigilant serious expression** (NOT laughing!), Middle Bronze Age quilted linen and leather tunic (NO Roman skirt straps!), bow on back, holding a blazing torch.
+     5. **Hagar (Spring Water-Bearer)**: Long dark wavy hair with a teal ribbon, **earnest attentive expression**, pleated linen tunic with blue border, carrying a two-handled Canaanite clay water jar (amphora).
+     6. **Ur (Camp Artisan)**: Thick curly hair and beard, **determined expression**, leather craftsman apron over linen tunic, holding a wooden tent-stake mallet and wooden pegs.
+4. **Generate Prop & Tactical Card Sheet (`level1-props-and-cards.png`)**:
+   - A clean 3x2 grid (6 items, well-separated on a uniform `#F5EBD6` background, NO text or numbers):
+     - Top-Left: Completed woven nomadic tent (matching the upper-right tent frame perspective).
+     - Top-Center: Unhewn 12-fieldstone biblical altar with blazing golden covenant fire.
+     - Top-Right: Two cute 2.4-head-tall chibi wild jackals/wolves crouching by a rock (the ridge threat).
+     - Bottom-Left: Square tactical card illustration — Abram's shepherd staff and Lot's rope parting peacefully toward a green river valley.
+     - Bottom-Center: Square tactical card illustration — Three blazing torches planted on a rocky ridge driving back night shadows.
+     - Bottom-Right: Square tactical card illustration — A Canaanite clay amphora pouring sparkling spring water onto dry earth.
+
+Save and copy all 3 PNGs (`1536x1024` each) to BOTH:
+- `c:\AI\gemini\promise-path-next\design\codex-level1\level1-bethel-ground.png` (and `C:\Users\holyx\.gemini\antigravity\brain\6e568a4c-bd1a-4b4b-8be5-415b1cddfb8e\level1-bethel-ground.png`)
+- `c:\AI\gemini\promise-path-next\design\codex-level1\level1-characters-sheet.png` (and `C:\Users\holyx\.gemini\antigravity\brain\6e568a4c-bd1a-4b4b-8be5-415b1cddfb8e\level1-characters-sheet.png`)
+- `c:\AI\gemini\promise-path-next\design\codex-level1\level1-props-and-cards.png` (and `C:\Users\holyx\.gemini\antigravity\brain\6e568a4c-bd1a-4b4b-8be5-415b1cddfb8e\level1-props-and-cards.png`)

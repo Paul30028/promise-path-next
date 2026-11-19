@@ -1,0 +1,37 @@
+{
+  "project": "promise-path-next",
+  "version": "1.0.0",
+  "engine": "three.js + @react-three/fiber",
+  "camera": "35-degree three-quarter isometric",
+  "targetResolution": "1920x1080 (desktop) / 844x390 (mobile landscape)",
+  "style": "2.4-head-tall commercial chibi handcrafted clay/figurine diorama, Middle Bronze Age Canaanite nomadic pastoralism, strictly de-Arabicized and de-Romanized",
+  "assets": [
+    {
+      "id": "level1_bethel_ground",
+      "file": "design/codex-level1/level1-bethel-ground.png",
+      "role": "Playable Level 1 isometric environment background plate (no characters baked in)",
+      "dimensions": "1536x1024",
+      "alpha": false,
+      "source": { "kind": "ai-generated", "tool": "codex-imagegen" },
+      "status": "pending"
+    },
+    {
+      "id": "level1_characters_sheet",
+      "file": "design/codex-level1/level1-characters-sheet.png",
+      "role": "6-character horizontal sprite sheet (Abram, Sarai, Lot, Eliezer, Hagar, Ur) on uniform parchment background",
+      "dimensions": "1536x1024",
+      "alpha": true,
+      "source": { "kind": "ai-generated", "tool": "codex-imagegen" },
+      "status": "pending"
+    },
+    {
+      "id": "level1_props_and_cards",
+      "file": "design/codex-level1/level1-props-and-cards.png",
+      "role": "3x2 grid of stage state props (built tent, lit stone altar, ridge wolves) and 3 tactical card illustrations",
+      "dimensions": "1536x1024",
+      "alpha": true,
+      "source": { "kind": "ai-generated", "tool": "codex-imagegen" },
+      "status": "pending"
+    }
+  ]
+}
