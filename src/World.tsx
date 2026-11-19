@@ -124,33 +124,38 @@ function WorldProgressBar({
 
 function SmoothFogOfWar({ fog }: { fog: number[] }) {
   const { width, depth, fogCols, fogRows } = WORLD_DIMENSIONS;
-  const { canvas, ctx, tex } = useMemo(() => {
-    const c = document.createElement('canvas');
-    c.width = fogCols * 8;
-    c.height = fogRows * 8;
-    const cx = c.getContext('2d')!;
-    const t = new THREE.CanvasTexture(c);
+  const prevFogRef = useRef<number[] | null>(null);
+
+  const { data, tex } = useMemo(() => {
+    const arr = new Uint8Array(fogCols * fogRows * 4);
+    const t = new THREE.DataTexture(arr, fogCols, fogRows, THREE.RGBAFormat);
     t.minFilter = THREE.LinearFilter;
     t.magFilter = THREE.LinearFilter;
-    return { canvas: c, ctx: cx, tex: t };
+    t.flipY = true;
+    t.needsUpdate = true;
+    return { data: arr, tex: t };
   }, [fogCols, fogRows]);
 
   useEffect(() => () => tex.dispose(), [tex]);
 
   useEffect(() => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.filter = 'blur(9px)';
+    const prev = prevFogRef.current;
+    if (prev && prev.length === fog.length && prev.every((v, i) => v === fog[i])) {
+      return;
+    }
+    prevFogRef.current = fog;
     for (let row = 0; row < fogRows; row++) {
       for (let col = 0; col < fogCols; col++) {
         const state = fog[fogIndex(col, row)] ?? 0;
-        if (state === 2) continue;
-        ctx.fillStyle = state === 0 ? 'rgba(20, 15, 10, 0.85)' : 'rgba(20, 15, 10, 0.34)';
-        ctx.fillRect(col * 8 - 2, row * 8 - 2, 12, 12);
+        const idx = (row * fogCols + col) * 4;
+        data[idx] = 20;
+        data[idx + 1] = 15;
+        data[idx + 2] = 10;
+        data[idx + 3] = state === 2 ? 0 : state === 0 ? 216 : 86;
       }
     }
-    ctx.filter = 'none';
     tex.needsUpdate = true;
-  }, [fog, canvas, ctx, tex, fogCols, fogRows]);
+  }, [fog, data, tex, fogCols, fogRows]);
 
   const fogGeom = useMemo(() => {
     const geom = new THREE.PlaneGeometry(width, depth, 48, 36);
@@ -769,10 +774,11 @@ function WorldScene({
   };
 
   const onPointerMove = (e: ThreeEvent<PointerEvent>) => {
-    setHoverWorld({
-      x: Math.round(e.point.x * 2) / 2,
-      z: Math.round(e.point.z * 2) / 2,
-    });
+    if (placementKind) {
+      const gx = Math.round(e.point.x * 2) / 2;
+      const gz = Math.round(e.point.z * 2) / 2;
+      setHoverWorld(prev => (prev.x === gx && prev.z === gz ? prev : { x: gx, z: gz }));
+    }
     if (!pointerLast.current) return;
     const dx = e.clientX - pointerLast.current.x;
     const dy = e.clientY - pointerLast.current.y;
@@ -825,7 +831,11 @@ function WorldScene({
         position={[14, 24, 12]}
         intensity={2.2}
         color="#fff4db"
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[1024, 1024]}
+        shadow-camera-left={-26}
+        shadow-camera-right={26}
+        shadow-camera-top={22}
+        shadow-camera-bottom={-22}
       />
       <ProceduralValleyTerrain
         buildings={game.buildings}
@@ -914,7 +924,7 @@ export default function World(props: {
   return (
     <Canvas
       shadows
-      dpr={[1, 1.5]}
+      dpr={[1, 1.25]}
       camera={{ position: [-4.5, 15.2, 16.0], fov: 30 }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >

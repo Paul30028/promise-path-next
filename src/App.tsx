@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Minimap from './Minimap';
 import World from './World';
 import type { CameraFocusRequest } from './World';
@@ -174,12 +174,20 @@ export default function App() {
     return () => window.clearInterval(id);
   }, []);
 
+  const latestGameRef = useRef(game);
+  latestGameRef.current = game;
+
   useEffect(() => {
-    const id = window.setTimeout(() => {
-      saveGame(game);
-    }, 600);
-    return () => window.clearTimeout(id);
-  }, [game]);
+    const id = window.setInterval(() => {
+      saveGame(latestGameRef.current);
+    }, 5000);
+    const onUnload = () => saveGame(latestGameRef.current);
+    window.addEventListener('beforeunload', onUnload);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener('beforeunload', onUnload);
+    };
+  }, []);
 
   const handleZoomChange = useCallback((delta: number) => {
     setZoom(z => Math.max(0.55, Math.min(1.65, Number((z + delta).toFixed(2)))));

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { WORLD_DIMENSIONS } from './config';
 import { fogIndex, isVisibleInFog } from './game';
 import type { Game } from './game';
@@ -26,6 +26,30 @@ export default function Minimap({
   onGoHome: () => void;
 }) {
   const draggingRef = useRef(false);
+  const fogCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const prevFogRef = useRef<number[] | null>(null);
+
+  useEffect(() => {
+    const canvas = fogCanvasRef.current;
+    if (!canvas) return;
+    const prev = prevFogRef.current;
+    if (prev && prev.length === game.fog.length && prev.every((v, i) => v === game.fog[i])) {
+      return;
+    }
+    prevFogRef.current = game.fog;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const { fogCols, fogRows } = WORLD_DIMENSIONS;
+    ctx.clearRect(0, 0, fogCols, fogRows);
+    for (let row = 0; row < fogRows; row++) {
+      for (let col = 0; col < fogCols; col++) {
+        const f = game.fog[fogIndex(col, row)] ?? 0;
+        if (f === 2) continue;
+        ctx.fillStyle = f === 0 ? 'rgba(24, 18, 12, 0.85)' : 'rgba(24, 18, 12, 0.38)';
+        ctx.fillRect(col, row, 1, 1);
+      }
+    }
+  }, [game.fog]);
 
   const dispatchFocus = (clientX: number, clientY: number, el: HTMLDivElement) => {
     const rect = el.getBoundingClientRect();
@@ -40,9 +64,6 @@ export default function Minimap({
   const viewH = Math.min(90, 34 * zoom);
   const viewLeft = Math.max(2, Math.min(98 - viewW, toPctX(cameraPos.x) - viewW / 2));
   const viewTop = Math.max(2, Math.min(98 - viewH, toPctY(cameraPos.z) - viewH / 2));
-
-  const cellW = 100 / WORLD_DIMENSIONS.fogCols;
-  const cellH = 100 / WORLD_DIMENSIONS.fogRows;
 
   return (
     <div className="aoe-minimap-panel" aria-label="Tactical Minimap">
@@ -124,24 +145,6 @@ export default function Minimap({
               strokeWidth="0.7"
             />
           ))}
-          {/* Fog of War */}
-          {Array.from({ length: WORLD_DIMENSIONS.fogRows }).map((_, row) =>
-            Array.from({ length: WORLD_DIMENSIONS.fogCols }).map((__, col) => {
-              const f = game.fog[fogIndex(col, row)] ?? 0;
-              if (f === 2) return null;
-              return (
-                <rect
-                  key={`${col}-${row}`}
-                  x={col * cellW}
-                  y={row * cellH}
-                  width={cellW + 0.3}
-                  height={cellH + 0.3}
-                  fill="#18120c"
-                  opacity={f === 0 ? 0.85 : 0.38}
-                />
-              );
-            })
-          )}
           {/* Visible Enemies */}
           {game.enemies.map(e =>
             e.hp > 0 && isVisibleInFog(game.fog, e.x, e.z) ? (
@@ -176,6 +179,12 @@ export default function Minimap({
           {/* Camera Viewport */}
           <rect x={viewLeft} y={viewTop} width={viewW} height={viewH} fill="none" stroke="#fef3c7" strokeWidth="1.2" />
         </svg>
+        <canvas
+          ref={fogCanvasRef}
+          width={WORLD_DIMENSIONS.fogCols}
+          height={WORLD_DIMENSIONS.fogRows}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+        />
       </div>
     </div>
   );

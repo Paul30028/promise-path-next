@@ -513,7 +513,7 @@ export function FlockModel3D({ flock, paused }: { flock: FlockState; paused: boo
               <sphereGeometry args={[0.21, 10, 8]} />
               <meshStandardMaterial color={woolColor} roughness={0.95} />
             </mesh>
-            <mesh position={[0, 0.26, 0.18]} castShadow>
+            <mesh position={[0, 0.26, 0.18]}>
               <sphereGeometry args={[0.09, 8, 8]} />
               <meshStandardMaterial color="#3f342a" roughness={0.9} />
             </mesh>
@@ -523,7 +523,7 @@ export function FlockModel3D({ flock, paused }: { flock: FlockState; paused: boo
               [-0.09, 0.1, -0.09],
               [0.09, 0.1, -0.09],
             ].map(([lx, ly, lz], j) => (
-              <mesh key={j} position={[lx, ly, lz]} castShadow>
+              <mesh key={j} position={[lx, ly, lz]}>
                 <cylinderGeometry args={[0.025, 0.02, 0.2, 6]} />
                 <meshStandardMaterial color="#292524" roughness={0.9} />
               </mesh>
@@ -533,6 +533,17 @@ export function FlockModel3D({ flock, paused }: { flock: FlockState; paused: boo
       })}
     </group>
   );
+}
+
+let cachedTentRoofs: { mainTentRoof: THREE.BufferGeometry; healTentRoof: THREE.BufferGeometry } | null = null;
+function getTentRoofs() {
+  if (!cachedTentRoofs) {
+    cachedTentRoofs = {
+      mainTentRoof: createDrapedTentGeometry(3.4, 2.5, 2.38, 1.48),
+      healTentRoof: createDrapedTentGeometry(2.3, 2.0, 2.15, 1.42),
+    };
+  }
+  return cachedTentRoofs;
 }
 
 /**
@@ -554,8 +565,7 @@ export function BuildingModel3D({
 }) {
   const flameRef = useRef<THREE.Mesh>(null);
   const mats = useMemo(() => getSharedMaterials(), []);
-  const mainTentRoof = useMemo(() => createDrapedTentGeometry(3.4, 2.5, 2.38, 1.48), []);
-  const healTentRoof = useMemo(() => createDrapedTentGeometry(2.3, 2.0, 2.15, 1.42), []);
+  const { mainTentRoof, healTentRoof } = useMemo(() => getTentRoofs(), []);
 
   useFrame(({ clock }) => {
     if (flameRef.current) {
