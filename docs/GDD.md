@@ -57,6 +57,7 @@
 | D-004 | 2026-11-19 | 建造与时代演进采用“工程先驱扩地 + 自由选址绿/红虚影 + 二选一地标升时代” | 仅允许在 3 个固定死槽位点击建造 | 固定槽位丧失了 AoE“贴树林建伐木场缩运距、用房舍和箭塔卡山口”的空间建筑学乐趣 | [Territory and building](features/territory-and-building/design.md) |
 | D-005 | 2026-11-19 | 战斗采用 `seicing.com` AoE4 双护甲公式 + Boids 弧形包抄 + 飞行弹道预扣血（Anti-Overkill），移除华丽 MOBA QWER 滚键盘技能 | 保留 LoL 式英雄 QWER 范围轰炸技能 | 保持纯正历史 RTS 调性，仅保留亚伯兰类似 AoE4 蒙古“汗”的冷却型指令号角光环，同时根治 `r/aoe4` 社区痛恨的近战堵车与远程过量集火 | [Combat and counters](features/combat-and-counters/design.md) |
 | D-006 | 2026-11-19 | 战役中融入 3 条可选支线与 *The Crucible* 式“三选一圣约策令”局内构筑 | 纯线性固定脚本任务 | 吸收游民星空战役攻略的双轨结构与 `r/aoe4` 社区对 Crucible 模式的高口碑，消除传统单机战役的重复跑腿感 | [Bethel campaign](features/bethel-campaign/design.md) |
+| D-007 | 2026-11-19 | 扩展 64×48 真实 3D 地形、新增「没药医治帐篷」「活体羊群牧养」「创 13:4 筑坛求告」及结局「举目观看」全图迷雾揭开，底部 HUD 改为双页签情境网格 | 扁平 48×36 地图与 14 格平铺按钮 | 解决地形单调、伤员无处医治、牧群摩擦具象化与移动端竖屏视野遮挡问题 | [Territory and building](features/territory-and-building/design.md) · [RTS camera and HUD](features/rts-camera-and-hud/design.md) |
 
 ## Open questions
 - **Assumptions to confirm:**

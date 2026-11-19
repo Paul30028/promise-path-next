@@ -1,4 +1,4 @@
-import { LEVEL1_CONFIG, PERKS, WORLD_DIMENSIONS } from './config';
+import { getTerrainHeight, LEVEL1_CONFIG, PERKS, WORLD_DIMENSIONS } from './config';
 import type {
   AttackKind,
   BuildingBlueprint,
@@ -186,6 +186,18 @@ export type ChapterSummary = {
   harmony: number;
 };
 
+export type FlockState = {
+  id: string;
+  owner: 'abram' | 'lot';
+  nameZh: string;
+  nameEn: string;
+  x: number;
+  z: number;
+  targetX?: number;
+  targetZ?: number;
+  sheepCount: number;
+};
+
 export type Game = {
   schemaVersion: number;
   tickCount: number;
@@ -196,6 +208,7 @@ export type Game = {
   boundaryPosts: BoundaryPostState[];
   landmarks: NeutralLandmarkState[];
   resources: ResourceNode[];
+  flocks: FlockState[];
   enemies: Enemy[];
   projectiles: Projectile[];
   effects: VisualEffect[];
@@ -405,6 +418,16 @@ export function newGame(): Game {
     facing: -1,
   }));
 
+  const initFlocks: FlockState[] = (LEVEL1_CONFIG.flocks ?? []).map(f => ({
+    id: f.id,
+    owner: f.owner,
+    nameZh: f.nameZh,
+    nameEn: f.nameEn,
+    x: f.x,
+    z: f.z,
+    sheepCount: f.sheepCount,
+  }));
+
   const emptyFog = new Array<number>(WORLD_DIMENSIONS.fogCols * WORLD_DIMENSIONS.fogRows).fill(0);
   const fog = computeFog(emptyFog, initActors, initBuildings, initLandmarks, []);
 
@@ -418,6 +441,7 @@ export function newGame(): Game {
     boundaryPosts: initPosts,
     landmarks: initLandmarks,
     resources: initResources,
+    flocks: initFlocks,
     enemies: initEnemies,
     projectiles: [],
     effects: [],
@@ -465,7 +489,14 @@ export function loadGame(): Game {
     ) {
       return newGame();
     }
-    return data as Game;
+    return {
+      ...(data as Game),
+      flocks: Array.isArray(data.flocks)
+        ? data.flocks
+        : (LEVEL1_CONFIG.flocks ?? []).map(f => ({ ...f })),
+      divineFavorTicks: data.divineFavorTicks ?? 0,
+      sacrificesPerformed: data.sacrificesPerformed ?? 0,
+    };
   } catch {
     return newGame();
   }
@@ -791,15 +822,40 @@ export function choosePerk(game: Game, perkId: PerkId): Game {
  * AoE4 Dual-Armor + Tag Bonus + High Ground Damage Formula (combat-and-counters/design.md Rule 1)
  */
 export function computeCombatDamage(
-  attacker: { attack: number; attackKind: AttackKind; bonusVsBeast: number; bonusVsInfantry: number; z: number },
-  target: { tags: UnitTag[]; meleeArmor: number; rangedArmor: number; z: number }
+  attacker: {
+    attack: number;
+    attackKind: AttackKind;
+    bonusVsBeast: number;
+    bonusVsInfantry: number;
+    x?: number;
+    z: number;
+  },
+  target: { tags: UnitTag[]; meleeArmor: number; rangedArmor: number; x?: number; z: number }
 ): number {
   let bonus = 0;
   if (target.tags.includes('beast') || target.tags.includes('cavalry')) bonus += attacker.bonusVsBeast;
   if (target.tags.includes('infantry')) bonus += attacker.bonusVsInfantry;
   const armor = attacker.attackKind === 'ranged' ? target.rangedArmor : target.meleeArmor;
-  const highGround = attacker.z < -4.0 && target.z >= -4.0 ? LEVEL1_CONFIG.numbers.HIGH_GROUND_MULT : 1.0;
+  const hasTerrainCoords = attacker.x !== undefined && target.x !== undefined;
+  const isHighGround = hasTerrainCoords
+    ? getTerrainHeight(attacker.x!, attacker.z) - getTerrainHeight(target.x!, target.z) >=
+      LEVEL1_CONFIG.numbers.HIGH_GROUND_HEIGHT_DIFF
+    : attacker.z < -4.0 && target.z >= -4.0;
+  const highGround = isHighGround ? LEVEL1_CONFIG.numbers.HIGH_GROUND_MULT : 1.0;
   return Math.max(1, Math.round((attacker.attack + bonus - armor) * highGround));
+}
+
+export function moveFlock(game: Game, flockId: string, x: number, z: number): Game {
+  const { clampX, clampZ } = WORLD_DIMENSIONS;
+  const tx = THREE.clamp(x, -clampX, clampX);
+  const tz = THREE.clamp(z, -clampZ, clampZ);
+  const flocks = (game.flocks ?? []).map(f =>
+    f.id === flockId ? { ...f, targetX: tx, targetZ: tz } : f
+  );
+  return pushLog(
+    { ...game, paused: false, flocks },
+    '驱赶羊群前往新草场放牧，避开两家牧人争抢！'
+  );
 }
 
 export function performSacrifice(game: Game): Game {
@@ -808,28 +864,27 @@ export function performSacrifice(game: Game): Game {
   if (!altar) {
     return pushLog(game, '【献祭受阻】必须先保有未凿原石筑成的十二石立约祭坛！');
   }
-  const foodCost = numbers.SACRIFICE_COST_FOOD ?? 30;
-  const woodCost = numbers.SACRIFICE_COST_WOOD ?? 20;
+  const foodCost = numbers.SACRIFICE_COST_FOOD;
+  const woodCost = numbers.SACRIFICE_COST_WOOD;
   if (game.food < foodCost || game.wood < woodCost) {
     return pushLog(game, `【祭物不足】感恩献祭需要奉献纯洁羊羔（粮草 ${foodCost}）与香柏木柴（木材 ${woodCost}）！`);
   }
 
   const abram = game.actors.find(a => a.id === 'abram');
-  const abramNearAltar = abram && Math.hypot(abram.x - altar.x, abram.z - altar.z) <= 8.5;
+  const abramNearAltar = abram && Math.hypot(abram.x - altar.x, abram.z - altar.z) <= numbers.ALTAR_PRAY_RADIUS;
   if (!abramNearAltar) {
     return pushLog(game, '【筑坛求告】族长亚伯兰必须亲赴伯特利原石坛前主持圣约祈求！');
   }
 
-  const newFood = game.food - foodCost + 40; // +40 blessed flock fertility
+  const newFood = game.food - foodCost + numbers.SACRIFICE_BLESSING_FOOD;
   const newWood = game.wood - woodCost;
-  const frictionDrop = numbers.SACRIFICE_FRICTION_REDUCTION ?? 25;
-  const newFriction = Math.max(0, game.friction - frictionDrop);
-  const favorTicks = numbers.SACRIFICE_FAVOR_TICKS ?? 480;
+  const newFriction = Math.max(0, game.friction - numbers.SACRIFICE_FRICTION_REDUCTION);
+  const favorTicks = numbers.SACRIFICE_FAVOR_TICKS;
 
   const effects: VisualEffect[] = [
     ...game.effects,
     {
-      id: `sac-fire-${Date.now()}`,
+      id: `sac-fire-${game.tickCount}`,
       kind: 'heal',
       x: altar.x,
       z: altar.z,
@@ -838,7 +893,7 @@ export function performSacrifice(game: Game): Game {
       maxTtl: 60,
     },
     {
-      id: `sac-smoke-${Date.now()}`,
+      id: `sac-smoke-${game.tickCount}`,
       kind: 'supervise',
       x: altar.x,
       z: altar.z,
@@ -848,7 +903,7 @@ export function performSacrifice(game: Game): Game {
     },
   ];
 
-  const note = '【创世记 13:4 筑坛求告】亚伯兰在伯特利和艾城之间的原石坛前献上感恩燔祭，求告耶和华的名！草场争端平息（摩擦 -25），牧群蒙福产羔（+40 粮草），全军获得「神圣恩眷」（移速+15%，护甲+2）！';
+  const note = `【创世记 13:4 筑坛求告】亚伯兰在伯特利原石坛前献祭求告耶和华的名！草场争端平息（摩擦 -${numbers.SACRIFICE_FRICTION_REDUCTION}），牧群蒙福（+${numbers.SACRIFICE_BLESSING_FOOD} 粮草），全军获得「神圣恩眷」（移速+15%，护甲+${numbers.SACRIFICE_ARMOR_BONUS}）！`;
 
   return {
     ...game,
@@ -910,6 +965,8 @@ export function resolveParting(game: Game, choice: PartingChoice, escortWithComp
     harmony: trust,
   };
 
+  const revealedFog = new Array<number>(WORLD_DIMENSIONS.fogCols * WORLD_DIMENSIONS.fogRows).fill(2);
+
   return pushLog(
     {
       ...game,
@@ -918,12 +975,13 @@ export function resolveParting(game: Game, choice: PartingChoice, escortWithComp
       wood,
       trust,
       escortDone,
+      fog: revealedFog,
       phase: 'resolved',
       paused: true,
       ending,
       summary,
     },
-    ending
+    `${ending} 「耶和华对亚伯兰说：从你所在的地方，你举目向东西南北观看；凡你所看见的一切地，我都要赐给你和你的后裔，直到永远。」（创 13:14–15）`
   );
 }
 
@@ -1087,7 +1145,7 @@ export function tick(game: Game): Game {
     if (dist <= radius) return { arrived: true, x: actor.x, z: actor.z, facing };
 
     let mult = 1.0;
-    if ((game.divineFavorTicks ?? 0) > 0) mult *= 1.15;
+    if ((game.divineFavorTicks ?? 0) > 0) mult *= numbers.SACRIFICE_SPEED_MULT;
     if (actor.hornBuffTicks > 0) mult *= 1.15;
     if ((actor.role === 'carrier' || actor.carrying) && isOnRoad(actor.x, actor.z)) {
       mult *= numbers.ROAD_SPEED_MULT * (hasAqueductPerk ? 1.15 : 1.0);
@@ -1109,8 +1167,8 @@ export function tick(game: Game): Game {
     }
 
     const step = Math.min(actor.speed * mult, dist);
-    const nx = THREE.clamp(actor.x + (dx / dist) * step + sepX, -30, 30);
-    const nz = THREE.clamp(actor.z + (dz / dist) * step + sepZ, -22, 22);
+    const nx = THREE.clamp(actor.x + (dx / dist) * step + sepX, -WORLD_DIMENSIONS.clampX, WORLD_DIMENSIONS.clampX);
+    const nz = THREE.clamp(actor.z + (dz / dist) * step + sepZ, -WORLD_DIMENSIONS.clampZ, WORLD_DIMENSIONS.clampZ);
     return { arrived: false, x: nx, z: nz, facing };
   };
 
@@ -1403,9 +1461,9 @@ export function tick(game: Game): Game {
       }
       const bp = getBlueprint(b.kind);
       const altar = buildings.find(x => x.kind === 'altar');
-      const nearAltar = altar && Math.hypot(b.x - altar.x, b.z - altar.z) <= 6.5;
+      const nearAltar = altar && Math.hypot(b.x - altar.x, b.z - altar.z) <= numbers.ALTAR_AURA_RADIUS;
       const supervised = supervisedBuildingId === b.id;
-      const rateMult = (nearAltar ? 1.2 : 1.0) * (supervised ? numbers.SARAI_SUPERVISE_TRAIN_MULT : 1.0);
+      const rateMult = (nearAltar ? numbers.ALTAR_BUILD_MULT : 1.0) * (supervised ? numbers.SARAI_SUPERVISE_TRAIN_MULT : 1.0);
       const nextProg = Math.min(1, b.progress + rateMult / Math.max(1, bp.buildTicks));
       buildings[bIdx] = { ...b, progress: nextProg, built: nextProg >= 1 };
 
@@ -1438,17 +1496,17 @@ export function tick(game: Game): Game {
 
     if (task.kind === 'talk') {
       const livingEnemies = enemies.filter(e => e.hp > 0).length;
-      if (livingEnemies > 0) {
-        notes.push(`北岭尚有 ${livingEnemies} 处敌群威胁，请先肃清北岭再与罗得商议分地。`);
+      if (livingEnemies > 0 && friction < numbers.FRICTION_THRESHOLD_ACT4) {
+        notes.push(`北岭尚有 ${livingEnemies} 处威胁（或待草场摩擦积聚），请先肃清北岭再与罗得商议分地。`);
         return { ...a, queue: rest, activity: 'idle' as const };
       }
       phase = 'act4_parting';
-      notes.push('北岭已靖，亚伯兰走向罗得提出「你我不可相争」之礼让分地（创 13:8–18）。');
+      notes.push('亚伯兰走向罗得提出「你我不可相争」之礼让分地（创 13:8–18）。');
       return { ...a, queue: rest, activity: 'idle' as const };
     }
 
     if (task.kind === 'rest') {
-      const nextHp = Math.min(a.maxHp, a.hp + 2);
+      const nextHp = Math.min(a.maxHp, a.hp + numbers.REST_HEAL_RATE);
       if (a.workTicks % 6 === 0) {
         effects.push({
           id: `rest-heal-${a.id}-${game.tickCount}`,
@@ -1478,17 +1536,17 @@ export function tick(game: Game): Game {
         const m = stepTowards(a, altar.x, altar.z, 2.2, game.actors);
         return { ...a, x: m.x, z: m.z, facing: m.facing, activity: 'moving' as const };
       }
-      const foodCost = numbers.SACRIFICE_COST_FOOD ?? 30;
-      const woodCost = numbers.SACRIFICE_COST_WOOD ?? 20;
+      const foodCost = numbers.SACRIFICE_COST_FOOD;
+      const woodCost = numbers.SACRIFICE_COST_WOOD;
       if (food >= foodCost && wood >= woodCost) {
-        food = food - foodCost + 40;
+        food = food - foodCost + numbers.SACRIFICE_BLESSING_FOOD;
         wood -= woodCost;
-        friction = Math.max(0, friction - (numbers.SACRIFICE_FRICTION_REDUCTION ?? 25));
+        friction = Math.max(0, friction - numbers.SACRIFICE_FRICTION_REDUCTION);
         trust += 2;
-        divineFavorTicks = numbers.SACRIFICE_FAVOR_TICKS ?? 480;
+        divineFavorTicks = numbers.SACRIFICE_FAVOR_TICKS;
         sacrificesPerformed++;
         effects.push({
-          id: `sac-${Date.now()}`,
+          id: `sac-${game.tickCount}-${a.id}`,
           kind: 'heal',
           x: altar.x,
           z: altar.z,
@@ -1496,7 +1554,7 @@ export function tick(game: Game): Game {
           ttl: 60,
           maxTtl: 60,
         });
-        notes.unshift('【创世记 13:4 筑坛求告】亚伯兰在伯特利原石坛前献上感恩祭求告主名，全军获神圣恩眷！');
+        notes.unshift(`【创世记 13:4 筑坛求告】亚伯兰在伯特利原石坛前献祭求告主名，全军获神圣恩眷（移速+15%，护甲+${numbers.SACRIFICE_ARMOR_BONUS}）！`);
       } else {
         notes.push(`祭物不足（需粮草 ${foodCost}、木料 ${woodCost}）。`);
       }
@@ -1565,17 +1623,71 @@ export function tick(game: Game): Game {
         e.facing = dx >= 0 ? 1 : -1;
       } else if (e.attackCd === 0) {
         e.attackCd = 11;
+        const divineArmorBonus = divineFavorTicks > 0 ? numbers.SACRIFICE_ARMOR_BONUS : 0;
         const targetArmor = {
           tags: nearest.tags,
-          meleeArmor: nearest.meleeArmor + (nearest.hornBuffTicks > 0 ? 2 : 0),
-          rangedArmor: nearest.rangedArmor + (nearest.hornBuffTicks > 0 ? 2 : 0),
+          meleeArmor: nearest.meleeArmor + (nearest.hornBuffTicks > 0 ? 2 : 0) + divineArmorBonus,
+          rangedArmor: nearest.rangedArmor + (nearest.hornBuffTicks > 0 ? 2 : 0) + divineArmorBonus,
+          x: nearest.x,
           z: nearest.z,
         };
         const dmg = computeCombatDamage(
-          { attack: e.attack, attackKind: e.attackKind, bonusVsBeast: 0, bonusVsInfantry: 0, z: e.z },
+          { attack: e.attack, attackKind: e.attackKind, bonusVsBeast: 0, bonusVsInfantry: 0, x: e.x, z: e.z },
           targetArmor
         );
         nearest.hp = Math.max(20, nearest.hp - dmg);
+      }
+    }
+  }
+
+  // Living Flocks Simulation (Grazing, Breeding, Pasture Overlap Friction)
+  const flocks: FlockState[] = (game.flocks ?? []).map(f => {
+    let nx = f.x;
+    let nz = f.z;
+    let tx = f.targetX;
+    let tz = f.targetZ;
+    if (tx !== undefined && tz !== undefined) {
+      const dx = tx - f.x;
+      const dz = tz - f.z;
+      const d = Math.hypot(dx, dz);
+      if (d <= 0.35) {
+        tx = undefined;
+        tz = undefined;
+      } else {
+        const step = Math.min(0.14, d);
+        nx += (dx / d) * step;
+        nz += (dz / d) * step;
+      }
+    }
+    let nextSheep = f.sheepCount;
+    if (
+      game.tickCount > 0 &&
+      game.tickCount % numbers.FLOCK_BREED_INTERVAL_TICKS === 0 &&
+      nextSheep < numbers.FLOCK_MAX_SHEEP &&
+      water >= numbers.FLOCK_WATER_COST_PER_BREED
+    ) {
+      water -= numbers.FLOCK_WATER_COST_PER_BREED;
+      nextSheep += 1;
+      if (f.owner === 'abram') {
+        notes.push(`【牧群繁盛】${f.nameZh}添了新羔羊（现 ${nextSheep} 只），产粮提升但也更易与罗得牧人争草场！`);
+      }
+    }
+    return { ...f, x: nx, z: nz, targetX: tx, targetZ: tz, sheepCount: nextSheep };
+  });
+
+  if (game.tickCount > 0 && game.tickCount % numbers.FLOCK_GRAZE_INTERVAL_TICKS === 0) {
+    const abramFlock = flocks.find(f => f.owner === 'abram');
+    const lotFlock = flocks.find(f => f.owner === 'lot');
+    if (abramFlock) {
+      food += Math.max(1, Math.round(abramFlock.sheepCount * numbers.FLOCK_FOOD_PER_SHEEP));
+    }
+    if (abramFlock && lotFlock) {
+      const flockDist = Math.hypot(abramFlock.x - lotFlock.x, abramFlock.z - lotFlock.z);
+      if (flockDist <= numbers.FLOCK_OVERLAP_DIST) {
+        friction = Math.min(100, friction + numbers.FLOCK_OVERLAP_FRICTION);
+        if (game.tickCount % (numbers.FLOCK_GRAZE_INTERVAL_TICKS * 5) === 0) {
+          notes.push('【创 13:7 牧人相争】两家羊群草场重叠，争抢水草导致摩擦升高！请将羊群驱往远处空草场。');
+        }
       }
     }
   }
@@ -1605,6 +1717,7 @@ export function tick(game: Game): Game {
     boundaryPosts,
     landmarks,
     resources,
+    flocks,
     enemies,
     projectiles,
     effects,

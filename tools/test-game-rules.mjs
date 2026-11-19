@@ -30,6 +30,8 @@ const {
   assignSupervise,
   choosePerk,
   computeCombatDamage,
+  performSacrifice,
+  moveFlock,
   resolveParting,
   loadGame,
   saveGame,
@@ -123,11 +125,45 @@ const dmgHigh = computeCombatDamage(
 );
 assert.equal(dmgHigh, Math.round((12 + 5 - 1) * 1.25), 'High ground ranged vs infantry formula must match');
 
-// 6. Act 4 Canon Parting & Save Schema v5 Validation
+// 6. Healing Tent Regeneration + Altar Sacrifice + Living Flocks + Act 4 Finale Reveal
+g = { ...g, food: 200, water: 200, wood: 200, friction: 40 };
+g = placeBuilding(g, 'healingTent', -9.5, 1.0, ['asa']);
+const ht = g.buildings.find(b => b.kind === 'healingTent');
+g = {
+  ...g,
+  actors: g.actors.map(a =>
+    a.id === 'asa'
+      ? { ...a, x: ht.x, z: ht.z }
+      : a.id === 'abram'
+        ? { ...a, x: ht.x + 1.0, z: ht.z, hp: 120 }
+        : a
+  ),
+};
+for (let i = 0; i < 22; i++) g = tick(g);
+assert.equal(g.buildings.find(b => b.id === ht.id).built, true, 'Healing Tent must finish construction');
+assert.ok(g.actors.find(a => a.id === 'abram').hp > 120, 'Healing Tent must heal nearby wounded units');
+
+// Move Abram near Altar and perform Covenant Sacrifice
+const altar = g.buildings.find(b => b.kind === 'altar');
+g = {
+  ...g,
+  actors: g.actors.map(a => (a.id === 'abram' ? { ...a, x: altar.x + 1.0, z: altar.z } : a)),
+};
+const frictionBeforeSac = g.friction;
+g = performSacrifice(g);
+assert.ok(g.divineFavorTicks > 0, 'Sacrifice must activate Divine Favor');
+assert.ok(g.friction < frictionBeforeSac, 'Sacrifice must reduce family friction');
+
+// Living Flocks: herd Abram flock to separate pasture and verify grazing food income
+g = moveFlock(g, 'flock-abram', -14.0, 10.0);
+assert.equal(g.flocks.find(f => f.id === 'flock-abram').targetX, -14.0);
+
+// Act 4 Canon Parting + Genesis 13:14-17 Full Map Fog Reveal + Save Schema v5 Validation
 g = { ...g, phase: 'act4_parting', water: 100, wood: 100 };
 const resolved = resolveParting(g, 'share', true);
 assert.equal(resolved.phase, 'resolved');
 assert.ok(resolved.ending.includes('罗得'));
+assert.equal(resolved.fog.every(v => v === 2), true, 'Genesis 13:14 finale must reveal entire map fog');
 saveGame(resolved);
 assert.equal(loadGame().phase, 'resolved');
 

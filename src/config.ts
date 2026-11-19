@@ -158,7 +158,52 @@ export const WORLD_DIMENSIONS = {
   halfD: 24,
   fogCols: 40,
   fogRows: 30,
+  clampX: 30,
+  clampZ: 22,
+  cameraClampX: 26,
+  cameraClampZ: 18,
 } as const;
+
+/**
+ * Deterministic 3D Terrain Heightmap across the expanded 64x48 Canaan Valley (5 Biomes):
+ * 1. North-Central Sacred Altar High Place -> elevated plateau y = +1.35
+ * 2. Northeast & East Ai Limestone Escarpment -> rocky ridge y = +1.15 .. +1.75
+ * 3. Central-West Bethel Camp Terrace -> gentle terrace y = +0.24
+ * 4. Western Spring Gorge & Oasis Basin -> sunken water basin y = -0.36
+ * 5. Southeast Jordan Plain Pasture -> lush flat meadow
+ */
+export function getTerrainHeight(x: number, z: number): number {
+  let h = 0;
+
+  const dAltar = Math.hypot((x + 2) * 0.85, z + 14.5);
+  if (dAltar < 8.5) {
+    const t = Math.max(0, Math.min(1, (8.5 - dAltar) / 3.2));
+    h = Math.max(h, t * t * (3 - 2 * t) * 1.35);
+  }
+
+  if (z < -3.5 && x > 1.0) {
+    const tz = Math.max(0, Math.min(1, (-3.5 - z) / 5.0));
+    const tx = Math.max(0, Math.min(1, (x - 1.0) / 5.0));
+    const s = tz * tx;
+    const ridgeH = s * s * (3 - 2 * s) * 1.25 + Math.sin(x * 0.35) * Math.cos(z * 0.35) * 0.18 * s;
+    h = Math.max(h, ridgeH);
+  }
+
+  const dCamp = Math.hypot((x + 8) * 0.7, (z - 4) * 0.85);
+  if (dCamp < 12.0) {
+    const t = Math.max(0, Math.min(1, (12.0 - dCamp) / 4.0));
+    h = Math.max(h, t * t * (3 - 2 * t) * 0.24);
+  }
+
+  const dOasis = Math.hypot((x + 22) * 0.8, (z - 0.5) * 0.65);
+  if (dOasis < 7.5) {
+    const t = Math.max(0, Math.min(1, (7.5 - dOasis) / 2.8));
+    h -= t * t * (3 - 2 * t) * 0.36;
+  }
+
+  h += Math.sin(x * 0.18) * Math.cos(z * 0.22) * 0.06;
+  return Number(h.toFixed(3));
+}
 
 export const CAMPAIGN_STONES: CampaignStone[] = [
   { index: 1, id: 'noah-ark', eraZh: '序章 · 上古立约', eraEn: 'Prologue', titleZh: '诺亚方舟与彩虹之约', titleEn: 'Noah & Rainbow Covenant', ref: '创 6–9', status: 'prologue' },
@@ -224,6 +269,7 @@ export const LEVEL1_CONFIG = {
     MIN_BUILDING_SEPARATION: 2.4,
     COOP_BUILDER_SPEED_BONUS: 0.65,
     HIGH_GROUND_MULT: 1.25,
+    HIGH_GROUND_HEIGHT_DIFF: 0.35,
     BRACE_STUN_TICKS: 6,
     HORN_AURA_COOLDOWN_TICKS: 120,
     HORN_AURA_DURATION_TICKS: 48,
@@ -233,12 +279,26 @@ export const LEVEL1_CONFIG = {
     PARTING_GIFT_WOOD_COST: 50,
     CAMERA_DAMP_RATE: 8.0,
     FORMATION_SPACING: 1.15,
+    ALTAR_AURA_RADIUS: 6.5,
+    ALTAR_BUILD_MULT: 1.2,
+    ALTAR_PRAY_RADIUS: 8.5,
     SACRIFICE_COST_FOOD: 30,
     SACRIFICE_COST_WOOD: 20,
+    SACRIFICE_BLESSING_FOOD: 40,
     SACRIFICE_FRICTION_REDUCTION: 25,
     SACRIFICE_FAVOR_TICKS: 480,
+    SACRIFICE_ARMOR_BONUS: 2,
+    SACRIFICE_SPEED_MULT: 1.15,
     HEALING_TENT_AURA_RADIUS: 6.0,
     HEALING_TENT_HP_RATE: 1,
+    REST_HEAL_RATE: 2,
+    FLOCK_GRAZE_INTERVAL_TICKS: 16,
+    FLOCK_FOOD_PER_SHEEP: 0.6,
+    FLOCK_BREED_INTERVAL_TICKS: 160,
+    FLOCK_MAX_SHEEP: 12,
+    FLOCK_OVERLAP_DIST: 5.5,
+    FLOCK_OVERLAP_FRICTION: 2,
+    FLOCK_WATER_COST_PER_BREED: 6,
   },
   unitTemplates: {
     carrier: {
@@ -448,26 +508,32 @@ export const LEVEL1_CONFIG = {
     { id: 'b-altar', kind: 'altar' as const, x: -2.0, z: -1.8 },
   ],
   boundaryPosts: [
-    { id: 'post-west', nameZh: '西泉界石桩', nameEn: 'Western Spring Boundary', x: -13.5, z: 0.5, radius: 7.5 },
-    { id: 'post-north', nameZh: '北坡石矿界石桩', nameEn: 'Northern Quarry Boundary', x: -1.5, z: -7.2, radius: 7.5 },
-    { id: 'post-east', nameZh: '东谷林地界石桩', nameEn: 'Eastern Grove Boundary', x: 5.5, z: 4.5, radius: 7.5 },
+    { id: 'post-west', nameZh: '西泉峡谷界石桩', nameEn: 'Western Gorge Boundary', x: -17.5, z: 0.5, radius: 8.5 },
+    { id: 'post-north', nameZh: '北坡石矿界石桩', nameEn: 'Northern Quarry Boundary', x: -1.5, z: -9.5, radius: 8.5 },
+    { id: 'post-east', nameZh: '东谷草场界石桩', nameEn: 'Eastern Pasture Boundary', x: 8.5, z: 5.5, radius: 8.5 },
+    { id: 'post-south', nameZh: '南坡橄榄界石桩', nameEn: 'Southern Olive Boundary', x: -6.5, z: 14.5, radius: 8.5 },
   ] satisfies BoundaryPostBlueprint[],
   neutralLandmarks: [
-    { id: 'lostSheep', nameZh: '支线：迷途羔羊林地', nameEn: 'Lost Lambs Grove', x: 13.5, z: -3.5, costWood: 0, costStone: 0 },
-    { id: 'ancientWell', nameZh: '支线：迦南古旧水井', nameEn: 'Ancient Canaanite Well', x: -15.5, z: -5.5, costWood: 25, costStone: 15 },
-    { id: 'wolfDen', nameZh: '支线：北岭狼穴前哨', nameEn: 'Northern Wolf Den', x: 10.5, z: -11.0, costWood: 0, costStone: 0 },
+    { id: 'lostSheep', nameZh: '支线：迷途羔羊林地', nameEn: 'Lost Lambs Grove', x: 18.5, z: -3.5, costWood: 0, costStone: 0 },
+    { id: 'ancientWell', nameZh: '支线：迦南古旧水井', nameEn: 'Ancient Canaanite Well', x: -22.0, z: -2.0, costWood: 25, costStone: 15 },
+    { id: 'wolfDen', nameZh: '支线：北岭狼穴前哨', nameEn: 'Northern Wolf Den', x: 13.5, z: -14.5, costWood: 0, costStone: 0 },
   ] satisfies NeutralLandmarkBlueprint[],
   resources: [
-    { id: 'spring-1', kind: 'water', nameZh: '西侧活水泉', nameEn: 'Western Spring', x: -14.8, z: 2.2, amount: 350 },
-    { id: 'spring-2', kind: 'water', nameZh: '山谷清泉', nameEn: 'Valley Spring', x: -12.0, z: -1.8, amount: 300 },
-    { id: 'wood-1', kind: 'wood', nameZh: '营南相思林', nameEn: 'Southern Acacia', x: -9.5, z: 8.8, amount: 320 },
-    { id: 'wood-2', kind: 'wood', nameZh: '中谷橄榄林', nameEn: 'Central Olive Grove', x: 2.5, z: 8.5, amount: 350 },
-    { id: 'wood-3', kind: 'wood', nameZh: '东坡橡树林', nameEn: 'Eastern Oak Woods', x: 12.5, z: 2.5, amount: 350 },
-    { id: 'stone-1', kind: 'stone', nameZh: '北坡石灰岩矿', nameEn: 'Northern Limestone Quarry', x: -2.2, z: -8.5, amount: 280 },
-    { id: 'stone-2', kind: 'stone', nameZh: '东岭采石场', nameEn: 'Eastern Stone Outcrop', x: 7.2, z: -5.5, amount: 280 },
-    { id: 'food-1', kind: 'food', nameZh: '东南牧场草地', nameEn: 'Southeast Pasture', x: 8.5, z: 6.5, amount: 450 },
-    { id: 'food-2', kind: 'food', nameZh: '南坡无花果丛', nameEn: 'Wild Fig Bushes', x: -3.5, z: 9.2, amount: 260 },
+    { id: 'spring-1', kind: 'water', nameZh: '西侧活水泉', nameEn: 'Western Spring', x: -15.5, z: 2.2, amount: 350 },
+    { id: 'spring-2', kind: 'water', nameZh: '西谷绿洲深泉', nameEn: 'Oasis Gorge Spring', x: -23.0, z: 1.5, amount: 420 },
+    { id: 'wood-1', kind: 'wood', nameZh: '营南相思林', nameEn: 'Southern Acacia', x: -10.5, z: 10.8, amount: 340 },
+    { id: 'wood-2', kind: 'wood', nameZh: '中谷橄榄林', nameEn: 'Central Olive Grove', x: 2.5, z: 10.5, amount: 360 },
+    { id: 'wood-3', kind: 'wood', nameZh: '东坡橡树林', nameEn: 'Eastern Oak Woods', x: 18.5, z: 4.5, amount: 380 },
+    { id: 'stone-1', kind: 'stone', nameZh: '北坡石灰岩矿', nameEn: 'Northern Limestone Quarry', x: -2.2, z: -10.5, amount: 300 },
+    { id: 'stone-2', kind: 'stone', nameZh: '东岭采石场', nameEn: 'Eastern Stone Outcrop', x: 10.2, z: -7.5, amount: 300 },
+    { id: 'food-1', kind: 'food', nameZh: '东南约旦草场', nameEn: 'Southeast Jordan Pasture', x: 12.5, z: 8.5, amount: 520 },
+    { id: 'food-2', kind: 'food', nameZh: '南坡无花果丛', nameEn: 'Wild Fig Bushes', x: -4.5, z: 13.2, amount: 320 },
+    { id: 'food-3', kind: 'food', nameZh: '远东肥美草甸', nameEn: 'Far East Meadow', x: 22.5, z: 12.0, amount: 480 },
   ] satisfies ResourceBlueprint[],
+  flocks: [
+    { id: 'flock-abram', owner: 'abram' as const, nameZh: '亚伯兰羊群', nameEn: "Abram's Flock", x: -3.5, z: 7.2, sheepCount: 5 },
+    { id: 'flock-lot', owner: 'lot' as const, nameZh: '罗得羊群', nameEn: "Lot's Flock", x: 6.5, z: 7.5, sheepCount: 5 },
+  ],
   targets: {
     depot: { x: -6.5, z: 3.5 },
     rest: { x: -6.5, z: 4.5 },

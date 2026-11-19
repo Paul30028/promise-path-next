@@ -9,13 +9,14 @@ import type {
   BuildingKind,
   BuildingState,
   Enemy,
+  FlockState,
   Game,
   NeutralLandmarkState,
   Projectile,
   ResourceNode,
   VisualEffect,
 } from './game';
-import { BuildingModel3D, EnemyModel3D, UnitModel3D } from './models3d';
+import { BuildingModel3D, EnemyModel3D, FlockModel3D, UnitModel3D } from './models3d';
 import { getTerrainHeight } from './textures3d';
 
 export type CameraFocusRequest = {
@@ -56,8 +57,8 @@ function CameraRig({
     if (focusRequest.seq !== lastFocusSeqRef.current) {
       lastFocusSeqRef.current = focusRequest.seq;
       userDraggedRef.current = false;
-      const nx = THREE.MathUtils.clamp(focusRequest.x, -26, 26);
-      const nz = THREE.MathUtils.clamp(focusRequest.z, -18, 18);
+      const nx = THREE.MathUtils.clamp(focusRequest.x, -WORLD_DIMENSIONS.cameraClampX, WORLD_DIMENSIONS.cameraClampX);
+      const nz = THREE.MathUtils.clamp(focusRequest.z, -WORLD_DIMENSIONS.cameraClampZ, WORLD_DIMENSIONS.cameraClampZ);
       panOffsetRef.current.x = nx;
       panOffsetRef.current.z = nz;
       onCameraMove?.(nx, nz);
@@ -71,8 +72,8 @@ function CameraRig({
       if (!userDraggedRef.current && size.width < 960) {
         const a = actors.find(x => x.id === first);
         if (a) {
-          const nx = THREE.MathUtils.clamp(a.x, -26, 26);
-          const nz = THREE.MathUtils.clamp(a.z, -18, 18);
+          const nx = THREE.MathUtils.clamp(a.x, -WORLD_DIMENSIONS.cameraClampX, WORLD_DIMENSIONS.cameraClampX);
+          const nz = THREE.MathUtils.clamp(a.z, -WORLD_DIMENSIONS.cameraClampZ, WORLD_DIMENSIONS.cameraClampZ);
           panOffsetRef.current.x = nx;
           panOffsetRef.current.z = nz;
           onCameraMove?.(nx, nz);
@@ -151,9 +152,21 @@ function SmoothFogOfWar({ fog }: { fog: number[] }) {
     tex.needsUpdate = true;
   }, [fog, canvas, ctx, tex, fogCols, fogRows]);
 
+  const fogGeom = useMemo(() => {
+    const geom = new THREE.PlaneGeometry(width, depth, 48, 36);
+    geom.rotateX(-Math.PI / 2);
+    const pos = geom.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) {
+      const vx = pos.getX(i);
+      const vz = pos.getZ(i);
+      pos.setY(i, getTerrainHeight(vx, vz) + 0.16);
+    }
+    geom.computeVertexNormals();
+    return geom;
+  }, [width, depth]);
+
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.008, 0]} renderOrder={1}>
-      <planeGeometry args={[width, depth]} />
+    <mesh geometry={fogGeom} position={[0, 0, 0]} renderOrder={1}>
       <meshBasicMaterial map={tex} transparent depthWrite={false} />
     </mesh>
   );
@@ -635,6 +648,41 @@ function EnemyNode3D({ enemy, onAttack }: { enemy: Enemy; onAttack: (e: Enemy) =
   );
 }
 
+function FlockNode3D({
+  flock,
+  selected,
+  paused,
+  onSelectFlock,
+}: {
+  flock: FlockState;
+  selected: boolean;
+  paused: boolean;
+  onSelectFlock: (id: string) => void;
+}) {
+  const gy = getTerrainHeight(flock.x, flock.z);
+  return (
+    <group
+      position={[flock.x, gy, flock.z]}
+      onClick={e => {
+        e.stopPropagation();
+        if (flock.owner === 'abram') onSelectFlock(flock.id);
+      }}
+    >
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+        <ringGeometry args={[1.15, 1.32, 28]} />
+        <meshBasicMaterial
+          color={selected ? '#fde047' : flock.owner === 'abram' ? '#60a5fa' : '#f59e0b'}
+          transparent
+          opacity={selected ? 0.95 : 0.45}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <FlockModel3D flock={flock} paused={paused} />
+    </group>
+  );
+}
+
 function CombatProjectilesAndEffects({
   projectiles,
   effects,
@@ -676,8 +724,10 @@ function CombatProjectilesAndEffects({
 function WorldScene({
   game,
   selected,
+  selectedFlockId,
   placementKind,
   onSelectUnit,
+  onSelectFlock,
   onMoveOrder,
   onPlaceBuilding,
   onGather,
@@ -692,8 +742,10 @@ function WorldScene({
 }: {
   game: Game;
   selected: string[];
+  selectedFlockId: string | null;
   placementKind: BuildingKind | null;
   onSelectUnit: (id: string, additive: boolean) => void;
+  onSelectFlock: (id: string) => void;
   onMoveOrder: (x: number, z: number) => void;
   onPlaceBuilding: (kind: BuildingKind, x: number, z: number) => void;
   onGather: (node: ResourceNode) => void;
@@ -727,8 +779,16 @@ function WorldScene({
     dragDist.current += Math.hypot(dx, dy);
     if (dragDist.current > 10) {
       userDraggedRef.current = true;
-      const nx = THREE.MathUtils.clamp(panOffsetRef.current.x - dx * 0.025, -26, 26);
-      const nz = THREE.MathUtils.clamp(panOffsetRef.current.z - dy * 0.025, -18, 18);
+      const nx = THREE.MathUtils.clamp(
+        panOffsetRef.current.x - dx * 0.025,
+        -WORLD_DIMENSIONS.cameraClampX,
+        WORLD_DIMENSIONS.cameraClampX
+      );
+      const nz = THREE.MathUtils.clamp(
+        panOffsetRef.current.z - dy * 0.025,
+        -WORLD_DIMENSIONS.cameraClampZ,
+        WORLD_DIMENSIONS.cameraClampZ
+      );
       panOffsetRef.current.x = nx;
       panOffsetRef.current.z = nz;
       onCameraMove?.(nx, nz);
@@ -803,6 +863,17 @@ function WorldScene({
           <EnemyNode3D key={e.id} enemy={e} onAttack={onAttack} />
         ) : null
       )}
+      {(game.flocks ?? []).map(f =>
+        isVisibleInFog(game.fog, f.x, f.z) ? (
+          <FlockNode3D
+            key={f.id}
+            flock={f}
+            selected={selectedFlockId === f.id}
+            paused={game.paused}
+            onSelectFlock={onSelectFlock}
+          />
+        ) : null
+      )}
       {game.actors.map(a => (
         <UnitNode3D
           key={a.id}
@@ -821,8 +892,10 @@ function WorldScene({
 export default function World(props: {
   game: Game;
   selected: string[];
+  selectedFlockId: string | null;
   placementKind: BuildingKind | null;
   onSelectUnit: (id: string, additive: boolean) => void;
+  onSelectFlock: (id: string) => void;
   onMoveOrder: (x: number, z: number) => void;
   onPlaceBuilding: (kind: BuildingKind, x: number, z: number) => void;
   onGather: (node: ResourceNode) => void;

@@ -10,6 +10,7 @@ import {
   getBlueprint,
   hasSavedGame,
   loadGame,
+  moveFlock,
   newGame,
   order,
   placeBuilding,
@@ -146,6 +147,8 @@ function AoEEmblem({ kind }: { kind: Role | BuildingKind | 'horn' | 'expand' | '
 export default function App() {
   const [game, setGame] = useState<Game>(loadGame);
   const [selected, setSelected] = useState<string[]>(['abram']);
+  const [selectedFlockId, setSelectedFlockId] = useState<string | null>(null);
+  const [commandTab, setCommandTab] = useState<'build' | 'orders'>('build');
   const [placementKind, setPlacementKind] = useState<BuildingKind | null>(null);
   const [panel, setPanel] = useState<'story' | 'help' | 'map' | null>(() => (hasSavedGame() ? null : 'story'));
   const [escortOption, setEscortOption] = useState<boolean>(true);
@@ -192,14 +195,24 @@ export default function App() {
 
   const handleSelectUnit = useCallback((id: string, additive: boolean) => {
     setPlacementKind(null);
+    setSelectedFlockId(null);
     setSelected(prev => {
       if (!additive) return [id];
       return prev.includes(id) ? (prev.length > 1 ? prev.filter(x => x !== id) : prev) : [...prev, id];
     });
   }, []);
 
+  const handleSelectFlock = useCallback((flockId: string) => {
+    setPlacementKind(null);
+    setSelectedFlockId(flockId);
+  }, []);
+
   const handleMoveOrder = useCallback(
     (x: number, z: number) => {
+      if (selectedFlockId) {
+        setGame(g => moveFlock(g, selectedFlockId, x, z));
+        return;
+      }
       const spacing = LEVEL1_CONFIG.numbers.FORMATION_SPACING ?? 1.15;
       setGame(g => {
         if (!selected.length) return pushLog(g, copy[language].noActor);
@@ -227,7 +240,7 @@ export default function App() {
         };
       });
     },
-    [selected, language]
+    [selected, selectedFlockId, language]
   );
 
   const assignOrder = useCallback(
@@ -255,7 +268,7 @@ export default function App() {
         };
       });
     },
-    [selected, language]
+    [selected, selectedFlockId, language]
   );
 
   const handlePlaceBuilding = useCallback(
@@ -302,6 +315,10 @@ export default function App() {
     (b: BuildingState) => {
       if (!b.built) {
         assignOrder(order('build', `协同建造${b.nameZh}`, b.x, b.z, b.id));
+      } else if (b.kind === 'healingTent') {
+        assignOrder(order('rest', `前往${b.nameZh}疗伤`, b.x, b.z, b.id));
+      } else if (b.kind === 'altar' && selected.includes('abram')) {
+        assignOrder(order('sacrifice', '筑坛献祭求告', b.x, b.z, b.id), ['abram']);
       } else if (selected.includes('sarai')) {
         setGame(g => assignSupervise(g, b.id));
       } else {
@@ -424,8 +441,10 @@ export default function App() {
         <World
           game={game}
           selected={selected}
+          selectedFlockId={selectedFlockId}
           placementKind={placementKind}
           onSelectUnit={handleSelectUnit}
+          onSelectFlock={handleSelectFlock}
           onMoveOrder={handleMoveOrder}
           onPlaceBuilding={handlePlaceBuilding}
           onGather={handleGather}
@@ -522,151 +541,179 @@ export default function App() {
 
       {/* Bottom 3-Section AoE Command HUD (100% Vector SVG Icons, Zero Sliced Sprites!) */}
       <footer className="aoe-bottom-hud">
-        <section className={`aoe-build-grid ${mobileDrawer === 'squad' ? 'hide-mobile' : ''}`} aria-label="Build and Command Grid">
-          <button
-            type="button"
-            className={placementKind === 'house' ? 'active' : ''}
-            onClick={() => setPlacementKind(k => (k === 'house' ? null : 'house'))}
-          >
-            <AoEEmblem kind="house" />
-            <b>{language === 'zh' ? '副帐房舍' : 'House'}</b>
-            <small>40木 · +4人口</small>
-          </button>
-
-          <button
-            type="button"
-            className={placementKind === 'depot' ? 'active' : ''}
-            onClick={() => setPlacementKind(k => (k === 'depot' ? null : 'depot'))}
-          >
-            <AoEEmblem kind="depot" />
-            <b>{language === 'zh' ? '伐木货栈' : 'Storehouse'}</b>
-            <small>50木 · 就近交货</small>
-          </button>
-
-          <button
-            type="button"
-            className={placementKind === 'watchtower' ? 'active' : ''}
-            onClick={() => setPlacementKind(k => (k === 'watchtower' ? null : 'watchtower'))}
-          >
-            <AoEEmblem kind="watchtower" />
-            <b>{language === 'zh' ? '瞭望箭塔' : 'Watchtower'}</b>
-            <small>40木 35石</small>
-          </button>
-
-          <button
-            type="button"
-            className={placementKind === 'barracks' ? 'active' : ''}
-            onClick={() => setPlacementKind(k => (k === 'barracks' ? null : 'barracks'))}
-          >
-            <AoEEmblem kind="barracks" />
-            <b>{language === 'zh' ? '家丁哨营' : 'Barracks'}</b>
-            <small>80木 20石</small>
-          </button>
-
-          <button
-            type="button"
-            className={placementKind === 'healingTent' ? 'active' : ''}
-            onClick={() => setPlacementKind(k => (k === 'healingTent' ? null : 'healingTent'))}
-          >
-            <AoEEmblem kind="healingTent" />
-            <b>{language === 'zh' ? '医治帐篷' : 'Healing Tent'}</b>
-            <small>45木 25水·急救</small>
-          </button>
-
-          <button
-            type="button"
-            disabled={age2Started}
-            className={placementKind === 'landmarkOlive' ? 'active' : ''}
-            onClick={() => setPlacementKind(k => (k === 'landmarkOlive' ? null : 'landmarkOlive'))}
-          >
-            <AoEEmblem kind="landmarkOlive" />
-            <b>{language === 'zh' ? '橄榄庄园' : 'Olive Terrace'}</b>
-            <small>时代Ⅱ经济地标</small>
-          </button>
-
-          <button
-            type="button"
-            disabled={age2Started}
-            className={placementKind === 'landmarkEncampment' ? 'active' : ''}
-            onClick={() => setPlacementKind(k => (k === 'landmarkEncampment' ? null : 'landmarkEncampment'))}
-          >
-            <AoEEmblem kind="landmarkEncampment" />
-            <b>{language === 'zh' ? '备战营垒' : 'War Redoubt'}</b>
-            <small>时代Ⅱ军事地标</small>
-          </button>
-
-          <button type="button" onClick={() => setGame(g => recruitCarrier(g))}>
-            <AoEEmblem kind="carrier" />
-            <b>{language === 'zh' ? '招搬运工' : 'Train Carrier'}</b>
-            <small>50粮 · 扩物流</small>
-          </button>
-
-          <button type="button" onClick={() => setGame(g => trainMilitary(g, 'spearman'))}>
-            <AoEEmblem kind="spearman" />
-            <b>{language === 'zh' ? '训家丁矛兵' : 'Spearman'}</b>
-            <small>40粮25木·转1工</small>
-          </button>
-
-          <button type="button" onClick={() => setGame(g => trainMilitary(g, 'slinger'))}>
-            <AoEEmblem kind="slinger" />
-            <b>{language === 'zh' ? '训投石手' : 'Slinger'}</b>
-            <small>35粮30木·转1工</small>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              const post = game.boundaryPosts.find(p => !p.claimed);
-              if (post) handleExpandPost(post);
-            }}
-          >
-            <AoEEmblem kind="expand" />
-            <b>{language === 'zh' ? '乌珥扩地' : 'Expand Border'}</b>
-            <small>敲立界石桩</small>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              const targetB =
-                game.buildings.find(b => b.kind === 'depot' && b.built) ??
-                game.buildings.find(b => b.kind === 'mainTent')!;
-              setGame(g => assignSupervise(g, targetB.id));
-            }}
-          >
-            <AoEEmblem kind="supervise" />
-            <b>{language === 'zh' ? '撒莱督工' : 'Supervise'}</b>
-            <small>+25%入库/+50%速</small>
-          </button>
-
-          <button
-            type="button"
-            className={game.divineFavorTicks > 0 ? 'active' : 'gold-highlight'}
-            onClick={() => setGame(g => performSacrifice(g))}
-          >
-            <AoEEmblem kind="altar" />
-            <b>{language === 'zh' ? '筑坛献祭' : 'Sacrifice'}</b>
-            <small>{game.divineFavorTicks > 0 ? `恩眷中 ${Math.ceil(game.divineFavorTicks / 8)}s` : '30粮20木·止争端'}</small>
-          </button>
-
-          {livingEnemies > 0 ? (
-            <button type="button" disabled={game.hornCooldown > 0} onClick={() => setGame(g => blowHorn(g))}>
-              <AoEEmblem kind="horn" />
-              <b>{language === 'zh' ? '守望号角' : 'Rally Horn'}</b>
-              <small>{game.hornCooldown > 0 ? `${Math.ceil(game.hornCooldown / 8)}s` : '双甲+2 移速+15%'}</small>
-            </button>
-          ) : (
+        <div className={`aoe-build-wrap ${mobileDrawer === 'squad' ? 'hide-mobile' : ''}`}>
+          <div className="aoe-cmd-tabs" role="tablist">
             <button
               type="button"
-              className="gold-highlight"
-              onClick={() => assignOrder(order('talk', '与罗得议事', targets.lot.x, targets.lot.z), ['abram'])}
+              role="tab"
+              aria-selected={commandTab === 'build'}
+              className={commandTab === 'build' ? 'active' : ''}
+              onClick={() => setCommandTab('build')}
             >
-              <AoEEmblem kind="talk" />
-              <b>{language === 'zh' ? '与罗得议事' : 'Speak to Lot'}</b>
-              <small>创13 礼让分地</small>
+              {language === 'zh' ? '营造建造' : 'Build'}
             </button>
-          )}
-        </section>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={commandTab === 'orders'}
+              className={commandTab === 'orders' ? 'active' : ''}
+              onClick={() => setCommandTab('orders')}
+            >
+              {language === 'zh' ? '征召与圣约' : 'Train & Rite'}
+            </button>
+          </div>
+          <section className="aoe-build-grid" aria-label="Build and Command Grid">
+            {commandTab === 'build' ? (
+              <>
+                <button
+                  type="button"
+                  className={placementKind === 'house' ? 'active' : ''}
+                  onClick={() => setPlacementKind(k => (k === 'house' ? null : 'house'))}
+                >
+                  <AoEEmblem kind="house" />
+                  <b>{language === 'zh' ? '副帐房舍' : 'House'}</b>
+                  <small>40木 · +4人口</small>
+                </button>
+
+                <button
+                  type="button"
+                  className={placementKind === 'depot' ? 'active' : ''}
+                  onClick={() => setPlacementKind(k => (k === 'depot' ? null : 'depot'))}
+                >
+                  <AoEEmblem kind="depot" />
+                  <b>{language === 'zh' ? '伐木货栈' : 'Storehouse'}</b>
+                  <small>50木 · 就近交货</small>
+                </button>
+
+                <button
+                  type="button"
+                  className={placementKind === 'watchtower' ? 'active' : ''}
+                  onClick={() => setPlacementKind(k => (k === 'watchtower' ? null : 'watchtower'))}
+                >
+                  <AoEEmblem kind="watchtower" />
+                  <b>{language === 'zh' ? '瞭望箭塔' : 'Watchtower'}</b>
+                  <small>40木 35石</small>
+                </button>
+
+                <button
+                  type="button"
+                  className={placementKind === 'barracks' ? 'active' : ''}
+                  onClick={() => setPlacementKind(k => (k === 'barracks' ? null : 'barracks'))}
+                >
+                  <AoEEmblem kind="barracks" />
+                  <b>{language === 'zh' ? '家丁哨营' : 'Barracks'}</b>
+                  <small>80木 20石</small>
+                </button>
+
+                <button
+                  type="button"
+                  className={placementKind === 'healingTent' ? 'active' : ''}
+                  onClick={() => setPlacementKind(k => (k === 'healingTent' ? null : 'healingTent'))}
+                >
+                  <AoEEmblem kind="healingTent" />
+                  <b>{language === 'zh' ? '医治帐篷' : 'Healing Tent'}</b>
+                  <small>45木 25水·急救</small>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={age2Started}
+                  className={placementKind === 'landmarkOlive' ? 'active' : ''}
+                  onClick={() => setPlacementKind(k => (k === 'landmarkOlive' ? null : 'landmarkOlive'))}
+                >
+                  <AoEEmblem kind="landmarkOlive" />
+                  <b>{language === 'zh' ? '橄榄庄园' : 'Olive Terrace'}</b>
+                  <small>时代Ⅱ经济地标</small>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={age2Started}
+                  className={placementKind === 'landmarkEncampment' ? 'active' : ''}
+                  onClick={() => setPlacementKind(k => (k === 'landmarkEncampment' ? null : 'landmarkEncampment'))}
+                >
+                  <AoEEmblem kind="landmarkEncampment" />
+                  <b>{language === 'zh' ? '备战营垒' : 'War Redoubt'}</b>
+                  <small>时代Ⅱ军事地标</small>
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={() => setGame(g => recruitCarrier(g))}>
+                  <AoEEmblem kind="carrier" />
+                  <b>{language === 'zh' ? '招搬运工' : 'Train Carrier'}</b>
+                  <small>50粮 · 扩物流</small>
+                </button>
+
+                <button type="button" onClick={() => setGame(g => trainMilitary(g, 'spearman'))}>
+                  <AoEEmblem kind="spearman" />
+                  <b>{language === 'zh' ? '训家丁矛兵' : 'Spearman'}</b>
+                  <small>40粮25木·转1工</small>
+                </button>
+
+                <button type="button" onClick={() => setGame(g => trainMilitary(g, 'slinger'))}>
+                  <AoEEmblem kind="slinger" />
+                  <b>{language === 'zh' ? '训投石手' : 'Slinger'}</b>
+                  <small>35粮30木·转1工</small>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const post = game.boundaryPosts.find(p => !p.claimed);
+                    if (post) handleExpandPost(post);
+                  }}
+                >
+                  <AoEEmblem kind="expand" />
+                  <b>{language === 'zh' ? '乌珥扩地' : 'Expand Border'}</b>
+                  <small>敲立界石桩</small>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetB =
+                      game.buildings.find(b => b.kind === 'depot' && b.built) ??
+                      game.buildings.find(b => b.kind === 'mainTent')!;
+                    setGame(g => assignSupervise(g, targetB.id));
+                  }}
+                >
+                  <AoEEmblem kind="supervise" />
+                  <b>{language === 'zh' ? '撒莱督工' : 'Supervise'}</b>
+                  <small>+25%入库/+50%速</small>
+                </button>
+
+                <button
+                  type="button"
+                  className={game.divineFavorTicks > 0 ? 'active' : 'gold-highlight'}
+                  onClick={() => setGame(g => performSacrifice(g))}
+                >
+                  <AoEEmblem kind="altar" />
+                  <b>{language === 'zh' ? '筑坛献祭' : 'Sacrifice'}</b>
+                  <small>{game.divineFavorTicks > 0 ? `恩眷中 ${Math.ceil(game.divineFavorTicks / 8)}s` : '30粮20木·止争端'}</small>
+                </button>
+
+                {livingEnemies > 0 && game.friction < LEVEL1_CONFIG.numbers.FRICTION_THRESHOLD_ACT4 ? (
+                  <button type="button" disabled={game.hornCooldown > 0} onClick={() => setGame(g => blowHorn(g))}>
+                    <AoEEmblem kind="horn" />
+                    <b>{language === 'zh' ? '守望号角' : 'Rally Horn'}</b>
+                    <small>{game.hornCooldown > 0 ? `${Math.ceil(game.hornCooldown / 8)}s` : '双甲+2 移速+15%'}</small>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="gold-highlight"
+                    onClick={() => assignOrder(order('talk', '与罗得议事', targets.lot.x, targets.lot.z), ['abram'])}
+                  >
+                    <AoEEmblem kind="talk" />
+                    <b>{language === 'zh' ? '与罗得议事' : 'Speak to Lot'}</b>
+                    <small>创13 礼让分地</small>
+                  </button>
+                )}
+              </>
+            )}
+          </section>
+        </div>
 
         {/* Center: Selected Leader Emblem & Grouped Squad Cards */}
         <section className={`aoe-selected-panel ${mobileDrawer === 'build' ? 'hide-mobile' : ''}`} aria-label="Selected Units">

@@ -1,50 +1,5 @@
 import * as THREE from 'three';
-
-/**
- * Deterministic 3D Terrain Heightmap across the expanded 80x60 Canaan Valley (5 Biomes):
- * 1. North-Central Sacred Altar High Place (x in [-8, 6], z in [-22, -10]) -> elevated plateau y = +1.35
- * 2. Northeast & East Ai Limestone Escarpment (x > 6, z < -4) -> rocky ridge y = +1.15 .. +1.75
- * 3. Central-West Bethel Camp Terrace (x in [-18, 2], z in [-4, 12]) -> gentle terrace y = +0.22
- * 4. Western Spring Gorge & Oasis Basin (x < -18, z in [-10, 10]) -> sunken water basin y = -0.32
- * 5. Southeast Jordan Plain Pasture (x > 4, z > 4) -> lush flat meadow y = 0.0
- */
-export function getTerrainHeight(x: number, z: number): number {
-  let h = 0;
-
-  // 1. Sacred Altar High Place (North-Central plateau around (-2, -14))
-  const dAltar = Math.hypot((x + 2) * 0.85, z + 14.5);
-  if (dAltar < 8.5) {
-    const t = Math.max(0, Math.min(1, (8.5 - dAltar) / 3.2));
-    h = Math.max(h, t * t * (3 - 2 * t) * 1.35);
-  }
-
-  // 2. Northeast Ai Limestone Ridge & Wolf Escarpment (z < -5, x > 3)
-  if (z < -3.5 && x > 1.0) {
-    const tz = Math.max(0, Math.min(1, (-3.5 - z) / 5.0));
-    const tx = Math.max(0, Math.min(1, (x - 1.0) / 5.0));
-    const s = tz * tx;
-    const ridgeH = s * s * (3 - 2 * s) * 1.25 + Math.sin(x * 0.35) * Math.cos(z * 0.35) * 0.18 * s;
-    h = Math.max(h, ridgeH);
-  }
-
-  // 3. Central Bethel Camp Terrace around (-8, 4)
-  const dCamp = Math.hypot((x + 8) * 0.7, (z - 4) * 0.85);
-  if (dCamp < 12.0) {
-    const t = Math.max(0, Math.min(1, (12.0 - dCamp) / 4.0));
-    h = Math.max(h, t * t * (3 - 2 * t) * 0.24);
-  }
-
-  // 4. Western Oasis Water Gorge around (-22, 0)
-  const dOasis = Math.hypot((x + 22) * 0.8, (z - 0.5) * 0.65);
-  if (dOasis < 7.5) {
-    const t = Math.max(0, Math.min(1, (7.5 - dOasis) / 2.8));
-    h -= t * t * (3 - 2 * t) * 0.36;
-  }
-
-  // Subtle natural rolling micro-relief across the whole 80x60 valley
-  h += Math.sin(x * 0.18) * Math.cos(z * 0.22) * 0.06;
-  return Number(h.toFixed(3));
-}
+export { getTerrainHeight } from './config';
 
 let cachedMaterials: {
   limestone: THREE.MeshStandardMaterial;

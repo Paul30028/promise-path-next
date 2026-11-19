@@ -1,7 +1,8 @@
 import { useFrame } from '@react-three/fiber';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import type { Actor, BuildingState, Enemy } from './game';
+import type { Actor, BuildingState, Enemy, FlockState } from './game';
+import { createDrapedTentGeometry, getSharedMaterials } from './textures3d';
 
 /**
  * 3.5-4.5 Head-Tall Light-Realistic Miniature 3D Articulated Unit Model (Zero 2D Slicing!)
@@ -471,6 +472,70 @@ export function EnemyModel3D({ enemy }: { enemy: Enemy }) {
 }
 
 /**
+ * 3D Living Pastoral Sheep Flock Model (Animated grazing wool sheep + owner banner stake)
+ */
+export function FlockModel3D({ flock, paused }: { flock: FlockState; paused: boolean }) {
+  const groupRef = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (!groupRef.current || paused) return;
+    const t = clock.elapsedTime;
+    groupRef.current.children.forEach((child, idx) => {
+      if (idx === 0) return; // skip banner stake
+      child.position.y = Math.abs(Math.sin(t * 2.2 + idx * 1.1)) * 0.04;
+    });
+  });
+
+  const count = Math.min(8, Math.max(2, Math.ceil(flock.sheepCount / 1.5)));
+  const woolColor = flock.owner === 'abram' ? '#f5efe2' : '#e7dcc8';
+  const bannerColor = flock.owner === 'abram' ? '#1d4ed8' : '#b45309';
+
+  return (
+    <group ref={groupRef}>
+      {/* Shepherd Clan Marker Stake */}
+      <group position={[0, 0, 0]}>
+        <mesh position={[0, 0.52, 0]} castShadow>
+          <cylinderGeometry args={[0.03, 0.04, 1.05, 6]} />
+          <meshStandardMaterial color="#6e4323" roughness={0.9} />
+        </mesh>
+        <mesh position={[0.16, 0.88, 0]} castShadow>
+          <boxGeometry args={[0.28, 0.18, 0.03]} />
+          <meshStandardMaterial color={bannerColor} roughness={0.8} />
+        </mesh>
+      </group>
+      {Array.from({ length: count }).map((_, i) => {
+        const ang = (i / count) * Math.PI * 2;
+        const rad = 0.68 + (i % 2) * 0.34;
+        const sx = Math.cos(ang) * rad;
+        const sz = Math.sin(ang) * rad;
+        return (
+          <group key={i} position={[sx, 0, sz]} rotation={[0, -ang + Math.PI / 2, 0]}>
+            <mesh position={[0, 0.24, 0]} castShadow>
+              <sphereGeometry args={[0.21, 10, 8]} />
+              <meshStandardMaterial color={woolColor} roughness={0.95} />
+            </mesh>
+            <mesh position={[0, 0.26, 0.18]} castShadow>
+              <sphereGeometry args={[0.09, 8, 8]} />
+              <meshStandardMaterial color="#3f342a" roughness={0.9} />
+            </mesh>
+            {[
+              [-0.09, 0.1, 0.09],
+              [0.09, 0.1, 0.09],
+              [-0.09, 0.1, -0.09],
+              [0.09, 0.1, -0.09],
+            ].map(([lx, ly, lz], j) => (
+              <mesh key={j} position={[lx, ly, lz]} castShadow>
+                <cylinderGeometry args={[0.025, 0.02, 0.2, 6]} />
+                <meshStandardMaterial color="#292524" roughness={0.9} />
+              </mesh>
+            ))}
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+/**
  * True 3D Multi-Stage Ancient Hebrew Architectural Models (Zero 2D Slicing!)
  * Supports smooth stage-by-stage construction scaffolding (progress: 0..1) and real 3D cast shadows.
  */
@@ -488,6 +553,10 @@ export function BuildingModel3D({
   stone: number;
 }) {
   const flameRef = useRef<THREE.Mesh>(null);
+  const mats = useMemo(() => getSharedMaterials(), []);
+  const mainTentRoof = useMemo(() => createDrapedTentGeometry(3.4, 2.5, 2.38, 1.48), []);
+  const healTentRoof = useMemo(() => createDrapedTentGeometry(2.3, 2.0, 2.15, 1.42), []);
+
   useFrame(({ clock }) => {
     if (flameRef.current) {
       const s = 1 + Math.sin(clock.elapsedTime * 8) * 0.16;
@@ -497,14 +566,13 @@ export function BuildingModel3D({
 
   const prog = b.built ? 1 : Math.max(0.2, b.progress);
 
-  // 1. Main Patriarch Tent (Town Center: dry-stone courtyard + 6 timber posts + woven goat-hair pavilion + Tekhelet banners + hearth)
+  // 1. Main Patriarch Tent (Town Center: dry-stone courtyard + 6 timber posts + draped goat-hair pavilion + Tekhelet banners + hearth)
   if (b.kind === 'mainTent') {
     return (
       <group>
         {/* Stone foundation courtyard plinth */}
-        <mesh position={[0, 0.08, 0]} receiveShadow castShadow>
+        <mesh position={[0, 0.08, 0]} receiveShadow castShadow material={mats.limestone}>
           <cylinderGeometry args={[2.1, 2.25, 0.16, 16]} />
-          <meshStandardMaterial color="#b5a388" roughness={0.94} />
         </mesh>
         {/* Low dry-stone courtyard perimeter wall */}
         {[
@@ -512,9 +580,8 @@ export function BuildingModel3D({
           [1.55, 0.22, 0, 0.24, 0.34, 2.5],
           [0, 0.22, -1.45, 3.1, 0.34, 0.24],
         ].map(([x, y, z, w, h, d], idx) => (
-          <mesh key={idx} position={[x, y, z]} castShadow receiveShadow>
+          <mesh key={idx} position={[x, y, z]} castShadow receiveShadow material={mats.limestone}>
             <boxGeometry args={[w, h, d]} />
-            <meshStandardMaterial color="#9e8c72" roughness={0.95} />
           </mesh>
         ))}
         {/* 6 Cedar Timber Posts */}
@@ -526,28 +593,18 @@ export function BuildingModel3D({
           [0, 0.55],
           [1.25, 0.55],
         ].map(([px, pz], idx) => (
-          <mesh key={idx} position={[px, 0.85, pz]} castShadow>
+          <mesh key={idx} position={[px, 0.85, pz]} castShadow material={mats.cedarWood}>
             <cylinderGeometry args={[0.08, 0.10, 1.55, 8]} />
-            <meshStandardMaterial color="#6e4323" roughness={0.9} />
           </mesh>
         ))}
-        {/* Pitched Dark Goat-Hair Pavilion Canopy */}
-        <mesh position={[0, 1.92, -0.22]} rotation={[0, Math.PI / 4, 0]} castShadow>
-          <coneGeometry args={[2.15, 0.95, 4]} />
-          <meshStandardMaterial color="#36281c" roughness={0.92} />
-        </mesh>
-        {/* Tekhelet Blue Covenant Tapestry Ridge & Front Banners */}
-        <mesh position={[0, 1.94, -0.21]} rotation={[0, Math.PI / 4, 0]} castShadow>
-          <coneGeometry args={[0.72, 0.97, 4]} />
-          <meshStandardMaterial color="#1d4ed8" roughness={0.82} />
-        </mesh>
-        <mesh position={[-0.95, 1.05, 0.58]} castShadow>
+        {/* Draped Dark Goat-Hair Pavilion Canopy */}
+        <mesh position={[0, 0, -0.22]} geometry={mainTentRoof} material={mats.goatHairCloth} castShadow />
+        {/* Tekhelet Blue Covenant Tapestry Front Banners */}
+        <mesh position={[-0.95, 1.05, 0.58]} castShadow material={mats.tekheletTapestry}>
           <boxGeometry args={[0.52, 0.72, 0.04]} />
-          <meshStandardMaterial color="#1e40af" roughness={0.8} />
         </mesh>
-        <mesh position={[0.95, 1.05, 0.58]} castShadow>
+        <mesh position={[0.95, 1.05, 0.58]} castShadow material={mats.tekheletTapestry}>
           <boxGeometry args={[0.52, 0.72, 0.04]} />
-          <meshStandardMaterial color="#1e40af" roughness={0.8} />
         </mesh>
         {/* Courtyard Stone Hearth & Live Fire */}
         <mesh position={[0, 0.2, 1.05]} castShadow>
@@ -608,9 +665,8 @@ export function BuildingModel3D({
     return (
       <group scale={[1, prog, 1]}>
         {/* Limestone Foundation Platform */}
-        <mesh position={[0, 0.08, 0]} receiveShadow castShadow>
+        <mesh position={[0, 0.08, 0]} receiveShadow castShadow material={mats.limestone}>
           <boxGeometry args={[2.3, 0.16, 2.0]} />
-          <meshStandardMaterial color="#c2b49d" roughness={0.92} />
         </mesh>
         {/* Soothing green/amber restorative floor circle */}
         <mesh position={[0, 0.17, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -624,29 +680,19 @@ export function BuildingModel3D({
           [-0.95, 0.8],
           [0.95, 0.8],
         ].map(([px, pz], idx) => (
-          <mesh key={idx} position={[px, 0.82, pz]} castShadow>
+          <mesh key={idx} position={[px, 0.82, pz]} castShadow material={mats.cedarWood}>
             <cylinderGeometry args={[0.07, 0.08, 1.48, 8]} />
-            <meshStandardMaterial color="#784421" roughness={0.9} />
           </mesh>
         ))}
-        {/* Linen Healing Canopy with Olive Trim */}
-        <mesh position={[0, 1.78, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
-          <coneGeometry args={[1.75, 0.82, 4]} />
-          <meshStandardMaterial color="#f5f0e6" roughness={0.88} />
-        </mesh>
-        <mesh position={[0, 1.80, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
-          <coneGeometry args={[0.65, 0.84, 4]} />
-          <meshStandardMaterial color="#4d7c2b" roughness={0.82} />
-        </mesh>
+        {/* Draped Cream & Olive Linen Healing Canopy */}
+        <mesh position={[0, 0, 0]} geometry={healTentRoof} material={mats.healingCloth} castShadow />
         {/* Bronze Washing & Cleansing Basin on Stone Pedestal */}
         <group position={[-0.45, 0.22, 0.42]}>
-          <mesh castShadow>
+          <mesh castShadow material={mats.limestone}>
             <cylinderGeometry args={[0.22, 0.26, 0.36, 12]} />
-            <meshStandardMaterial color="#a8a29e" roughness={0.92} />
           </mesh>
-          <mesh position={[0, 0.26, 0]} castShadow>
+          <mesh position={[0, 0.26, 0]} castShadow material={mats.bronze}>
             <cylinderGeometry args={[0.32, 0.22, 0.18, 14]} />
-            <meshStandardMaterial color="#d97706" metalness={0.65} roughness={0.35} />
           </mesh>
           <mesh position={[0, 0.32, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <circleGeometry args={[0.26, 12]} />
