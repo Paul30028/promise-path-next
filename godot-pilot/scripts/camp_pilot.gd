@@ -5,7 +5,7 @@ extends Node3D
 @onready var metrics_label: Label = $HudLayer/MetricsLabel
 
 var abram_actor: Node3D = null
-var target_pos: Vector3 = Vector3(-1.8, 0.0, 1.3)
+var target_pos: Vector3 = Vector3(-1.85, 0.0, 1.25)
 var move_speed: float = 4.2
 var dragging: bool = false
 var drag_distance: float = 0.0
@@ -16,8 +16,34 @@ var pending_action: String = ""
 var status_note: String = "点击地面移动亚伯兰，或使用下方情境指令"
 var status_label: Label = null
 var anim_time: float = 0.0
-var flame_nodes: Array[Node3D] = []
 var smoke_nodes: Array[Node3D] = []
+
+
+static func get_terrain_height(x: float, z: float) -> float:
+	var h: float = 0.0
+	# 1. North-Central 12-Stone Altar Rocky Rise around (1.0, -4.9)
+	var d_altar := Vector2((x - 1.0) * 0.78, (z + 4.9) * 0.92).length()
+	if d_altar < 4.6:
+		var t: float = clamp((4.6 - d_altar) / 2.2, 0.0, 1.0)
+		h = max(h, t * t * (3.0 - 2.0 * t) * 1.65)
+
+	# 2. Central-West Camp Courtyard Terrace around (-2.0, 0.2)
+	var d_camp := Vector2((x + 2.0) * 0.62, (z - 0.2) * 0.90).length()
+	if d_camp < 4.8:
+		var t2: float = clamp((4.8 - d_camp) / 1.1, 0.0, 1.0)
+		h = max(h, t2 * t2 * (3.0 - 2.0 * t2) * 0.52)
+
+	# 3. Western Waterfall Spring Hollow around (-7.8, -1.2)
+	var d_spring := Vector2((x + 7.8) * 0.9, (z + 1.2) * 0.95).length()
+	if d_spring < 2.8:
+		var t3: float = clamp((2.8 - d_spring) / 1.4, 0.0, 1.0)
+		h -= t3 * t3 * (3.0 - 2.0 * t3) * 0.45
+
+	if z < -6.5:
+		h += clamp((-6.5 - z) * 0.14, 0.0, 2.2)
+
+	h += sin(x * 0.22) * cos(z * 0.24) * 0.10
+	return h
 
 
 static func _make_draped_roof_mesh(w: float, d: float, ridge_h: float, eave_h: float) -> ArrayMesh:
@@ -35,9 +61,9 @@ static func _make_draped_roof_mesh(w: float, d: float, ridge_h: float, eave_h: f
 			var v: float = float(r) / float(sz)
 			var x: float = (u - 0.5) * w
 			var z: float = (v - 0.5) * d
-			var nz: float = abs(v - 0.5) * 2.0 # 0 at ridge, 1 at front/back eaves
+			var nz: float = abs(v - 0.5) * 2.0
 			var catenary: float = pow(1.0 - nz, 1.35)
-			var pole_sag: float = -sin(u * PI * 2.0) * 0.05 * (1.0 - nz * 0.4)
+			var pole_sag: float = -sin(u * PI * 2.0) * 0.055 * (1.0 - nz * 0.35)
 			var y: float = eave_h + (ridge_h - eave_h) * catenary + pole_sag
 			var idx: int = r * (sx + 1) + c
 			verts[idx] = Vector3(x, y, z)
@@ -57,48 +83,125 @@ static func _make_draped_roof_mesh(w: float, d: float, ridge_h: float, eave_h: f
 	return st.commit()
 
 
-static func get_terrain_height(x: float, z: float) -> float:
-	var h: float = 0.0
-	# 1. North-Central 12-Stone Altar Rocky Rise around (1.0, -4.9)
-	var d_altar := Vector2((x - 1.0) * 0.78, (z + 4.9) * 0.92).length()
-	if d_altar < 4.6:
-		var t: float = clamp((4.6 - d_altar) / 2.2, 0.0, 1.0)
-		h = max(h, t * t * (3.0 - 2.0 * t) * 1.65)
+static func _make_sculpted_rock_mesh(seed_val: int) -> ArrayMesh:
+	# Faceted, weathered Canaanite limestone block (organic chiseled ridges, NOT a smooth sphere!)
+	var base := SphereMesh.new()
+	base.radius = 0.48
+	base.height = 0.62
+	base.radial_segments = 8
+	base.rings = 4
+	var arrays: Array = base.surface_get_arrays(0)
+	var src_v: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var src_uv: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
+	var src_idx: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
 
-	# 2. Central-West Camp Courtyard Terrace around (-2.2, 0.2)
-	var d_camp := Vector2((x + 2.2) * 0.62, (z - 0.2) * 0.90).length()
-	if d_camp < 4.8:
-		var t2: float = clamp((4.8 - d_camp) / 1.1, 0.0, 1.0)
-		h = max(h, t2 * t2 * (3.0 - 2.0 * t2) * 0.52)
+	var displaced: PackedVector3Array = PackedVector3Array()
+	displaced.resize(src_v.size())
+	var fseed: float = float(seed_val) * 1.37
+	for i in range(src_v.size()):
+		var v: Vector3 = src_v[i]
+		# Deterministic layered rock displacement
+		var n1: float = sin(v.x * 5.2 + fseed) * cos(v.z * 4.8 - fseed) * 0.16
+		var n2: float = sin((v.x + v.z) * 7.5 + v.y * 4.0) * 0.08
+		var scale_r: float = 1.0 + n1 + n2
+		var nv := Vector3(v.x * scale_r, v.y * (0.85 + n2 * 0.5), v.z * scale_r)
+		# Flatten top slightly like natural sedimentary limestone
+		if nv.y > 0.22:
+			nv.y = 0.22 + (nv.y - 0.22) * 0.38
+		displaced[i] = nv
 
-	# 3. Western Waterfall Spring Hollow around (-7.8, -1.2)
-	var d_spring := Vector2((x + 7.8) * 0.9, (z + 1.2) * 0.95).length()
-	if d_spring < 2.8:
-		var t3: float = clamp((2.8 - d_spring) / 1.4, 0.0, 1.0)
-		h -= t3 * t3 * (3.0 - 2.0 * t3) * 0.45
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in range(0, src_idx.size(), 3):
+		var a: int = src_idx[i]
+		var b: int = src_idx[i + 1]
+		var c: int = src_idx[i + 2]
+		# Flat-faceted limestone normals per triangle for crisp chiseled sunlight catch
+		var va: Vector3 = displaced[a]
+		var vb: Vector3 = displaced[b]
+		var vc: Vector3 = displaced[c]
+		var nrm: Vector3 = (vc - va).cross(vb - va).normalized()
+		for vi in [a, b, c]:
+			st.set_normal(nrm)
+			st.set_uv(src_uv[vi])
+			st.add_vertex(displaced[vi])
+	st.generate_tangents()
+	return st.commit()
 
-	# Gentle background hill slope to the north
-	if z < -6.5:
-		h += clamp((-6.5 - z) * 0.14, 0.0, 2.2)
 
-	h += sin(x * 0.22) * cos(z * 0.24) * 0.10
-	return h
+static func _make_amphora_mesh() -> ArrayMesh:
+	# Lathe-turned Middle Bronze Age Canaanite amphora profile (curved belly, narrow neck, flared rim)
+	var profile: Array[Vector2] = [
+		Vector2(0.11, 0.00),
+		Vector2(0.16, 0.10),
+		Vector2(0.28, 0.30),
+		Vector2(0.30, 0.48),
+		Vector2(0.23, 0.66),
+		Vector2(0.12, 0.78),
+		Vector2(0.12, 0.90),
+		Vector2(0.17, 0.96),
+		Vector2(0.14, 1.00),
+	]
+	var segs: int = 14
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for r in range(profile.size() - 1):
+		var p0: Vector2 = profile[r]
+		var p1: Vector2 = profile[r + 1]
+		var v0: float = float(r) / float(profile.size() - 1)
+		var v1: float = float(r + 1) / float(profile.size() - 1)
+		for s in range(segs):
+			var a0: float = float(s) / float(segs) * TAU
+			var a1: float = float(s + 1) / float(segs) * TAU
+			var q00 := Vector3(cos(a0) * p0.x, p0.y, sin(a0) * p0.x)
+			var q10 := Vector3(cos(a1) * p0.x, p0.y, sin(a1) * p0.x)
+			var q01 := Vector3(cos(a0) * p1.x, p1.y, sin(a0) * p1.x)
+			var q11 := Vector3(cos(a1) * p1.x, p1.y, sin(a1) * p1.x)
+			var u0: float = float(s) / float(segs)
+			var u1: float = float(s + 1) / float(segs)
+			st.set_uv(Vector2(u0, v0)); st.add_vertex(q00)
+			st.set_uv(Vector2(u0, v1)); st.add_vertex(q01)
+			st.set_uv(Vector2(u1, v0)); st.add_vertex(q10)
+			st.set_uv(Vector2(u1, v0)); st.add_vertex(q10)
+			st.set_uv(Vector2(u0, v1)); st.add_vertex(q01)
+			st.set_uv(Vector2(u1, v1)); st.add_vertex(q11)
+	st.generate_normals()
+	return st.commit()
+
+
+static func _make_crossed_card_mesh(w: float, h: float, centered_y: bool) -> ArrayMesh:
+	# 3-plane crossed foliage/grass/flame star card for rich 3D volume from all camera angles
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var y0: float = -h * 0.5 if centered_y else 0.0
+	var y1: float = h * 0.5 if centered_y else h
+	for i in range(3):
+		var ang: float = float(i) * (PI / 3.0)
+		var ca: float = cos(ang) * (w * 0.5)
+		var sa: float = sin(ang) * (w * 0.5)
+		var bl := Vector3(-ca, y0, -sa)
+		var br := Vector3(ca, y0, sa)
+		var tl := Vector3(-ca, y1, -sa)
+		var tr := Vector3(ca, y1, sa)
+		st.set_uv(Vector2(0.0, 1.0)); st.add_vertex(bl)
+		st.set_uv(Vector2(0.0, 0.0)); st.add_vertex(tl)
+		st.set_uv(Vector2(1.0, 1.0)); st.add_vertex(br)
+		st.set_uv(Vector2(1.0, 1.0)); st.add_vertex(br)
+		st.set_uv(Vector2(0.0, 0.0)); st.add_vertex(tl)
+		st.set_uv(Vector2(1.0, 0.0)); st.add_vertex(tr)
+	st.generate_normals()
+	return st.commit()
 
 
 func _ready() -> void:
-	# Hide all legacy low-poly bobblehead placeholders
-	for old_name in ["Abram", "MainTent", "WaterJar", "OliveTree1", "OliveTree2", "Sheep1", "Sheep2", "SpringBasin"]:
-		var old_n := get_node_or_null(old_name)
-		if old_n is Node3D:
-			old_n.visible = false
-
 	_build_pbr_terrain()
-	_build_courtyard_wall_and_well()
+	_build_courtyard_steps_and_well()
 	_build_patriarch_camp_architecture()
 	_build_spring_waterfall()
 	_build_characters()
 	_build_sheep_flocks()
 	_build_olive_groves()
+	_build_grass_meadow_multimesh()
 	_build_set_dressing_multimesh()
 	_build_mobile_hud()
 	if abram_actor != null:
@@ -136,7 +239,6 @@ func _build_pbr_terrain() -> void:
 			var w_grass: float = 0.92
 			var w_rock: float = 0.04
 
-			# Winding packed-earth trail matching camp-scene-mobile.png (front steps -> forks to SE & NE)
 			var trail_front: float = abs(z - (3.8 - (x + 1.0) * 0.22))
 			var trail_right: float = abs(x - (4.2 + sin(z * 0.24) * 1.1))
 			var trail_dist: float = minf(trail_front, trail_right)
@@ -145,12 +247,10 @@ func _build_pbr_terrain() -> void:
 				w_dirt += pt * 1.5
 				w_grass *= (1.0 - pt * 0.88)
 
-			# Camp courtyard floor
-			if Vector2((x + 2.2) * 0.65, (z - 0.2) * 0.92).length() < 4.5:
+			if Vector2((x + 2.0) * 0.65, (z - 0.2) * 0.92).length() < 4.5:
 				w_dirt += 1.8
 				w_grass *= 0.08
 
-			# Rocky limestone altar mound & hillside
 			if y > 0.72:
 				var rt: float = clamp((y - 0.72) / 0.75, 0.0, 1.0)
 				w_rock += rt * 2.0
@@ -190,7 +290,7 @@ func _build_pbr_terrain() -> void:
 	terrain_mesh.set_surface_override_material(0, mat)
 
 
-func _build_courtyard_wall_and_well() -> void:
+func _build_courtyard_steps_and_well() -> void:
 	var root := Node3D.new()
 	root.name = "CourtyardAndWell"
 	add_child(root)
@@ -199,20 +299,20 @@ func _build_courtyard_wall_and_well() -> void:
 	wall_mat.albedo_texture = load("res://assets/textures/terrain_rock_albedo.png")
 	wall_mat.normal_enabled = true
 	wall_mat.normal_texture = load("res://assets/textures/terrain_rock_normal.png")
-	wall_mat.albedo_color = Color(0.84, 0.78, 0.68)
+	wall_mat.albedo_color = Color(0.80, 0.74, 0.63)
 	wall_mat.roughness = 0.94
 
-	var wood_mat := StandardMaterial3D.new()
-	wood_mat.albedo_color = Color(0.38, 0.24, 0.13)
-	wood_mat.roughness = 0.90
-
-	# 3 Wide Stone Steps at front of courtyard (-1.35, 2.75..3.6) using weathered boulder stone
 	var step_mat := StandardMaterial3D.new()
 	step_mat.albedo_texture = load("res://assets/textures/rock_boulder_albedo.png")
 	step_mat.normal_enabled = true
 	step_mat.normal_texture = load("res://assets/textures/rock_boulder_normal.png")
-	step_mat.albedo_color = Color(0.76, 0.70, 0.58)
+	step_mat.albedo_color = Color(0.76, 0.69, 0.56)
 	step_mat.roughness = 0.94
+
+	var wood_mat := StandardMaterial3D.new()
+	wood_mat.albedo_color = Color(0.36, 0.22, 0.12)
+	wood_mat.roughness = 0.90
+
 	for s in range(3):
 		var step := MeshInstance3D.new()
 		var sb := BoxMesh.new()
@@ -224,7 +324,7 @@ func _build_courtyard_wall_and_well() -> void:
 		step.position = Vector3(sx, get_terrain_height(sx, sz) + 0.28 - float(s) * 0.11, sz)
 		root.add_child(step)
 
-	# Circular Stacked-Stone Water Well at front-left (-7.2, 2.2) matching camp-scene-mobile.png
+	# Circular Stacked-Stone Water Well at front-left (-7.2, 2.2)
 	var wx: float = -7.2
 	var wz: float = 2.2
 	var wy: float = get_terrain_height(wx, wz)
@@ -235,9 +335,9 @@ func _build_courtyard_wall_and_well() -> void:
 	var well_body := MeshInstance3D.new()
 	var wcyl := CylinderMesh.new()
 	wcyl.top_radius = 0.78
-	wcyl.bottom_radius = 0.85
+	wcyl.bottom_radius = 0.86
 	wcyl.height = 0.78
-	wcyl.radial_segments = 14
+	wcyl.radial_segments = 16
 	well_body.mesh = wcyl
 	well_body.material_override = wall_mat
 	well_body.position = Vector3(0.0, 0.39, 0.0)
@@ -294,7 +394,7 @@ func _build_patriarch_camp_architecture() -> void:
 	add_child(root)
 
 	var wood_mat := StandardMaterial3D.new()
-	wood_mat.albedo_color = Color(0.40, 0.24, 0.13)
+	wood_mat.albedo_color = Color(0.38, 0.23, 0.12)
 	wood_mat.roughness = 0.88
 
 	var tent_mat := StandardMaterial3D.new()
@@ -313,11 +413,16 @@ func _build_patriarch_camp_architecture() -> void:
 	rock_mat.albedo_texture = load("res://assets/textures/rock_boulder_albedo.png")
 	rock_mat.normal_enabled = true
 	rock_mat.normal_texture = load("res://assets/textures/rock_boulder_normal.png")
-	rock_mat.roughness = 0.93
+	rock_mat.albedo_color = Color(0.80, 0.74, 0.62)
+	rock_mat.roughness = 0.94
 
 	var clay_mat := StandardMaterial3D.new()
-	clay_mat.albedo_color = Color(0.68, 0.36, 0.20)
-	clay_mat.roughness = 0.72
+	clay_mat.albedo_color = Color(0.68, 0.34, 0.18)
+	clay_mat.roughness = 0.68
+
+	var flame_shader_mat := ShaderMaterial.new()
+	flame_shader_mat.shader = load("res://shaders/campfire_flame.gdshader")
+	var flame_card_mesh := _make_crossed_card_mesh(0.62, 0.82, false)
 
 	# 1. Main Patriarch Pavilion Tent at (-3.5, y, -0.5)
 	var cx: float = -3.5
@@ -338,7 +443,6 @@ func _build_patriarch_camp_architecture() -> void:
 		post.position = Vector3(p.x, 0.98, p.y)
 		tent_root.add_child(post)
 
-	# Draped Catenary Goat-Hair Roof + dark back curtain
 	var main_roof := MeshInstance3D.new()
 	main_roof.mesh = _make_draped_roof_mesh(4.35, 2.95, 2.42, 1.82)
 	main_roof.material_override = tent_mat
@@ -352,7 +456,6 @@ func _build_patriarch_camp_architecture() -> void:
 	back_curtain.position = Vector3(0.0, 0.95, -1.12)
 	tent_root.add_child(back_curtain)
 
-	# 2 Tekhelet Blue & Pomegranate Tapestry Banners + Woven Floor Rug + 2 Wooden Benches
 	for bx in [-1.25, 1.25]:
 		var banner := MeshInstance3D.new()
 		var plane := QuadMesh.new()
@@ -379,46 +482,28 @@ func _build_patriarch_camp_architecture() -> void:
 		bench.position = Vector3(bench_x, 0.16, -0.58)
 		tent_root.add_child(bench)
 
-	# 3 Terracotta Amphorae Cluster by Left Post (matching camp-scene-mobile.png!)
-	for jar in [[Vector3(-2.15, 0.42, 1.35), 0.28, 0.84], [Vector3(-1.72, 0.32, 1.55), 0.22, 0.64], [Vector3(-1.42, 0.22, 1.82), 0.16, 0.44]]:
+	# 3 Lathe-Turned Bronze Age Canaanite Amphorae by Left Post!
+	var amphora_mesh := _make_amphora_mesh()
+	for jar in [[Vector3(-2.15, 0.0, 1.35), 0.95], [Vector3(-1.68, 0.0, 1.56), 0.72], [Vector3(-1.35, 0.0, 1.85), 0.52]]:
 		var jm := MeshInstance3D.new()
-		var jcyl := CylinderMesh.new()
-		jcyl.top_radius = float(jar[1]) * 0.55
-		jcyl.bottom_radius = float(jar[1])
-		jcyl.height = float(jar[2])
-		jm.mesh = jcyl
+		jm.mesh = amphora_mesh
 		jm.material_override = clay_mat
 		jm.position = jar[0]
+		var js: float = float(jar[1])
+		jm.scale = Vector3(js, js, js)
 		tent_root.add_child(jm)
 
-	# Stone Hearth & Warm Campfire
+	# Stone Hearth + Crossed Logs + Shader Flame
 	var hearth := MeshInstance3D.new()
 	var hcyl := CylinderMesh.new()
 	hcyl.top_radius = 0.65
 	hcyl.bottom_radius = 0.74
-	hcyl.height = 0.26
+	hcyl.height = 0.24
 	hearth.mesh = hcyl
 	hearth.material_override = rock_mat
-	hearth.position = Vector3(-0.35, 0.13, 2.05)
+	hearth.position = Vector3(-0.35, 0.12, 2.05)
 	tent_root.add_child(hearth)
 
-	var fire_outer_mat := StandardMaterial3D.new()
-	fire_outer_mat.albedo_color = Color(0.95, 0.32, 0.05)
-	fire_outer_mat.emission_enabled = true
-	fire_outer_mat.emission = Color(0.98, 0.34, 0.04)
-	fire_outer_mat.emission_energy_multiplier = 2.2
-	var fire_inner_mat := StandardMaterial3D.new()
-	fire_inner_mat.albedo_color = Color(1.0, 0.82, 0.25)
-	fire_inner_mat.emission_enabled = true
-	fire_inner_mat.emission = Color(1.0, 0.78, 0.22)
-	fire_inner_mat.emission_energy_multiplier = 3.0
-
-	var hearth_fire := Node3D.new()
-	hearth_fire.position = Vector3(-0.35, 0.24, 2.05)
-	tent_root.add_child(hearth_fire)
-	flame_nodes.append(hearth_fire)
-
-	# Crossed charred firewood logs
 	for ang_deg in [25.0, -35.0, 85.0]:
 		var log_m := MeshInstance3D.new()
 		var lc := CylinderMesh.new()
@@ -428,34 +513,24 @@ func _build_patriarch_camp_architecture() -> void:
 		log_m.mesh = lc
 		log_m.material_override = wood_mat
 		log_m.rotation_degrees = Vector3(78.0, ang_deg, 0.0)
-		log_m.position = Vector3(0.0, 0.04, 0.0)
-		hearth_fire.add_child(log_m)
+		log_m.position = Vector3(-0.35, 0.28, 2.05)
+		tent_root.add_child(log_m)
 
-	var fcone := CylinderMesh.new()
-	fcone.top_radius = 0.02
-	fcone.bottom_radius = 0.22
-	fcone.height = 0.48
-	var flame_out := MeshInstance3D.new()
-	flame_out.mesh = fcone
-	flame_out.material_override = fire_outer_mat
-	flame_out.position = Vector3(0.0, 0.24, 0.0)
-	hearth_fire.add_child(flame_out)
-
-	var flame_in := MeshInstance3D.new()
-	flame_in.mesh = fcone
-	flame_in.material_override = fire_inner_mat
-	flame_in.scale = Vector3(0.58, 0.72, 0.58)
-	flame_in.position = Vector3(0.0, 0.18, 0.0)
-	hearth_fire.add_child(flame_in)
+	var hflame := MeshInstance3D.new()
+	hflame.mesh = flame_card_mesh
+	hflame.material_override = flame_shader_mat
+	hflame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	hflame.position = Vector3(-0.35, 0.22, 2.05)
+	tent_root.add_child(hflame)
 
 	var fire_light := OmniLight3D.new()
 	fire_light.light_color = Color(1.0, 0.58, 0.20)
-	fire_light.light_energy = 1.8
+	fire_light.light_energy = 1.9
 	fire_light.omni_range = 6.5
 	fire_light.position = Vector3(-0.35, 0.95, 2.05)
 	tent_root.add_child(fire_light)
 
-	# 2. Herbal Healing Linen Canopy at (0.9, y, -0.2) with Pitched Roof & Herb Table
+	# 2. Herbal Healing Linen Canopy at (0.9, y, -0.2)
 	var hx: float = 0.9
 	var hz: float = -0.2
 	var hy: float = get_terrain_height(hx, hz)
@@ -467,6 +542,7 @@ func _build_patriarch_camp_architecture() -> void:
 	linen_mat.albedo_texture = load("res://assets/textures/linen_canopy_albedo.png")
 	linen_mat.albedo_color = Color(0.84, 0.79, 0.67)
 	linen_mat.roughness = 0.93
+	linen_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var olive_cloth := StandardMaterial3D.new()
 	olive_cloth.albedo_color = Color(0.30, 0.39, 0.20)
 	olive_cloth.roughness = 0.92
@@ -487,7 +563,6 @@ func _build_patriarch_camp_architecture() -> void:
 	heal_roof.material_override = linen_mat
 	heal_root.add_child(heal_roof)
 
-	# Hanging olive side drapes + drying herb bundles + wooden herbalist table + woven basket
 	for sx in [-1.14, 1.14]:
 		var sd := MeshInstance3D.new()
 		var sb := BoxMesh.new()
@@ -526,38 +601,28 @@ func _build_patriarch_camp_architecture() -> void:
 	basket.position = Vector3(-0.62, 0.17, 0.52)
 	heal_root.add_child(basket)
 
-	# 3. Altar Fire & Rising White Smoke on North-Central Rocky Rise (1.0, -4.9)
+	# 3. Altar Shader Fire & Drifting Smoke on North-Central Rocky Rise (1.0, -4.9)
 	var ay: float = get_terrain_height(1.0, -4.9)
-	var altar_fire := Node3D.new()
-	altar_fire.position = Vector3(1.0, ay + 0.34, -4.9)
-	altar_fire.scale = Vector3(1.4, 1.4, 1.4)
-	root.add_child(altar_fire)
-	flame_nodes.append(altar_fire)
-
-	var aflame_out := MeshInstance3D.new()
-	aflame_out.mesh = fcone
-	aflame_out.material_override = fire_outer_mat
-	aflame_out.position = Vector3(0.0, 0.24, 0.0)
-	altar_fire.add_child(aflame_out)
-
-	var aflame_in := MeshInstance3D.new()
-	aflame_in.mesh = fcone
-	aflame_in.material_override = fire_inner_mat
-	aflame_in.scale = Vector3(0.55, 0.72, 0.55)
-	aflame_in.position = Vector3(0.0, 0.18, 0.0)
-	altar_fire.add_child(aflame_in)
+	var aflame := MeshInstance3D.new()
+	aflame.mesh = flame_card_mesh
+	aflame.material_override = flame_shader_mat
+	aflame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	aflame.position = Vector3(1.0, ay + 0.30, -4.9)
+	aflame.scale = Vector3(1.55, 1.55, 1.55)
+	root.add_child(aflame)
 
 	var smoke_mat := StandardMaterial3D.new()
-	smoke_mat.albedo_color = Color(0.95, 0.92, 0.86, 0.34)
+	smoke_mat.albedo_color = Color(0.95, 0.92, 0.86, 0.30)
 	smoke_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	smoke_mat.roughness = 1.0
 	for k in range(3):
 		var sm := MeshInstance3D.new()
 		var sp := SphereMesh.new()
-		sp.radius = 0.26 + float(k) * 0.14
+		sp.radius = 0.28 + float(k) * 0.14
 		sp.height = sp.radius * 1.4
 		sm.mesh = sp
 		sm.material_override = smoke_mat
+		sm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		sm.position = Vector3(1.0 + float(k) * 0.12, ay + 1.25 + float(k) * 0.48, -4.9 - float(k) * 0.08)
 		root.add_child(sm)
 		smoke_nodes.append(sm)
@@ -580,15 +645,14 @@ func _build_spring_waterfall() -> void:
 	water.position = Vector3(sx, sy, sz)
 	add_child(water)
 
-	# Tapered cascading spring stream + foam stones feeding the teal pool
 	var fall := MeshInstance3D.new()
 	var fc := CylinderMesh.new()
 	fc.top_radius = 0.14
-	fc.bottom_radius = 0.34
+	fc.bottom_radius = 0.36
 	fc.height = 0.92
 	fall.mesh = fc
 	var fmat := StandardMaterial3D.new()
-	fmat.albedo_color = Color(0.78, 0.91, 0.92, 0.78)
+	fmat.albedo_color = Color(0.76, 0.90, 0.92, 0.78)
 	fmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	fmat.roughness = 0.22
 	fall.material_override = fmat
@@ -597,72 +661,91 @@ func _build_spring_waterfall() -> void:
 	add_child(fall)
 
 
-func _make_human_figure(pos: Vector3, tunic_col: Color, cloak_col: Color, has_beard: bool, has_crook: bool) -> Node3D:
+func _make_human_figure(pos: Vector3, cloak_col: Color, has_beard: bool, has_crook: bool) -> Node3D:
 	var fig := Node3D.new()
 	fig.position = Vector3(pos.x, get_terrain_height(pos.x, pos.z), pos.z)
 
 	var skin_mat := StandardMaterial3D.new()
-	skin_mat.albedo_color = Color(0.76, 0.56, 0.40)
+	skin_mat.albedo_color = Color(0.74, 0.54, 0.38)
 	skin_mat.roughness = 0.82
 
 	var hair_mat := StandardMaterial3D.new()
-	hair_mat.albedo_color = Color(0.32, 0.28, 0.24) if has_beard else Color(0.20, 0.14, 0.10)
+	hair_mat.albedo_color = Color(0.32, 0.28, 0.24) if has_beard else Color(0.18, 0.12, 0.09)
 	hair_mat.roughness = 0.92
 
 	var tunic_mat := StandardMaterial3D.new()
-	tunic_mat.albedo_color = tunic_col
-	tunic_mat.roughness = 0.90
+	tunic_mat.albedo_texture = load("res://assets/textures/linen_tunic_albedo.png")
+	tunic_mat.roughness = 0.92
 
 	var cloak_mat := StandardMaterial3D.new()
 	cloak_mat.albedo_color = cloak_col
 	cloak_mat.roughness = 0.90
 
-	var trim_mat := StandardMaterial3D.new()
-	trim_mat.albedo_color = Color(0.18, 0.30, 0.52) # Tekhelet trim
-	trim_mat.roughness = 0.85
+	var leather_mat := StandardMaterial3D.new()
+	leather_mat.albedo_color = Color(0.36, 0.21, 0.11)
+	leather_mat.roughness = 0.85
 
-	# 4.0 head-tall stylized Levantine silhouette (total height ~1.52m)
+	# Woven Linen Tunic with Geometric Tekhelet & Pomegranate Hem
 	var skirt := MeshInstance3D.new()
 	var scyl := CylinderMesh.new()
 	scyl.top_radius = 0.17
-	scyl.bottom_radius = 0.25
-	scyl.height = 0.88
+	scyl.bottom_radius = 0.26
+	scyl.height = 0.92
 	skirt.mesh = scyl
 	skirt.material_override = tunic_mat
-	skirt.position = Vector3(0.0, 0.52, 0.0)
+	skirt.position = Vector3(0.0, 0.54, 0.0)
 	fig.add_child(skirt)
-
-	var hem := MeshInstance3D.new()
-	var hcyl := CylinderMesh.new()
-	hcyl.top_radius = 0.245
-	hcyl.bottom_radius = 0.258
-	hcyl.height = 0.10
-	hem.mesh = hcyl
-	hem.material_override = trim_mat
-	hem.position = Vector3(0.0, 0.14, 0.0)
-	fig.add_child(hem)
 
 	var torso := MeshInstance3D.new()
 	var tcyl := CylinderMesh.new()
 	tcyl.top_radius = 0.20
 	tcyl.bottom_radius = 0.17
-	tcyl.height = 0.42
+	tcyl.height = 0.40
 	torso.mesh = tcyl
 	torso.material_override = tunic_mat
-	torso.position = Vector3(0.0, 1.02, 0.0)
+	torso.position = Vector3(0.0, 1.04, 0.0)
 	fig.add_child(torso)
 
-	# Shoulder mantle draped diagonally
 	var cloak := MeshInstance3D.new()
 	var cbox := BoxMesh.new()
-	cbox.size = Vector3(0.18, 0.65, 0.34)
+	cbox.size = Vector3(0.18, 0.68, 0.36)
 	cloak.mesh = cbox
 	cloak.material_override = cloak_mat
 	cloak.position = Vector3(-0.15, 0.94, -0.02)
 	cloak.rotation_degrees = Vector3(0.0, 0.0, 8.0)
 	fig.add_child(cloak)
 
-	# Head & bareheaded wavy hair (NO turban / NO keffiyeh!)
+	var belt := MeshInstance3D.new()
+	var belt_c := CylinderMesh.new()
+	belt_c.top_radius = 0.195
+	belt_c.bottom_radius = 0.195
+	belt_c.height = 0.08
+	belt.mesh = belt_c
+	belt.material_override = leather_mat
+	belt.position = Vector3(0.0, 0.88, 0.0)
+	fig.add_child(belt)
+
+	for side in [-1.0, 1.0]:
+		var arm := MeshInstance3D.new()
+		var ac := CylinderMesh.new()
+		ac.top_radius = 0.068
+		ac.bottom_radius = 0.052
+		ac.height = 0.44
+		arm.mesh = ac
+		arm.material_override = tunic_mat
+		arm.position = Vector3(side * 0.24, 0.96, 0.06 if (has_crook and side > 0) else 0.0)
+		arm.rotation_degrees = Vector3(-30.0 if (has_crook and side > 0) else -10.0, 0.0, side * -14.0)
+		fig.add_child(arm)
+
+		var hand := MeshInstance3D.new()
+		var hsph := SphereMesh.new()
+		hsph.radius = 0.055
+		hsph.height = 0.11
+		hand.mesh = hsph
+		hand.material_override = skin_mat
+		hand.position = Vector3(side * 0.28, 0.78, 0.18 if (has_crook and side > 0) else 0.05)
+		fig.add_child(hand)
+
 	var head := MeshInstance3D.new()
 	var hsp := SphereMesh.new()
 	hsp.radius = 0.155
@@ -674,7 +757,7 @@ func _make_human_figure(pos: Vector3, tunic_col: Color, cloak_col: Color, has_be
 
 	var hair := MeshInstance3D.new()
 	var hair_sp := SphereMesh.new()
-	hair_sp.radius = 0.168
+	hair_sp.radius = 0.172
 	hair_sp.height = 0.28
 	hair.mesh = hair_sp
 	hair.material_override = hair_mat
@@ -684,48 +767,12 @@ func _make_human_figure(pos: Vector3, tunic_col: Color, cloak_col: Color, has_be
 	if has_beard:
 		var beard := MeshInstance3D.new()
 		var bsp := SphereMesh.new()
-		bsp.radius = 0.115
+		bsp.radius = 0.118
 		bsp.height = 0.19
 		beard.mesh = bsp
 		beard.material_override = hair_mat
 		beard.position = Vector3(0.0, 1.28, 0.08)
 		fig.add_child(beard)
-
-	# Leather waist belt
-	var belt := MeshInstance3D.new()
-	var belt_c := CylinderMesh.new()
-	belt_c.top_radius = 0.195
-	belt_c.bottom_radius = 0.195
-	belt_c.height = 0.08
-	belt.mesh = belt_c
-	var leather_mat := StandardMaterial3D.new()
-	leather_mat.albedo_color = Color(0.36, 0.21, 0.11)
-	leather_mat.roughness = 0.85
-	belt.material_override = leather_mat
-	belt.position = Vector3(0.0, 0.88, 0.0)
-	fig.add_child(belt)
-
-	# Left & Right Sculpted Arms (tunic sleeve + forearm)
-	for side in [-1.0, 1.0]:
-		var arm := MeshInstance3D.new()
-		var ac := CylinderMesh.new()
-		ac.top_radius = 0.068
-		ac.bottom_radius = 0.052
-		ac.height = 0.44
-		arm.mesh = ac
-		arm.material_override = tunic_mat
-		arm.position = Vector3(side * 0.24, 0.96, 0.05 if (has_crook and side > 0) else 0.0)
-		arm.rotation_degrees = Vector3(-28.0 if (has_crook and side > 0) else -10.0, 0.0, side * -14.0)
-		fig.add_child(arm)
-
-		var hand := MeshInstance3D.new()
-		var hsph := SphereMesh.new()
-		hsph.radius = 0.055
-		hsph.height = 0.11
-		hand.mesh = hsph
-		hand.material_override = skin_mat
-		hand.position = Vector3(side * 0.28, 0.78, 0.16 if (has_crook and side > 0) else 0.05)
-		fig.add_child(hand)
 
 	if has_crook:
 		var staff := MeshInstance3D.new()
@@ -754,45 +801,23 @@ func _make_human_figure(pos: Vector3, tunic_col: Color, cloak_col: Color, has_be
 
 
 func _build_characters() -> void:
-	# 1. Patriarch Abram (4.0 head-tall, bareheaded wavy hair, linen tunic + blue-gray mantle)
-	abram_actor = _make_human_figure(
-		Vector3(-1.85, 0.0, 1.25),
-		Color(0.88, 0.82, 0.69),
-		Color(0.28, 0.36, 0.50),
-		true,
-		true
-	)
+	abram_actor = _make_human_figure(Vector3(-1.85, 0.0, 1.25), Color(0.28, 0.36, 0.50), true, true)
 	abram_actor.name = "AbramStylized"
 	abram_actor.rotation_degrees = Vector3(0.0, 65.0, 0.0)
 	add_child(abram_actor)
 
-	# 2. Sarai conversing with Abram in courtyard
-	var sarai := _make_human_figure(
-		Vector3(-0.75, 0.0, 1.30),
-		Color(0.86, 0.78, 0.64),
-		Color(0.68, 0.42, 0.28),
-		false,
-		false
-	)
+	var sarai := _make_human_figure(Vector3(-0.75, 0.0, 1.30), Color(0.68, 0.42, 0.28), false, false)
 	sarai.name = "SaraiStylized"
 	sarai.scale = Vector3(0.94, 0.94, 0.94)
 	sarai.rotation_degrees = Vector3(0.0, -75.0, 0.0)
 	add_child(sarai)
 
-	# 3. Herbalist tending balm table inside Healing Canopy
-	var healer := _make_human_figure(
-		Vector3(1.15, 0.0, -0.35),
-		Color(0.82, 0.77, 0.64),
-		Color(0.36, 0.44, 0.24),
-		false,
-		false
-	)
+	var healer := _make_human_figure(Vector3(1.15, 0.0, -0.35), Color(0.34, 0.42, 0.22), false, false)
 	healer.scale = Vector3(0.92, 0.92, 0.92)
 	add_child(healer)
 
 
 func _build_sheep_flocks() -> void:
-	# Batched GPU-instanced grazing flocks (2 Draw Calls total for all 9 sheep!)
 	var wool_mat := StandardMaterial3D.new()
 	wool_mat.albedo_color = Color(0.88, 0.84, 0.74)
 	wool_mat.roughness = 0.95
@@ -869,24 +894,18 @@ func _build_sheep_flocks() -> void:
 
 
 func _build_olive_groves() -> void:
-	# Batched GPU-instanced olive groves (3 Draw Calls total for all 6 trees & 36 foliage clusters!)
+	# Sculpted multi-branch olive trees with alpha-cutout leaf cards (ONLY 2 Draw Calls total!)
 	var bark_mat := StandardMaterial3D.new()
 	bark_mat.albedo_color = Color(0.32, 0.21, 0.13)
 	bark_mat.roughness = 0.95
 
-	var leaf_mat := StandardMaterial3D.new()
-	leaf_mat.albedo_texture = load("res://assets/textures/terrain_grass_albedo.png")
-	leaf_mat.normal_enabled = true
-	leaf_mat.normal_texture = load("res://assets/textures/terrain_grass_normal.png")
-	leaf_mat.albedo_color = Color(0.60, 0.66, 0.46)
-	leaf_mat.roughness = 0.94
-
-	var leaf_mat_hi := StandardMaterial3D.new()
-	leaf_mat_hi.albedo_texture = load("res://assets/textures/terrain_grass_albedo.png")
-	leaf_mat_hi.normal_enabled = true
-	leaf_mat_hi.normal_texture = load("res://assets/textures/terrain_grass_normal.png")
-	leaf_mat_hi.albedo_color = Color(0.76, 0.80, 0.56)
-	leaf_mat_hi.roughness = 0.92
+	var leaf_mat := ShaderMaterial.new()
+	leaf_mat.shader = load("res://shaders/foliage_sway.gdshader")
+	leaf_mat.set_shader_parameter("albedo_tex", load("res://assets/textures/olive_leaves_alpha.png"))
+	leaf_mat.set_shader_parameter("tint_bottom", Color(0.46, 0.52, 0.32))
+	leaf_mat.set_shader_parameter("tint_top", Color(0.96, 0.98, 0.82))
+	leaf_mat.set_shader_parameter("wind_strength", 0.05)
+	leaf_mat.set_shader_parameter("wind_speed", 1.3)
 
 	var tree_spots: Array[Vector3] = [
 		Vector3(-7.6, 0.0, -4.6),
@@ -897,39 +916,38 @@ func _build_olive_groves() -> void:
 		Vector3(4.2, 0.0, -6.8),
 	]
 	var offsets: Array[Vector3] = [
-		Vector3(0.0, 1.75, 0.0),
-		Vector3(-0.68, 1.54, 0.28),
-		Vector3(0.68, 1.56, -0.24),
-		Vector3(0.20, 1.60, 0.58),
-		Vector3(-0.30, 1.52, -0.56),
-		Vector3(0.32, 1.94, 0.12),
+		Vector3(0.0, 1.85, 0.0),
+		Vector3(-0.78, 1.58, 0.34),
+		Vector3(0.78, 1.62, -0.28),
+		Vector3(0.24, 1.64, 0.68),
+		Vector3(-0.34, 1.56, -0.66),
+		Vector3(0.28, 2.08, 0.12),
+		Vector3(-0.42, 1.96, 0.26),
 	]
 
 	var trunk_tfs: Array[Transform3D] = []
-	var leaf_dark_tfs: Array[Transform3D] = []
-	var leaf_hi_tfs: Array[Transform3D] = []
-
+	var leaf_tfs: Array[Transform3D] = []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 407
+
 	for spot in tree_spots:
 		var ty: float = get_terrain_height(spot.x, spot.z)
-		var sf: float = rng.randf_range(0.90, 1.22)
+		var sf: float = rng.randf_range(0.92, 1.24)
+		# Main trunk + 2 forked upper limbs
 		var tb := Basis().rotated(Vector3.RIGHT, deg_to_rad(rng.randf_range(-6.0, 6.0))).rotated(Vector3.FORWARD, deg_to_rad(rng.randf_range(-8.0, 8.0))).scaled(Vector3(sf, sf, sf))
-		trunk_tfs.append(Transform3D(tb, Vector3(spot.x, ty + 0.74 * sf, spot.z)))
+		trunk_tfs.append(Transform3D(tb, Vector3(spot.x, ty + 0.72 * sf, spot.z)))
+		trunk_tfs.append(Transform3D(Basis().rotated(Vector3.FORWARD, 0.48).scaled(Vector3(sf * 0.58, sf * 0.65, sf * 0.58)), Vector3(spot.x - 0.32 * sf, ty + 1.28 * sf, spot.z + 0.1 * sf)))
+		trunk_tfs.append(Transform3D(Basis().rotated(Vector3.FORWARD, -0.45).scaled(Vector3(sf * 0.58, sf * 0.65, sf * 0.58)), Vector3(spot.x + 0.34 * sf, ty + 1.26 * sf, spot.z - 0.1 * sf)))
 
 		for j in range(offsets.size()):
 			var off: Vector3 = offsets[j] * sf
-			var rad: float = rng.randf_range(0.55, 0.78) * sf
-			var lb := Basis().rotated(Vector3.UP, rng.randf_range(0.0, TAU)).scaled(Vector3(rad, rad * 0.65, rad))
-			var tf := Transform3D(lb, Vector3(spot.x + off.x, ty + off.y, spot.z + off.z))
-			if j % 2 == 0:
-				leaf_hi_tfs.append(tf)
-			else:
-				leaf_dark_tfs.append(tf)
+			var rad: float = rng.randf_range(1.15, 1.65) * sf
+			var lb := Basis().rotated(Vector3.UP, rng.randf_range(0.0, TAU)).rotated(Vector3.RIGHT, deg_to_rad(rng.randf_range(-16.0, 16.0))).scaled(Vector3(rad, rad * 0.72, rad))
+			leaf_tfs.append(Transform3D(lb, Vector3(spot.x + off.x, ty + off.y, spot.z + off.z)))
 
 	var tcyl := CylinderMesh.new()
 	tcyl.top_radius = 0.14
-	tcyl.bottom_radius = 0.24
+	tcyl.bottom_radius = 0.25
 	tcyl.height = 1.48
 	tcyl.radial_segments = 7
 	var t_mm := MultiMesh.new()
@@ -943,23 +961,62 @@ func _build_olive_groves() -> void:
 	t_node.material_override = bark_mat
 	add_child(t_node)
 
-	var lmesh := SphereMesh.new()
-	lmesh.radius = 1.0
-	lmesh.height = 1.7
-	lmesh.radial_segments = 8
-	lmesh.rings = 5
-	for pair in [[leaf_dark_tfs, leaf_mat], [leaf_hi_tfs, leaf_mat_hi]]:
-		var arr: Array[Transform3D] = pair[0]
-		var l_mm := MultiMesh.new()
-		l_mm.transform_format = MultiMesh.TRANSFORM_3D
-		l_mm.mesh = lmesh
-		l_mm.instance_count = arr.size()
-		for i in range(arr.size()):
-			l_mm.set_instance_transform(i, arr[i])
-		var l_node := MultiMeshInstance3D.new()
-		l_node.multimesh = l_mm
-		l_node.material_override = pair[1]
-		add_child(l_node)
+	var l_mm := MultiMesh.new()
+	l_mm.transform_format = MultiMesh.TRANSFORM_3D
+	l_mm.mesh = _make_crossed_card_mesh(1.0, 1.0, true)
+	l_mm.instance_count = leaf_tfs.size()
+	for i in range(leaf_tfs.size()):
+		l_mm.set_instance_transform(i, leaf_tfs[i])
+	var l_node := MultiMeshInstance3D.new()
+	l_node.multimesh = l_mm
+	l_node.material_override = leaf_mat
+	add_child(l_node)
+
+
+func _build_grass_meadow_multimesh() -> void:
+	# 1,500 GPU-instanced wind-swaying grass & wildflower tufts (1 Draw Call!)
+	var grass_mat := ShaderMaterial.new()
+	grass_mat.shader = load("res://shaders/foliage_sway.gdshader")
+	grass_mat.set_shader_parameter("albedo_tex", load("res://assets/textures/grass_tuft_alpha.png"))
+	grass_mat.set_shader_parameter("tint_bottom", Color(0.42, 0.48, 0.22))
+	grass_mat.set_shader_parameter("tint_top", Color(0.98, 0.96, 0.72))
+	grass_mat.set_shader_parameter("wind_strength", 0.07)
+	grass_mat.set_shader_parameter("wind_speed", 2.0)
+
+	var tfs: Array[Transform3D] = []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 2026
+	for _i in range(1800):
+		var gx: float = rng.randf_range(-14.0, 13.0)
+		var gz: float = rng.randf_range(-9.5, 9.5)
+		# Keep courtyard floor, spring water & main dirt path clear
+		if Vector2((gx + 2.0) * 0.65, (gz - 0.2) * 0.92).length() < 4.9:
+			continue
+		if Vector2(gx + 7.8, gz + 1.2).length() < 2.4:
+			continue
+		var trail_front: float = abs(gz - (3.8 - (gx + 1.0) * 0.22))
+		var trail_right: float = abs(gx - (4.2 + sin(gz * 0.24) * 1.1))
+		if minf(trail_front, trail_right) < 1.15:
+			continue
+		var gy: float = get_terrain_height(gx, gz)
+		if gy > 1.05:
+			continue # rocky altar peak stays bare limestone
+		var s: float = rng.randf_range(0.34, 0.66)
+		var b := Basis().rotated(Vector3.UP, rng.randf_range(0.0, TAU)).scaled(Vector3(s, s * rng.randf_range(0.8, 1.3), s))
+		tfs.append(Transform3D(b, Vector3(gx, gy - 0.02, gz)))
+
+	var g_mm := MultiMesh.new()
+	g_mm.transform_format = MultiMesh.TRANSFORM_3D
+	g_mm.mesh = _make_crossed_card_mesh(0.85, 0.65, false)
+	g_mm.instance_count = tfs.size()
+	for i in range(tfs.size()):
+		g_mm.set_instance_transform(i, tfs[i])
+
+	var g_node := MultiMeshInstance3D.new()
+	g_node.multimesh = g_mm
+	g_node.material_override = grass_mat
+	g_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(g_node)
 
 
 func _build_set_dressing_multimesh() -> void:
@@ -967,42 +1024,38 @@ func _build_set_dressing_multimesh() -> void:
 	rock_mat.albedo_texture = load("res://assets/textures/rock_boulder_albedo.png")
 	rock_mat.normal_enabled = true
 	rock_mat.normal_texture = load("res://assets/textures/rock_boulder_normal.png")
-	rock_mat.albedo_color = Color(0.84, 0.78, 0.67)
+	rock_mat.albedo_color = Color(0.82, 0.76, 0.65)
 	rock_mat.roughness = 0.94
 
+	# Sculpted faceted Canaanite limestone boulder mesh (NO smooth spheres!)
 	var rock_mm := MultiMesh.new()
 	rock_mm.transform_format = MultiMesh.TRANSFORM_3D
-	var rock_mesh := SphereMesh.new()
-	rock_mesh.radius = 0.44
-	rock_mesh.height = 0.54
-	rock_mesh.radial_segments = 8
-	rock_mesh.rings = 5
-	rock_mm.mesh = rock_mesh
+	rock_mm.mesh = _make_sculpted_rock_mesh(13)
 
 	var rock_transforms: Array[Transform3D] = []
 
 	# 12-Stone Covenant Altar on north rise (1.0, -4.9)
 	for i in range(12):
 		var ang: float = float(i) / 12.0 * TAU
-		var rx: float = 1.0 + cos(ang) * 1.05
-		var rz: float = -4.9 + sin(ang) * 1.05
-		var ry: float = get_terrain_height(rx, rz) + 0.18
-		var b := Basis().rotated(Vector3.UP, ang).scaled(Vector3(1.15, 0.95, 1.05))
+		var rx: float = 1.0 + cos(ang) * 1.08
+		var rz: float = -4.9 + sin(ang) * 1.08
+		var ry: float = get_terrain_height(rx, rz) + 0.16
+		var b := Basis().rotated(Vector3.UP, ang).scaled(Vector3(1.18, 0.95, 1.05))
 		rock_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
 
-	# Tightly stacked organic dry-stone courtyard retaining wall (2 tiers, leaving front step gap at x in [-2.3, -0.4])
+	# 2-tier sculpted dry-stone courtyard retaining wall
 	for tier in range(2):
 		for i in range(44):
 			var ang: float = float(i) / 44.0 * TAU
 			var rx: float = -1.75 + cos(ang) * 4.55
 			var rz: float = 0.25 + sin(ang) * 2.65
 			if rz > 2.2 and rx > -2.35 and rx < -0.35:
-				continue # front stone steps opening
+				continue
 			var ry: float = get_terrain_height(rx, rz) + 0.08 + float(tier) * 0.28
 			var b := Basis().rotated(Vector3.UP, ang + float(tier) * 0.2).scaled(Vector3(0.95, 0.56, 0.78))
 			rock_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
 
-	# Western spring rim boulders
+	# Western spring cliff boulders
 	for i in range(14):
 		var ang: float = float(i) / 14.0 * TAU
 		var rx: float = -7.8 + cos(ang) * 2.2
@@ -1013,13 +1066,13 @@ func _build_set_dressing_multimesh() -> void:
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1318
-	for i in range(52):
+	for _i in range(52):
 		var rx: float = rng.randf_range(-14.0, 13.0)
 		var rz: float = rng.randf_range(-10.0, 9.0)
-		if Vector2(rx + 2.2, rz - 0.2).length() < 5.6:
+		if Vector2(rx + 2.0, rz - 0.2).length() < 5.6:
 			continue
 		var ry: float = get_terrain_height(rx, rz) + 0.04
-		var s: float = rng.randf_range(0.55, 1.45)
+		var s: float = rng.randf_range(0.55, 1.55)
 		var b := Basis().rotated(Vector3.UP, rng.randf_range(0, TAU)).scaled(Vector3(s, s * 0.65, s * 0.9))
 		rock_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
 
@@ -1031,46 +1084,6 @@ func _build_set_dressing_multimesh() -> void:
 	rock_node.multimesh = rock_mm
 	rock_node.material_override = rock_mat
 	add_child(rock_node)
-
-	# Olive shrubs & golden wildflower tufts
-	var bush_mm := MultiMesh.new()
-	bush_mm.transform_format = MultiMesh.TRANSFORM_3D
-	bush_mm.use_colors = true
-	var bush_mesh := SphereMesh.new()
-	bush_mesh.radius = 0.32
-	bush_mesh.height = 0.44
-	bush_mesh.radial_segments = 7
-	bush_mesh.rings = 4
-	bush_mm.mesh = bush_mesh
-
-	var bush_transforms: Array[Transform3D] = []
-	var bush_colors: Array[Color] = []
-	for i in range(75):
-		var bx: float = rng.randf_range(-13.5, 12.5)
-		var bz: float = rng.randf_range(-9.5, 9.0)
-		if Vector2(bx + 2.2, bz - 0.2).length() < 4.9:
-			continue
-		var by: float = get_terrain_height(bx, bz) + 0.12
-		var s: float = rng.randf_range(0.55, 1.25)
-		var b := Basis().scaled(Vector3(s, s * 0.72, s))
-		bush_transforms.append(Transform3D(b, Vector3(bx, by, bz)))
-		if i % 5 == 0:
-			bush_colors.append(Color(0.80, 0.66, 0.18))
-		else:
-			bush_colors.append(Color(rng.randf_range(0.22, 0.34), rng.randf_range(0.32, 0.42), rng.randf_range(0.14, 0.20)))
-
-	bush_mm.instance_count = bush_transforms.size()
-	for i in range(bush_transforms.size()):
-		bush_mm.set_instance_transform(i, bush_transforms[i])
-		bush_mm.set_instance_color(i, bush_colors[i])
-
-	var bush_mat := StandardMaterial3D.new()
-	bush_mat.vertex_color_use_as_albedo = true
-	bush_mat.roughness = 0.92
-	var bush_node := MultiMeshInstance3D.new()
-	bush_node.multimesh = bush_mm
-	bush_node.material_override = bush_mat
-	add_child(bush_node)
 
 
 func _build_mobile_hud() -> void:
@@ -1161,10 +1174,6 @@ func _order_move_from_screen(screen_pos: Vector2) -> void:
 
 func _process(delta: float) -> void:
 	anim_time += delta
-	for i in range(flame_nodes.size()):
-		var fn: Node3D = flame_nodes[i]
-		var flick: float = 1.0 + sin(anim_time * 9.5 + float(i) * 2.1) * 0.14
-		fn.scale = Vector3(1.0, flick, 1.0) * (1.4 if i == 1 else 1.0)
 	for k in range(smoke_nodes.size()):
 		var sm: Node3D = smoke_nodes[k]
 		sm.position.x = 1.0 + float(k) * 0.12 + sin(anim_time * 1.4 + float(k)) * 0.08

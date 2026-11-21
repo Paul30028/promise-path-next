@@ -201,6 +201,83 @@ def make_linen_canopy():
     alb.save(os.path.join(OUT, "linen_canopy_albedo.png"))
 
 
+def make_olive_leaves_alpha():
+    rng = random.Random(707)
+    size = 256
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    cx, cy = size // 2, size // 2
+    # Organic cluster of elongated Mediterranean olive leaves (silver-green & deep olive)
+    for _ in range(135):
+        ang = rng.uniform(0, math.tau)
+        dist = rng.uniform(0, 92)
+        x = cx + math.cos(ang) * dist
+        y = cy + math.sin(ang) * dist
+        leaf_ang = ang + rng.uniform(-0.7, 0.7)
+        lw = rng.uniform(14, 24)
+        lh = rng.uniform(6, 10)
+        ca, sa = math.cos(leaf_ang), math.sin(leaf_ang)
+        pts = [
+            (x - ca * lw, y - sa * lw),
+            (x - sa * lh, y + ca * lh),
+            (x + ca * lw, y + sa * lw),
+            (x + sa * lh, y - ca * lh),
+        ]
+        # Top leaves warmer sunlit silver-olive, inner leaves deeper shadow olive
+        shade = 1.0 - (dist / 120.0) * 0.25 + rng.uniform(-0.12, 0.15)
+        r = int(max(40, min(175, 108 * shade)))
+        g = int(max(55, min(190, 124 * shade)))
+        b = int(max(28, min(110, 62 * shade)))
+        d.polygon(pts, fill=(r, g, b, 255))
+    img.save(os.path.join(OUT, "olive_leaves_alpha.png"))
+
+
+def make_grass_tuft_alpha():
+    rng = random.Random(808)
+    size = 256
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    # 28 curved sunlit grass blades radiating from base
+    for i in range(28):
+        bx = 36 + int((i / 27.0) * 184) + rng.randint(-6, 6)
+        bh = rng.randint(115, 225)
+        lean = rng.randint(-46, 46)
+        w_base = rng.randint(6, 10)
+        # Base darker olive, tip warm golden-olive
+        pts = [
+            (bx - w_base, size - 2),
+            (bx + w_base, size - 2),
+            (bx + lean, size - bh),
+        ]
+        c = (rng.randint(105, 148), rng.randint(118, 152), rng.randint(44, 68), 255)
+        d.polygon(pts, fill=c)
+    # Occasional warm golden wildflower dots at blade tips
+    for _ in range(4):
+        fx = rng.randint(60, 196)
+        fy = rng.randint(40, 110)
+        d.ellipse((fx - 7, fy - 7, fx + 7, fy + 7), fill=(235, 198, 68, 255))
+    img.save(os.path.join(OUT, "grass_tuft_alpha.png"))
+
+
+def make_linen_tunic():
+    rng = random.Random(909)
+    size = 256
+    img = Image.new("RGB", (size, size), (214, 198, 166))
+    d = ImageDraw.Draw(img)
+    # Natural unbleached linen weave
+    for y in range(0, size, 3):
+        v = rng.randint(-8, 8)
+        d.line((0, y, size, y), fill=(214 + v, 198 + v, 166 + v), width=2)
+    for x in range(0, size, 4):
+        d.line((x, 0, x, size), fill=(198, 182, 150), width=1)
+    # Bottom geometric Tekhelet blue & pomegranate-red hem band
+    d.rectangle((0, size - 44, size, size - 16), fill=(44, 72, 118))
+    d.rectangle((0, size - 38, size, size - 22), fill=(176, 78, 60))
+    for x in range(8, size, 24):
+        d.polygon([(x, size - 38), (x + 10, size - 30), (x, size - 22), (x - 10, size - 30)], fill=(224, 198, 132))
+    img.save(os.path.join(OUT, "linen_tunic_albedo.png"))
+
+
 make_grass()
 make_dirt()
 make_rock()
@@ -208,4 +285,7 @@ make_boulder_stone()
 make_linen_canopy()
 make_goathair_tent()
 make_tekhelet_tapestry()
+make_olive_leaves_alpha()
+make_grass_tuft_alpha()
+make_linen_tunic()
 print("PBR_TEXTURES_OK:", sorted(os.listdir(OUT)))
