@@ -17,6 +17,7 @@ var status_note: String = "点击地面移动亚伯兰，或使用下方情境�
 var status_label: Label = null
 var anim_time: float = 0.0
 var smoke_nodes: Array[Node3D] = []
+var active_glb_slots: int = 0
 
 
 static func get_terrain_height(x: float, z: float) -> float:
@@ -332,60 +333,65 @@ func _build_courtyard_steps_and_well() -> void:
 	well.position = Vector3(wx, wy, wz)
 	root.add_child(well)
 
-	var well_body := MeshInstance3D.new()
-	var wcyl := CylinderMesh.new()
-	wcyl.top_radius = 0.78
-	wcyl.bottom_radius = 0.86
-	wcyl.height = 0.78
-	wcyl.radial_segments = 16
-	well_body.mesh = wcyl
-	well_body.material_override = wall_mat
-	well_body.position = Vector3(0.0, 0.39, 0.0)
-	well.add_child(well_body)
+	var well_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/BLD_StoneWell.glb", 1.85, 25.0, 0.04, 0.72)
+	if well_glb != null:
+		active_glb_slots += 1
+		well.add_child(well_glb)
+	else:
+		var well_body := MeshInstance3D.new()
+		var wcyl := CylinderMesh.new()
+		wcyl.top_radius = 0.78
+		wcyl.bottom_radius = 0.86
+		wcyl.height = 0.78
+		wcyl.radial_segments = 16
+		well_body.mesh = wcyl
+		well_body.material_override = wall_mat
+		well_body.position = Vector3(0.0, 0.39, 0.0)
+		well.add_child(well_body)
 
-	var well_water := MeshInstance3D.new()
-	var wdisc := CylinderMesh.new()
-	wdisc.top_radius = 0.62
-	wdisc.bottom_radius = 0.62
-	wdisc.height = 0.04
-	well_water.mesh = wdisc
-	var wmat := ShaderMaterial.new()
-	wmat.shader = load("res://shaders/spring_water.gdshader")
-	well_water.material_override = wmat
-	well_water.position = Vector3(0.0, 0.70, 0.0)
-	well.add_child(well_water)
+		var well_water := MeshInstance3D.new()
+		var wdisc := CylinderMesh.new()
+		wdisc.top_radius = 0.62
+		wdisc.bottom_radius = 0.62
+		wdisc.height = 0.04
+		well_water.mesh = wdisc
+		var wmat := ShaderMaterial.new()
+		wmat.shader = load("res://shaders/spring_water.gdshader")
+		well_water.material_override = wmat
+		well_water.position = Vector3(0.0, 0.70, 0.0)
+		well.add_child(well_water)
 
-	for px in [-0.72, 0.72]:
-		var wp := MeshInstance3D.new()
-		var pc := CylinderMesh.new()
-		pc.top_radius = 0.055
-		pc.bottom_radius = 0.065
-		pc.height = 1.25
-		wp.mesh = pc
-		wp.material_override = wood_mat
-		wp.position = Vector3(px, 1.05, 0.0)
-		well.add_child(wp)
+		for px in [-0.72, 0.72]:
+			var wp := MeshInstance3D.new()
+			var pc := CylinderMesh.new()
+			pc.top_radius = 0.055
+			pc.bottom_radius = 0.065
+			pc.height = 1.25
+			wp.mesh = pc
+			wp.material_override = wood_mat
+			wp.position = Vector3(px, 1.05, 0.0)
+			well.add_child(wp)
 
-	var bar := MeshInstance3D.new()
-	var bc := CylinderMesh.new()
-	bc.top_radius = 0.055
-	bc.bottom_radius = 0.055
-	bc.height = 1.65
-	bar.mesh = bc
-	bar.material_override = wood_mat
-	bar.position = Vector3(0.0, 1.62, 0.0)
-	bar.rotation_degrees = Vector3(0.0, 0.0, 90.0)
-	well.add_child(bar)
+		var bar := MeshInstance3D.new()
+		var bc := CylinderMesh.new()
+		bc.top_radius = 0.055
+		bc.bottom_radius = 0.055
+		bc.height = 1.65
+		bar.mesh = bc
+		bar.material_override = wood_mat
+		bar.position = Vector3(0.0, 1.62, 0.0)
+		bar.rotation_degrees = Vector3(0.0, 0.0, 90.0)
+		well.add_child(bar)
 
-	var bucket := MeshInstance3D.new()
-	var bkc := CylinderMesh.new()
-	bkc.top_radius = 0.18
-	bkc.bottom_radius = 0.14
-	bkc.height = 0.28
-	bucket.mesh = bkc
-	bucket.material_override = wood_mat
-	bucket.position = Vector3(0.0, 1.05, 0.0)
-	well.add_child(bucket)
+		var bucket := MeshInstance3D.new()
+		var bkc := CylinderMesh.new()
+		bkc.top_radius = 0.18
+		bkc.bottom_radius = 0.14
+		bkc.height = 0.28
+		bucket.mesh = bkc
+		bucket.material_override = wood_mat
+		bucket.position = Vector3(0.0, 1.05, 0.0)
+		well.add_child(bucket)
 
 
 func _build_patriarch_camp_architecture() -> void:
@@ -432,66 +438,77 @@ func _build_patriarch_camp_architecture() -> void:
 	tent_root.position = Vector3(cx, cy, cz)
 	root.add_child(tent_root)
 
-	for p in [Vector2(-1.85, -1.15), Vector2(0.0, -1.15), Vector2(1.85, -1.15), Vector2(-1.85, 1.15), Vector2(0.0, 1.15), Vector2(1.85, 1.15)]:
-		var post := MeshInstance3D.new()
-		var cyl := CylinderMesh.new()
-		cyl.top_radius = 0.085
-		cyl.bottom_radius = 0.105
-		cyl.height = 2.0
-		post.mesh = cyl
-		post.material_override = wood_mat
-		post.position = Vector3(p.x, 0.98, p.y)
-		tent_root.add_child(post)
+	var tent_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/BLD_MainTent.glb", 2.75, -18.0, 0.04, 0.78)
+	if tent_glb != null:
+		active_glb_slots += 1
+		tent_root.add_child(tent_glb)
+	else:
+		for p in [Vector2(-1.85, -1.15), Vector2(0.0, -1.15), Vector2(1.85, -1.15), Vector2(-1.85, 1.15), Vector2(0.0, 1.15), Vector2(1.85, 1.15)]:
+			var post := MeshInstance3D.new()
+			var cyl := CylinderMesh.new()
+			cyl.top_radius = 0.085
+			cyl.bottom_radius = 0.105
+			cyl.height = 2.0
+			post.mesh = cyl
+			post.material_override = wood_mat
+			post.position = Vector3(p.x, 0.98, p.y)
+			tent_root.add_child(post)
 
-	var main_roof := MeshInstance3D.new()
-	main_roof.mesh = _make_draped_roof_mesh(4.35, 2.95, 2.42, 1.82)
-	main_roof.material_override = tent_mat
-	tent_root.add_child(main_roof)
+		var main_roof := MeshInstance3D.new()
+		main_roof.mesh = _make_draped_roof_mesh(4.35, 2.95, 2.42, 1.82)
+		main_roof.material_override = tent_mat
+		tent_root.add_child(main_roof)
 
-	var back_curtain := MeshInstance3D.new()
-	var bcb := BoxMesh.new()
-	bcb.size = Vector3(3.8, 1.8, 0.08)
-	back_curtain.mesh = bcb
-	back_curtain.material_override = tent_mat
-	back_curtain.position = Vector3(0.0, 0.95, -1.12)
-	tent_root.add_child(back_curtain)
+		var back_curtain := MeshInstance3D.new()
+		var bcb := BoxMesh.new()
+		bcb.size = Vector3(3.8, 1.8, 0.08)
+		back_curtain.mesh = bcb
+		back_curtain.material_override = tent_mat
+		back_curtain.position = Vector3(0.0, 0.95, -1.12)
+		tent_root.add_child(back_curtain)
 
-	for bx in [-1.25, 1.25]:
-		var banner := MeshInstance3D.new()
-		var plane := QuadMesh.new()
-		plane.size = Vector2(0.75, 1.12)
-		banner.mesh = plane
-		banner.material_override = tap_mat
-		banner.position = Vector3(bx, 1.18, 1.18)
-		tent_root.add_child(banner)
+		for bx in [-1.25, 1.25]:
+			var banner := MeshInstance3D.new()
+			var plane := QuadMesh.new()
+			plane.size = Vector2(0.75, 1.12)
+			banner.mesh = plane
+			banner.material_override = tap_mat
+			banner.position = Vector3(bx, 1.18, 1.18)
+			tent_root.add_child(banner)
 
-	var rug := MeshInstance3D.new()
-	var rmesh := BoxMesh.new()
-	rmesh.size = Vector3(1.85, 0.03, 1.25)
-	rug.mesh = rmesh
-	rug.material_override = tap_mat
-	rug.position = Vector3(0.0, 0.03, 0.05)
-	tent_root.add_child(rug)
+		var rug := MeshInstance3D.new()
+		var rmesh := BoxMesh.new()
+		rmesh.size = Vector3(1.85, 0.03, 1.25)
+		rug.mesh = rmesh
+		rug.material_override = tap_mat
+		rug.position = Vector3(0.0, 0.03, 0.05)
+		tent_root.add_child(rug)
 
-	for bench_x in [-0.72, 0.72]:
-		var bench := MeshInstance3D.new()
-		var bmesh := BoxMesh.new()
-		bmesh.size = Vector3(0.92, 0.32, 0.44)
-		bench.mesh = bmesh
-		bench.material_override = wood_mat
-		bench.position = Vector3(bench_x, 0.16, -0.58)
-		tent_root.add_child(bench)
+		for bench_x in [-0.72, 0.72]:
+			var bench := MeshInstance3D.new()
+			var bmesh := BoxMesh.new()
+			bmesh.size = Vector3(0.92, 0.32, 0.44)
+			bench.mesh = bmesh
+			bench.material_override = wood_mat
+			bench.position = Vector3(bench_x, 0.16, -0.58)
+			tent_root.add_child(bench)
 
-	# 3 Lathe-Turned Bronze Age Canaanite Amphorae by Left Post!
-	var amphora_mesh := _make_amphora_mesh()
-	for jar in [[Vector3(-2.15, 0.0, 1.35), 0.95], [Vector3(-1.68, 0.0, 1.56), 0.72], [Vector3(-1.35, 0.0, 1.85), 0.52]]:
-		var jm := MeshInstance3D.new()
-		jm.mesh = amphora_mesh
-		jm.material_override = clay_mat
-		jm.position = jar[0]
-		var js: float = float(jar[1])
-		jm.scale = Vector3(js, js, js)
-		tent_root.add_child(jm)
+	# 3 Lathe-Turned Bronze Age Canaanite Amphorae by Left Post (or Commercial GLB!)
+	var amphora_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/PRP_AmphoraCluster.glb", 0.96, 15.0, 0.02, 0.65)
+	if amphora_glb != null:
+		active_glb_slots += 1
+		amphora_glb.position = Vector3(-1.82, 0.0, 1.56)
+		tent_root.add_child(amphora_glb)
+	else:
+		var amphora_mesh := _make_amphora_mesh()
+		for jar in [[Vector3(-2.15, 0.0, 1.35), 0.95], [Vector3(-1.68, 0.0, 1.56), 0.72], [Vector3(-1.35, 0.0, 1.85), 0.52]]:
+			var jm := MeshInstance3D.new()
+			jm.mesh = amphora_mesh
+			jm.material_override = clay_mat
+			jm.position = jar[0]
+			var js: float = float(jar[1])
+			jm.scale = Vector3(js, js, js)
+			tent_root.add_child(jm)
 
 	# Stone Hearth + Crossed Logs + Shader Flame
 	var hearth := MeshInstance3D.new()
@@ -538,68 +555,73 @@ func _build_patriarch_camp_architecture() -> void:
 	heal_root.position = Vector3(hx, hy, hz)
 	root.add_child(heal_root)
 
-	var linen_mat := StandardMaterial3D.new()
-	linen_mat.albedo_texture = load("res://assets/textures/linen_canopy_albedo.png")
-	linen_mat.albedo_color = Color(0.84, 0.79, 0.67)
-	linen_mat.roughness = 0.93
-	linen_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var olive_cloth := StandardMaterial3D.new()
-	olive_cloth.albedo_color = Color(0.30, 0.39, 0.20)
-	olive_cloth.roughness = 0.92
+	var heal_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/BLD_HealingCanopy.glb", 2.15, -12.0, 0.04, 0.78)
+	if heal_glb != null:
+		active_glb_slots += 1
+		heal_root.add_child(heal_glb)
+	else:
+		var linen_mat := StandardMaterial3D.new()
+		linen_mat.albedo_texture = load("res://assets/textures/linen_canopy_albedo.png")
+		linen_mat.albedo_color = Color(0.84, 0.79, 0.67)
+		linen_mat.roughness = 0.93
+		linen_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		var olive_cloth := StandardMaterial3D.new()
+		olive_cloth.albedo_color = Color(0.30, 0.39, 0.20)
+		olive_cloth.roughness = 0.92
 
-	for p in [Vector2(-1.15, -0.9), Vector2(1.15, -0.9), Vector2(-1.15, 0.9), Vector2(1.15, 0.9)]:
-		var post := MeshInstance3D.new()
-		var cyl := CylinderMesh.new()
-		cyl.top_radius = 0.06
-		cyl.bottom_radius = 0.07
-		cyl.height = 1.72
-		post.mesh = cyl
-		post.material_override = wood_mat
-		post.position = Vector3(p.x, 0.86, p.y)
-		heal_root.add_child(post)
+		for p in [Vector2(-1.15, -0.9), Vector2(1.15, -0.9), Vector2(-1.15, 0.9), Vector2(1.15, 0.9)]:
+			var post := MeshInstance3D.new()
+			var cyl := CylinderMesh.new()
+			cyl.top_radius = 0.06
+			cyl.bottom_radius = 0.07
+			cyl.height = 1.72
+			post.mesh = cyl
+			post.material_override = wood_mat
+			post.position = Vector3(p.x, 0.86, p.y)
+			heal_root.add_child(post)
 
-	var heal_roof := MeshInstance3D.new()
-	heal_roof.mesh = _make_draped_roof_mesh(2.70, 2.25, 2.02, 1.56)
-	heal_roof.material_override = linen_mat
-	heal_root.add_child(heal_roof)
+		var heal_roof := MeshInstance3D.new()
+		heal_roof.mesh = _make_draped_roof_mesh(2.70, 2.25, 2.02, 1.56)
+		heal_roof.material_override = linen_mat
+		heal_root.add_child(heal_roof)
 
-	for sx in [-1.14, 1.14]:
-		var sd := MeshInstance3D.new()
-		var sb := BoxMesh.new()
-		sb.size = Vector3(0.07, 1.35, 1.72)
-		sd.mesh = sb
-		sd.material_override = olive_cloth
-		sd.position = Vector3(sx, 1.0, 0.0)
-		heal_root.add_child(sd)
+		for sx in [-1.14, 1.14]:
+			var sd := MeshInstance3D.new()
+			var sb := BoxMesh.new()
+			sb.size = Vector3(0.07, 1.35, 1.72)
+			sd.mesh = sb
+			sd.material_override = olive_cloth
+			sd.position = Vector3(sx, 1.0, 0.0)
+			heal_root.add_child(sd)
 
-	for hx_b in [-0.55, -0.22, 0.12]:
-		var herb := MeshInstance3D.new()
-		var hc := CylinderMesh.new()
-		hc.top_radius = 0.03
-		hc.bottom_radius = 0.09
-		hc.height = 0.34
-		herb.mesh = hc
-		herb.material_override = olive_cloth
-		herb.position = Vector3(hx_b, 1.38, 0.88)
-		heal_root.add_child(herb)
+		for hx_b in [-0.55, -0.22, 0.12]:
+			var herb := MeshInstance3D.new()
+			var hc := CylinderMesh.new()
+			hc.top_radius = 0.03
+			hc.bottom_radius = 0.09
+			hc.height = 0.34
+			herb.mesh = hc
+			herb.material_override = olive_cloth
+			herb.position = Vector3(hx_b, 1.38, 0.88)
+			heal_root.add_child(herb)
 
-	var table := MeshInstance3D.new()
-	var tb := BoxMesh.new()
-	tb.size = Vector3(1.25, 0.56, 0.58)
-	table.mesh = tb
-	table.material_override = wood_mat
-	table.position = Vector3(0.15, 0.28, 0.32)
-	heal_root.add_child(table)
+		var table := MeshInstance3D.new()
+		var tb := BoxMesh.new()
+		tb.size = Vector3(1.25, 0.56, 0.58)
+		table.mesh = tb
+		table.material_override = wood_mat
+		table.position = Vector3(0.15, 0.28, 0.32)
+		heal_root.add_child(table)
 
-	var basket := MeshInstance3D.new()
-	var bkc := CylinderMesh.new()
-	bkc.top_radius = 0.24
-	bkc.bottom_radius = 0.18
-	bkc.height = 0.34
-	basket.mesh = bkc
-	basket.material_override = linen_mat
-	basket.position = Vector3(-0.62, 0.17, 0.52)
-	heal_root.add_child(basket)
+		var basket := MeshInstance3D.new()
+		var bkc := CylinderMesh.new()
+		bkc.top_radius = 0.24
+		bkc.bottom_radius = 0.18
+		bkc.height = 0.34
+		basket.mesh = bkc
+		basket.material_override = linen_mat
+		basket.position = Vector3(-0.62, 0.17, 0.52)
+		heal_root.add_child(basket)
 
 	# 3. Altar Shader Fire & Drifting Smoke on North-Central Rocky Rise (1.0, -4.9)
 	var ay: float = get_terrain_height(1.0, -4.9)
@@ -801,16 +823,36 @@ func _make_human_figure(pos: Vector3, cloak_col: Color, has_beard: bool, has_cro
 
 
 func _build_characters() -> void:
-	abram_actor = _make_human_figure(Vector3(-1.85, 0.0, 1.25), Color(0.28, 0.36, 0.50), true, true)
-	abram_actor.name = "AbramStylized"
-	abram_actor.rotation_degrees = Vector3(0.0, 65.0, 0.0)
-	add_child(abram_actor)
+	var abram_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Abram.glb", 1.65, 0.0, 0.02, 0.72)
+	if abram_glb != null:
+		active_glb_slots += 1
+		abram_actor = Node3D.new()
+		abram_actor.name = "AbramCommercialGLB"
+		abram_actor.position = Vector3(-1.85, get_terrain_height(-1.85, 1.25), 1.25)
+		abram_actor.rotation_degrees = Vector3(0.0, 65.0, 0.0)
+		abram_actor.add_child(abram_glb)
+		add_child(abram_actor)
+	else:
+		abram_actor = _make_human_figure(Vector3(-1.85, 0.0, 1.25), Color(0.28, 0.36, 0.50), true, true)
+		abram_actor.name = "AbramStylized"
+		abram_actor.rotation_degrees = Vector3(0.0, 65.0, 0.0)
+		add_child(abram_actor)
 
-	var sarai := _make_human_figure(Vector3(-0.75, 0.0, 1.30), Color(0.68, 0.42, 0.28), false, false)
-	sarai.name = "SaraiStylized"
-	sarai.scale = Vector3(0.94, 0.94, 0.94)
-	sarai.rotation_degrees = Vector3(0.0, -75.0, 0.0)
-	add_child(sarai)
+	var sarai_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Sarai.glb", 1.54, 0.0, 0.02, 0.72)
+	if sarai_glb != null:
+		active_glb_slots += 1
+		var sarai_n := Node3D.new()
+		sarai_n.name = "SaraiCommercialGLB"
+		sarai_n.position = Vector3(-0.75, get_terrain_height(-0.75, 1.30), 1.30)
+		sarai_n.rotation_degrees = Vector3(0.0, -75.0, 0.0)
+		sarai_n.add_child(sarai_glb)
+		add_child(sarai_n)
+	else:
+		var sarai := _make_human_figure(Vector3(-0.75, 0.0, 1.30), Color(0.68, 0.42, 0.28), false, false)
+		sarai.name = "SaraiStylized"
+		sarai.scale = Vector3(0.94, 0.94, 0.94)
+		sarai.rotation_degrees = Vector3(0.0, -75.0, 0.0)
+		add_child(sarai)
 
 	var healer := _make_human_figure(Vector3(1.15, 0.0, -0.35), Color(0.34, 0.42, 0.22), false, false)
 	healer.scale = Vector3(0.92, 0.92, 0.92)
@@ -818,17 +860,35 @@ func _build_characters() -> void:
 
 
 func _build_sheep_flocks() -> void:
+	var spots: Array[Vector2] = [
+		Vector2(-0.4, 5.2), Vector2(0.5, 4.9), Vector2(1.2, 5.4), Vector2(0.2, 5.8),
+		Vector2(4.6, 4.6), Vector2(5.4, 4.3), Vector2(6.0, 5.0), Vector2(5.2, 5.5), Vector2(6.5, 4.5),
+	]
+	if FileAccess.file_exists("res://assets/models/CHR_Sheep.glb"):
+		var rng_g := RandomNumberGenerator.new()
+		rng_g.seed = 909
+		var flock_root := Node3D.new()
+		flock_root.name = "SheepFlockGLB"
+		add_child(flock_root)
+		var loaded_any := false
+		for s in spots:
+			var sf: float = rng_g.randf_range(0.62, 0.76)
+			var yaw_deg: float = rng_g.randf_range(0.0, 360.0)
+			var sheep_inst: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Sheep.glb", sf, yaw_deg, 0.02, 0.85)
+			if sheep_inst != null:
+				loaded_any = true
+				sheep_inst.position = Vector3(s.x, get_terrain_height(s.x, s.y), s.y)
+				flock_root.add_child(sheep_inst)
+		if loaded_any:
+			active_glb_slots += 1
+			return
+
 	var wool_mat := StandardMaterial3D.new()
 	wool_mat.albedo_color = Color(0.88, 0.84, 0.74)
 	wool_mat.roughness = 0.95
 	var dark_mat := StandardMaterial3D.new()
 	dark_mat.albedo_color = Color(0.24, 0.20, 0.16)
 	dark_mat.roughness = 0.92
-
-	var spots: Array[Vector2] = [
-		Vector2(-0.4, 5.2), Vector2(0.5, 4.9), Vector2(1.2, 5.4), Vector2(0.2, 5.8),
-		Vector2(4.6, 4.6), Vector2(5.4, 4.3), Vector2(6.0, 5.0), Vector2(5.2, 5.5), Vector2(6.5, 4.5),
-	]
 	var body_mm := MultiMesh.new()
 	body_mm.transform_format = MultiMesh.TRANSFORM_3D
 	var bm := SphereMesh.new()
@@ -1201,4 +1261,4 @@ func _process(delta: float) -> void:
 
 	var draw_calls := Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
 	var mem_mb := Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0
-	metrics_label.text = "饮水: %d  |  和睦: %d%%  |  Draw Calls: %d  |  内存: %.1f MB" % [water_count, harmony_score, int(draw_calls), mem_mb]
+	metrics_label.text = "饮水: %d  |  和睦: %d%%  |  GLB资产: %d  |  Draw Calls: %d  |  内存: %.1f MB" % [water_count, harmony_score, active_glb_slots, int(draw_calls), mem_mb]
