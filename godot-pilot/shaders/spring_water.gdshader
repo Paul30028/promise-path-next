@@ -1,9 +1,9 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back;
 
-uniform vec3 shallow_color : source_color = vec3(0.08, 0.44, 0.45);
-uniform vec3 deep_color : source_color = vec3(0.015, 0.13, 0.19);
-uniform vec3 caustic_color : source_color = vec3(0.38, 0.78, 0.76);
+uniform vec3 shallow_color : source_color = vec3(0.10, 0.35, 0.37);
+uniform vec3 deep_color : source_color = vec3(0.02, 0.11, 0.16);
+uniform vec3 caustic_color : source_color = vec3(0.32, 0.60, 0.60);
 
 void fragment() {
 	vec2 p = (UV - vec2(0.5)) * 2.0;

@@ -694,12 +694,25 @@ func _build_patriarch_camp_architecture() -> void:
 			bench.position = Vector3(bench_x, 0.16, -0.58)
 			tent_root.add_child(bench)
 
-	# 3 Lathe-Turned Bronze Age Canaanite Amphorae by Left Post (or Commercial GLB!)
-	var amphora_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/PRP_AmphoraCluster.glb", 0.96, Vector3(0.0, 15.0, 0.0), 0.02, 0.65)
-	if amphora_glb != null:
+	# 3 Handcrafted CC0 Twin-Handled Terracotta Amphorae by Left Post (Grab3D CC0)
+	if FileAccess.file_exists("res://assets/models/CC0_Amphora.glb"):
 		active_glb_slots += 1
-		amphora_glb.position = Vector3(-1.82, 0.0, 1.56)
-		tent_root.add_child(amphora_glb)
+		for jar_cfg in [
+			[Vector3(-2.12, 0.0, 1.38), 0.92, 18.0],
+			[Vector3(-1.66, 0.0, 1.58), 0.72, -32.0],
+			[Vector3(-1.32, 0.0, 1.84), 0.54, 52.0],
+		]:
+			var amp_i: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_Amphora.glb", float(jar_cfg[1]), Vector3(0.0, float(jar_cfg[2]), 0.0), 0.02, 0.78, Color(1.06, 0.98, 0.90))
+			if amp_i != null:
+				amp_i.position = jar_cfg[0]
+				_add_contact_shadow(amp_i, float(jar_cfg[1]) * 0.36, 0.40, 0.02)
+				tent_root.add_child(amp_i)
+	elif FileAccess.file_exists("res://assets/models/PRP_AmphoraCluster.glb"):
+		var amphora_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/PRP_AmphoraCluster.glb", 0.96, Vector3(0.0, 15.0, 0.0), 0.02, 0.65)
+		if amphora_glb != null:
+			active_glb_slots += 1
+			amphora_glb.position = Vector3(-1.82, 0.0, 1.56)
+			tent_root.add_child(amphora_glb)
 	else:
 		var amphora_mesh := _make_amphora_mesh()
 		var handle_mesh := TorusMesh.new()
@@ -809,10 +822,38 @@ func _build_patriarch_camp_architecture() -> void:
 		if tbl_cc0 != null:
 			tbl_cc0.position = Vector3(0.12, 0.0, 0.25)
 			heal_root.add_child(tbl_cc0)
-		var vase_cc0: Node3D = GlbAssetLoader.load_scene_asset("res://assets/cc0_models/antique_ceramic_vase_01/antique_ceramic_vase_01_1k.gltf", 0.42, Vector3(0.0, 35.0, 0.0), 0.02)
+		var vase_cc0: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_Amphora.glb", 0.56, Vector3(0.0, 35.0, 0.0), 0.02, 0.78, Color(1.06, 0.98, 0.90))
+		if vase_cc0 == null:
+			vase_cc0 = GlbAssetLoader.load_scene_asset("res://assets/cc0_models/antique_ceramic_vase_01/antique_ceramic_vase_01_1k.gltf", 0.42, Vector3(0.0, 35.0, 0.0), 0.02)
 		if vase_cc0 != null:
 			vase_cc0.position = Vector3(-0.62, 0.0, 0.48)
 			heal_root.add_child(vase_cc0)
+		# Apothecary terracotta herb bowls & dried herb sprigs on the table
+		var h_green := StandardMaterial3D.new()
+		h_green.albedo_color = Color(0.26, 0.46, 0.18)
+		h_green.roughness = 0.90
+		var h_lav := StandardMaterial3D.new()
+		h_lav.albedo_color = Color(0.50, 0.36, 0.60)
+		h_lav.roughness = 0.88
+		for bi in range(3):
+			var bx_off: float = -0.18 + float(bi) * 0.28
+			var bowl := MeshInstance3D.new()
+			var bwc := CylinderMesh.new()
+			bwc.top_radius = 0.095
+			bwc.bottom_radius = 0.06
+			bwc.height = 0.085
+			bowl.mesh = bwc
+			bowl.material_override = clay_mat
+			bowl.position = Vector3(bx_off, 0.71, 0.24 + (0.04 if bi % 2 == 0 else -0.04))
+			heal_root.add_child(bowl)
+			var sprig := MeshInstance3D.new()
+			var spm := SphereMesh.new()
+			spm.radius = 0.085
+			spm.height = 0.10
+			sprig.mesh = spm
+			sprig.material_override = h_lav if bi == 1 else h_green
+			sprig.position = Vector3(bx_off, 0.77, 0.24 + (0.04 if bi % 2 == 0 else -0.04))
+			heal_root.add_child(sprig)
 	else:
 		var linen_mat := StandardMaterial3D.new()
 		linen_mat.albedo_texture = load("res://assets/textures/linen_canopy_albedo.png")
@@ -1137,7 +1178,7 @@ func _make_human_figure(pos: Vector3, cloak_col: Color, has_beard: bool, has_cro
 
 
 func _build_characters() -> void:
-	var abram_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Abram.glb", 1.72, Vector3(0.0, -75.0, 0.0), 0.02, 0.78, Color(1.10, 1.08, 1.04))
+	var abram_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Abram.glb", 1.76, Vector3(0.0, -75.0, 0.0), 0.02, 0.82, Color(1.26, 1.28, 1.30))
 	if abram_glb != null:
 		active_glb_slots += 1
 		abram_actor = Node3D.new()
@@ -1154,7 +1195,7 @@ func _build_characters() -> void:
 		_add_contact_shadow(abram_actor, 0.52, 0.48, 0.03)
 		add_child(abram_actor)
 
-	var sarai_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Sarai.glb", 1.56, Vector3(0.0, -75.0, 0.0), 0.02, 0.80, Color(1.12, 1.08, 1.02))
+	var sarai_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Sarai.glb", 1.60, Vector3(0.0, -75.0, 0.0), 0.02, 0.82, Color(1.26, 1.26, 1.28))
 	if sarai_glb != null:
 		active_glb_slots += 1
 		var sarai_n := Node3D.new()
@@ -1209,9 +1250,28 @@ func _build_characters() -> void:
 
 func _build_sheep_flocks() -> void:
 	var spots: Array[Vector2] = [
-		Vector2(-0.4, 5.2), Vector2(0.5, 4.9), Vector2(1.2, 5.4), Vector2(0.2, 5.8),
-		Vector2(4.6, 4.6), Vector2(5.4, 4.3), Vector2(6.0, 5.0), Vector2(5.2, 5.5), Vector2(6.5, 4.5),
+		Vector2(-3.8, 4.4), Vector2(-2.7, 4.8), Vector2(-4.5, 5.1), Vector2(-1.6, 5.2),
+		Vector2(3.4, 4.3), Vector2(4.4, 4.8), Vector2(5.2, 4.2), Vector2(2.6, 5.0), Vector2(4.9, 5.3),
 	]
+	# 1. Handcrafted CC0 Woolly Sheep (Grab3D CC0, uncompressed mobile-optimized GLB)
+	if FileAccess.file_exists("res://assets/models/CC0_Sheep_Grab3D.glb"):
+		var flock_root := Node3D.new()
+		flock_root.name = "HandcraftedSheepFlockCC0"
+		add_child(flock_root)
+		var rng_s := RandomNumberGenerator.new()
+		rng_s.seed = 909
+		for i in range(spots.size()):
+			var s: Vector2 = spots[i]
+			var target_h: float = rng_s.randf_range(0.68, 0.80)
+			var yaw_deg: float = rng_s.randf_range(-160.0, 160.0)
+			var sh_i: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_Sheep_Grab3D.glb", target_h, Vector3(0.0, yaw_deg, 0.0), 0.02, 0.92, Color(1.06, 1.04, 0.98))
+			if sh_i != null:
+				sh_i.position = Vector3(s.x, get_terrain_height(s.x, s.y), s.y)
+				_add_contact_shadow(sh_i, 0.36, 0.38, 0.02)
+				flock_root.add_child(sh_i)
+		active_glb_slots += 1
+		return
+
 	if FileAccess.file_exists("res://assets/models/CHR_Sheep.glb"):
 		var mesh_data: Dictionary = GlbAssetLoader.extract_first_mesh_data("res://assets/models/CHR_Sheep.glb", 0.90, Color(1.12, 1.08, 1.00))
 		if not mesh_data.is_empty():
@@ -1329,7 +1389,7 @@ func _build_olive_groves() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 407
 
-	# 8 Curated Airy Mediterranean Trees matching camp-scene-mobile.png exact framing (cleaner & far fewer Draw Calls!)
+	# 8 Curated Airy Mediterranean Olive Trees matching camp-scene-mobile.png exact framing!
 	var curated_trees: Array[Vector3] = [
 		Vector3(-9.6, 0.0, 2.8),
 		Vector3(-8.2, 0.0, -5.0),
@@ -1340,6 +1400,37 @@ func _build_olive_groves() -> void:
 		Vector3(-10.8, 0.0, -7.2),
 		Vector3(-1.8, 0.0, -8.2),
 	]
+	if FileAccess.file_exists("res://assets/models/CC0_OliveTree_Optimized.glb"):
+		var trees_root := Node3D.new()
+		trees_root.name = "HandcraftedOliveGrovesCC0"
+		add_child(trees_root)
+		for i in range(curated_trees.size()):
+			var spot: Vector3 = curated_trees[i]
+			var target_h: float = rng.randf_range(3.7, 4.5)
+			var yaw_d: float = rng.randf_range(0.0, 360.0)
+			var t_inst: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_OliveTree_Optimized.glb", target_h, Vector3(0.0, yaw_d, 0.0), 0.16, 0.88, Color(1.02, 1.06, 0.90))
+			if t_inst != null:
+				t_inst.position = Vector3(spot.x, get_terrain_height(spot.x, spot.z), spot.z)
+				trees_root.add_child(t_inst)
+		# Curated shrubs strictly along boulders, spring & walls
+		var shrub_paths: Array[String] = [
+			"res://assets/cc0_models/shrub_01/shrub_01_1k.gltf",
+			"res://assets/cc0_models/shrub_02/shrub_02_1k.gltf",
+		]
+		var shrub_spots: Array[Vector2] = [
+			Vector2(-6.5, 0.6), Vector2(-6.0, -2.5), Vector2(3.4, 1.2), Vector2(3.8, -1.8),
+			Vector2(-0.8, -3.4), Vector2(3.2, -3.7), Vector2(-7.6, 3.8), Vector2(6.8, -0.5),
+		]
+		for si in range(shrub_spots.size()):
+			var bs: Vector2 = shrub_spots[si]
+			var spath: String = shrub_paths[si % shrub_paths.size()]
+			var sh_inst: Node3D = GlbAssetLoader.load_scene_asset(spath, rng.randf_range(0.55, 0.88), Vector3(0.0, rng.randf_range(0.0, 360.0), 0.0), 0.06, Vector3.ONE, Color(0.88, 0.96, 0.70))
+			if sh_inst != null:
+				sh_inst.position = Vector3(bs.x, get_terrain_height(bs.x, bs.y), bs.y)
+				trees_root.add_child(sh_inst)
+		active_glb_slots += 1
+		return
+
 	if ResourceLoader.exists("res://assets/cc0_models/island_tree_01/island_tree_01_1k.gltf"):
 		var trees_root := Node3D.new()
 		trees_root.name = "PhotoscannedOliveGrovesCC0"
@@ -1548,7 +1639,8 @@ func _build_set_dressing_multimesh() -> void:
 		add_child(rocks_root)
 		var rng_r := RandomNumberGenerator.new()
 		rng_r.seed = 777
-		var limestone_tint := Color(1.16, 1.08, 0.92)
+		# Pale matte sandy-ivory Judean limestone tint (NO copper/glossy boulders!)
+		var limestone_tint := Color(1.26, 1.24, 1.16)
 
 		var cliff1 := "res://assets/cc0_models/namaqualand_cliff_01/namaqualand_cliff_01_1k.gltf"
 		var cliff2 := "res://assets/cc0_models/namaqualand_cliff_02/namaqualand_cliff_02_1k.gltf"
@@ -1572,38 +1664,67 @@ func _build_set_dressing_multimesh() -> void:
 				inst.position = Vector3(pos_v.x, get_terrain_height(pos_v.x, pos_v.z), pos_v.z)
 				rocks_root.add_child(inst)
 
-		# 2. BATCHED 1-DRAW-CALL PHOTOSCANNED LIMESTONE RETAINING WALL, CENTRAL STEPS & 12-STONE ALTAR!
-		var stone_data: Dictionary = GlbAssetLoader.extract_scene_mesh_data(bld2, Color(1.42, 1.32, 1.12))
+		# 2A. HANDCRAFTED CC0 DRY-STONE COURTYARD RETAINING WALL (Innerscene CC0, merged 4-mesh) + STONE ENTRY STAIRS (Grab3D CC0)!
+		var has_cc0_wall: bool = FileAccess.file_exists("res://assets/models/CC0_DryStoneWall_Optimized.glb")
+		if has_cc0_wall:
+			var seg_n: int = 16
+			for i in range(seg_n):
+				var ang: float = float(i) / float(seg_n) * TAU
+				var rx: float = -1.65 + cos(ang) * 4.68
+				var rz: float = 0.25 + sin(ang) * 2.68
+				if rz > 2.05 and rx > -2.55 and rx < -0.15:
+					continue
+				# Tangent angle along ellipse (-rx_rad*sin, +rz_rad*cos)
+				var tx: float = -4.68 * sin(ang)
+				var tz: float = 2.68 * cos(ang)
+				var yaw_deg: float = rad_to_deg(atan2(tx, tz)) + 90.0
+				var w_inst: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_DryStoneWall_Optimized.glb", 0.78, Vector3(0.0, yaw_deg, 0.0), 0.14, 0.94, Color(1.22, 1.18, 1.08))
+				if w_inst != null:
+					w_inst.position = Vector3(rx, get_terrain_height(rx, rz), rz)
+					rocks_root.add_child(w_inst)
+			active_glb_slots += 1
+
+		var has_cc0_stairs: bool = FileAccess.file_exists("res://assets/models/CC0_StoneStairs.glb")
+		if has_cc0_stairs:
+			var st_inst: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_StoneStairs.glb", 0.56, Vector3(0.0, 0.0, 0.0), 0.14, 0.94, Color(1.24, 1.20, 1.10))
+			if st_inst != null:
+				st_inst.position = Vector3(-1.32, get_terrain_height(-1.32, 2.86), 2.86)
+				st_inst.scale = Vector3(2.5, 0.88, 1.15)
+				rocks_root.add_child(st_inst)
+				active_glb_slots += 1
+
+		# 2B. BATCHED 1-DRAW-CALL PHOTOSCANNED LIMESTONE 12-STONE ALTAR (+ fallback wall/steps if CC0 absent)
+		var stone_data: Dictionary = GlbAssetLoader.extract_scene_mesh_data(bld2, Color(1.36, 1.34, 1.26))
 		if not stone_data.is_empty():
 			var st_mesh: Mesh = stone_data["mesh"]
 			var st_mat: Material = stone_data["material"]
 			var st_aabb: AABB = stone_data["aabb"]
 			var st_tfs: Array[Transform3D] = []
 
-			# Continuous 2-tier Dry-Stone Courtyard Retaining Wall (matching camp-scene-mobile.png exact enclosure!)
-			for tier in range(2):
-				var seg_count: int = 44
-				for i in range(seg_count):
-					var ang: float = float(i) / float(seg_count) * TAU
-					var rx: float = -1.65 + cos(ang) * 4.65
-					var rz: float = 0.25 + sin(ang) * 2.65
-					if rz > 2.15 and rx > -2.25 and rx < -0.25:
-						continue
-					var target_h: float = rng_r.randf_range(0.42, 0.54)
-					var sf: float = target_h / maxf(st_aabb.size.y, 0.001)
-					var rot := Basis().rotated(Vector3.UP, ang + float(tier) * 0.35 + rng_r.randf_range(-0.2, 0.2)).scaled(Vector3(sf * 1.15, sf * 0.85, sf * 0.95))
-					var ry: float = get_terrain_height(rx, rz) - st_aabb.position.y * sf * 0.85 + float(tier) * 0.26 - 0.06
-					st_tfs.append(Transform3D(rot, Vector3(rx, ry, rz)))
+			if not has_cc0_wall:
+				for tier in range(2):
+					var seg_count: int = 44
+					for i in range(seg_count):
+						var ang: float = float(i) / float(seg_count) * TAU
+						var rx: float = -1.65 + cos(ang) * 4.65
+						var rz: float = 0.25 + sin(ang) * 2.65
+						if rz > 2.15 and rx > -2.25 and rx < -0.25:
+							continue
+						var target_h: float = rng_r.randf_range(0.42, 0.54)
+						var sf: float = target_h / maxf(st_aabb.size.y, 0.001)
+						var rot := Basis().rotated(Vector3.UP, ang + float(tier) * 0.35 + rng_r.randf_range(-0.2, 0.2)).scaled(Vector3(sf * 1.15, sf * 0.85, sf * 0.95))
+						var ry: float = get_terrain_height(rx, rz) - st_aabb.position.y * sf * 0.85 + float(tier) * 0.26 - 0.06
+						st_tfs.append(Transform3D(rot, Vector3(rx, ry, rz)))
 
-			# Crisp 3-Tier Central Limestone Entry Steps (solid, clean, NO messy rubble!)
-			for s in range(3):
-				var sz: float = 2.62 + float(s) * 0.42
-				for b in range(4):
-					var sx: float = -1.98 + float(b) * 0.48 + (0.06 if s % 2 == 1 else 0.0)
-					var sf: float = 0.30 / maxf(st_aabb.size.y, 0.001)
-					var rot := Basis().rotated(Vector3.UP, rng_r.randf_range(-0.15, 0.15)).scaled(Vector3(sf * 1.35, sf * 0.72, sf * 1.15))
-					var sy: float = get_terrain_height(sx, sz) - st_aabb.position.y * sf * 0.72 + 0.18 - float(s) * 0.09
-					st_tfs.append(Transform3D(rot, Vector3(sx, sy, sz)))
+			if not has_cc0_stairs:
+				for s in range(3):
+					var sz: float = 2.62 + float(s) * 0.42
+					for b in range(4):
+						var sx: float = -1.98 + float(b) * 0.48 + (0.06 if s % 2 == 1 else 0.0)
+						var sf: float = 0.30 / maxf(st_aabb.size.y, 0.001)
+						var rot := Basis().rotated(Vector3.UP, rng_r.randf_range(-0.15, 0.15)).scaled(Vector3(sf * 1.35, sf * 0.72, sf * 1.15))
+						var sy: float = get_terrain_height(sx, sz) - st_aabb.position.y * sf * 0.72 + 0.18 - float(s) * 0.09
+						st_tfs.append(Transform3D(rot, Vector3(sx, sy, sz)))
 
 			# 12-Stone Covenant Altar Ring on North Hill Summit
 			for i in range(12):

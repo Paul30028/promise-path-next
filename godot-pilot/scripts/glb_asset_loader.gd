@@ -75,12 +75,12 @@ static func _tune_materials(root: Node, roughness_min: float = 0.62, albedo_boos
 					else:
 						sm = StandardMaterial3D.new()
 					sm.roughness = maxf(sm.roughness, roughness_min)
-					sm.metallic = minf(sm.metallic, 0.08)
+					sm.metallic = minf(sm.metallic, 0.04)
 					sm.cull_mode = BaseMaterial3D.CULL_DISABLED
 					var fmt: int = mi.mesh.surface_get_format(s)
 					if (fmt & Mesh.ARRAY_FORMAT_COLOR) != 0 and sm.albedo_texture == null:
 						sm.vertex_color_use_as_albedo = true
-					sm.albedo_color = albedo_boost
+					sm.albedo_color = sm.albedo_color * albedo_boost
 					mi.set_surface_override_material(s, sm)
 		for child in cur.get_children():
 			stack.append(child)
@@ -204,6 +204,8 @@ static func load_scene_asset(
 						if mat is StandardMaterial3D:
 							var sm := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
 							sm.albedo_color = sm.albedo_color * albedo_tint
+							sm.metallic = minf(sm.metallic, 0.03)
+							sm.roughness = maxf(sm.roughness, 0.88)
 							mi.set_surface_override_material(s, sm)
 			for ch in cur.get_children():
 				stack.append(ch)
@@ -246,6 +248,8 @@ static func extract_scene_mesh_data(res_path: String, albedo_tint: Color = Color
 				if mat is StandardMaterial3D and albedo_tint != Color.WHITE:
 					var sm := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
 					sm.albedo_color = sm.albedo_color * albedo_tint
+					sm.metallic = minf(sm.metallic, 0.03)
+					sm.roughness = maxf(sm.roughness, 0.90)
 					mat = sm
 				var res := {
 					"mesh": mi.mesh,

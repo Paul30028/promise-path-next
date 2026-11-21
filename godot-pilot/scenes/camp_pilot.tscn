@@ -71,12 +71,12 @@ directional_shadow_split_1 = 0.28
 directional_shadow_max_distance = 48.0
 
 [node name="CameraRig" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6, 0.2, 0.8)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.45, 0.35, 0.55)
 
 [node name="Camera3D" type="Camera3D" parent="CameraRig"]
-transform = Transform3D(1, 0, 0, 0, 0.766, 0.643, 0, -0.643, 0.766, 0, 13.0, 15.6)
+transform = Transform3D(1, 0, 0, 0, 0.834, 0.552, 0, -0.552, 0.834, 0, 10.6, 15.8)
 current = true
-fov = 36.0
+fov = 35.0
 far = 120.0
 
 [node name="GroundBody" type="StaticBody3D" parent="."]
