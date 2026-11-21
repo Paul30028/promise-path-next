@@ -489,6 +489,7 @@ func _build_patriarch_camp_architecture() -> void:
 	tent_mat.albedo_texture = load("res://assets/textures/tent_goathair_albedo.png")
 	tent_mat.normal_enabled = true
 	tent_mat.normal_texture = load("res://assets/textures/tent_goathair_normal.png")
+	tent_mat.albedo_color = Color(0.56, 0.46, 0.38)
 	tent_mat.roughness = 0.94
 	tent_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 
@@ -731,11 +732,11 @@ func _build_patriarch_camp_architecture() -> void:
 		linen_mat.albedo_texture = load("res://assets/textures/linen_canopy_albedo.png")
 		linen_mat.normal_enabled = true
 		linen_mat.normal_texture = load("res://assets/textures/linen_canopy_normal.png")
-		linen_mat.albedo_color = Color(1.18, 1.10, 0.94)
+		linen_mat.albedo_color = Color(1.38, 1.26, 1.02)
 		linen_mat.roughness = 0.92
 		linen_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 		var olive_cloth := StandardMaterial3D.new()
-		olive_cloth.albedo_color = Color(0.30, 0.39, 0.20)
+		olive_cloth.albedo_color = Color(0.24, 0.40, 0.14)
 		olive_cloth.roughness = 0.92
 
 		for p in [Vector2(-1.15, -0.9), Vector2(1.15, -0.9), Vector2(-1.15, 0.9), Vector2(1.15, 0.9)]:
@@ -1230,8 +1231,8 @@ func _build_olive_groves() -> void:
 	var leaf_mat := ShaderMaterial.new()
 	leaf_mat.shader = load("res://shaders/foliage_sway.gdshader")
 	leaf_mat.set_shader_parameter("albedo_tex", load("res://assets/textures/olive_leaves_alpha.png"))
-	leaf_mat.set_shader_parameter("tint_bottom", Color(0.24, 0.32, 0.20))
-	leaf_mat.set_shader_parameter("tint_top", Color(0.76, 0.82, 0.56))
+	leaf_mat.set_shader_parameter("tint_bottom", Color(0.14, 0.25, 0.11))
+	leaf_mat.set_shader_parameter("tint_top", Color(0.78, 0.88, 0.42))
 	leaf_mat.set_shader_parameter("wind_strength", 0.05)
 	leaf_mat.set_shader_parameter("wind_speed", 1.3)
 
@@ -1324,8 +1325,8 @@ func _build_grass_meadow_multimesh() -> void:
 	var grass_mat := ShaderMaterial.new()
 	grass_mat.shader = load("res://shaders/foliage_sway.gdshader")
 	grass_mat.set_shader_parameter("albedo_tex", load("res://assets/textures/grass_tuft_alpha.png"))
-	grass_mat.set_shader_parameter("tint_bottom", Color(0.42, 0.48, 0.22))
-	grass_mat.set_shader_parameter("tint_top", Color(0.98, 0.96, 0.72))
+	grass_mat.set_shader_parameter("tint_bottom", Color(0.20, 0.38, 0.10))
+	grass_mat.set_shader_parameter("tint_top", Color(0.94, 0.96, 0.46))
 	grass_mat.set_shader_parameter("wind_strength", 0.07)
 	grass_mat.set_shader_parameter("wind_speed", 2.0)
 
@@ -1364,6 +1365,35 @@ func _build_grass_meadow_multimesh() -> void:
 	g_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(g_node)
 
+	# 240 Bright Golden-Yellow Mediterranean Buttercup Wildflowers (1 Draw Call!)
+	var flw_tfs: Array[Transform3D] = []
+	for i in range(0, tfs.size(), maxi(1, tfs.size() / 240)):
+		var base_xf: Transform3D = tfs[i]
+		var flw_s: float = rng.randf_range(0.055, 0.095)
+		flw_tfs.append(Transform3D(Basis().scaled(Vector3(flw_s, flw_s * 0.7, flw_s)), base_xf.origin + Vector3(0.0, 0.22, 0.0)))
+	var flw_mm := MultiMesh.new()
+	flw_mm.transform_format = MultiMesh.TRANSFORM_3D
+	var fsp := SphereMesh.new()
+	fsp.radius = 1.0
+	fsp.height = 1.6
+	fsp.radial_segments = 5
+	fsp.rings = 3
+	flw_mm.mesh = fsp
+	flw_mm.instance_count = flw_tfs.size()
+	for i in range(flw_tfs.size()):
+		flw_mm.set_instance_transform(i, flw_tfs[i])
+	var flw_mat := StandardMaterial3D.new()
+	flw_mat.albedo_color = Color(0.98, 0.82, 0.14)
+	flw_mat.emission_enabled = true
+	flw_mat.emission = Color(0.95, 0.76, 0.10)
+	flw_mat.emission_energy_multiplier = 0.28
+	flw_mat.roughness = 0.75
+	var flw_node := MultiMeshInstance3D.new()
+	flw_node.multimesh = flw_mm
+	flw_node.material_override = flw_mat
+	flw_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(flw_node)
+
 
 func _build_set_dressing_multimesh() -> void:
 	var rock_mat := StandardMaterial3D.new()
@@ -1371,9 +1401,9 @@ func _build_set_dressing_multimesh() -> void:
 	rock_mat.normal_enabled = true
 	rock_mat.normal_texture = load("res://assets/textures/rock_boulder_normal.png")
 	rock_mat.normal_scale = 1.65
-	rock_mat.albedo_color = Color(1.52, 1.44, 1.26)
+	rock_mat.albedo_color = Color(1.78, 1.70, 1.50)
 	rock_mat.vertex_color_use_as_albedo = true
-	rock_mat.roughness = 0.92
+	rock_mat.roughness = 0.90
 
 	# Sculpted faceted Canaanite limestone boulder mesh with per-instance color variation!
 	var rock_mm := MultiMesh.new()
@@ -1384,11 +1414,11 @@ func _build_set_dressing_multimesh() -> void:
 	var rock_transforms: Array[Transform3D] = []
 	var rock_colors: Array[Color] = []
 	var palette: Array[Color] = [
-		Color(1.00, 0.96, 0.88),
-		Color(0.92, 0.85, 0.74),
-		Color(0.82, 0.76, 0.66),
-		Color(0.74, 0.67, 0.56),
-		Color(0.95, 0.89, 0.78),
+		Color(1.00, 0.98, 0.92),
+		Color(0.94, 0.90, 0.82),
+		Color(0.84, 0.82, 0.78),
+		Color(0.76, 0.73, 0.68),
+		Color(0.97, 0.93, 0.85),
 	]
 
 	# 12 Batched Limestone Courtyard Entry Steps (0 extra Draw Calls!)

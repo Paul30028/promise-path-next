@@ -15,7 +15,10 @@ void vertex() {
 
 void fragment() {
 	vec4 tex = texture(albedo_tex, UV);
-	ALBEDO = tex.rgb;
-	ROUGHNESS = 0.88;
+	// Boost jewel-like Tekhelet cobalt-blue & pomegranate-red tapestry contrast
+	vec3 col = tex.rgb;
+	float luma = dot(col, vec3(0.299, 0.587, 0.114));
+	ALBEDO = mix(vec3(luma), col, 1.32) * 1.12;
+	ROUGHNESS = 0.86;
 	METALLIC = 0.0;
 }
