@@ -15,6 +15,46 @@ var harmony_score: int = 75
 var pending_action: String = ""
 var status_note: String = "点击地面移动亚伯兰，或使用下方情境指令"
 var status_label: Label = null
+var anim_time: float = 0.0
+var flame_nodes: Array[Node3D] = []
+var smoke_nodes: Array[Node3D] = []
+
+
+static func _make_draped_roof_mesh(w: float, d: float, ridge_h: float, eave_h: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var sx: int = 12
+	var sz: int = 8
+	var verts: Array[Vector3] = []
+	var uvs: Array[Vector2] = []
+	verts.resize((sx + 1) * (sz + 1))
+	uvs.resize((sx + 1) * (sz + 1))
+	for r in range(sz + 1):
+		for c in range(sx + 1):
+			var u: float = float(c) / float(sx)
+			var v: float = float(r) / float(sz)
+			var x: float = (u - 0.5) * w
+			var z: float = (v - 0.5) * d
+			var nz: float = abs(v - 0.5) * 2.0 # 0 at ridge, 1 at front/back eaves
+			var catenary: float = pow(1.0 - nz, 1.35)
+			var pole_sag: float = -sin(u * PI * 2.0) * 0.05 * (1.0 - nz * 0.4)
+			var y: float = eave_h + (ridge_h - eave_h) * catenary + pole_sag
+			var idx: int = r * (sx + 1) + c
+			verts[idx] = Vector3(x, y, z)
+			uvs[idx] = Vector2(u * 2.0, v * 2.0)
+	for r in range(sz):
+		for c in range(sx):
+			var i0: int = r * (sx + 1) + c
+			var i1: int = i0 + 1
+			var i2: int = i0 + (sx + 1)
+			var i3: int = i2 + 1
+			for tri in [[i0, i1, i2], [i1, i3, i2]]:
+				for vi in tri:
+					st.set_uv(uvs[vi])
+					st.add_vertex(verts[vi])
+	st.generate_normals()
+	st.generate_tangents()
+	return st.commit()
 
 
 static func get_terrain_height(x: float, z: float) -> float:
@@ -298,16 +338,11 @@ func _build_patriarch_camp_architecture() -> void:
 		post.position = Vector3(p.x, 0.98, p.y)
 		tent_root.add_child(post)
 
-	# Pitched Gable Goat-Hair Roof (2 sloped panels + dark back curtain)
-	for slope in [[Vector3(0.0, 2.08, -0.68), -16.0], [Vector3(0.0, 2.08, 0.68), 16.0]]:
-		var panel := MeshInstance3D.new()
-		var pb := BoxMesh.new()
-		pb.size = Vector3(4.3, 0.10, 1.62)
-		panel.mesh = pb
-		panel.material_override = tent_mat
-		panel.position = slope[0]
-		panel.rotation_degrees = Vector3(float(slope[1]), 0.0, 0.0)
-		tent_root.add_child(panel)
+	# Draped Catenary Goat-Hair Roof + dark back curtain
+	var main_roof := MeshInstance3D.new()
+	main_roof.mesh = _make_draped_roof_mesh(4.35, 2.95, 2.42, 1.82)
+	main_roof.material_override = tent_mat
+	tent_root.add_child(main_roof)
 
 	var back_curtain := MeshInstance3D.new()
 	var bcb := BoxMesh.new()
@@ -367,23 +402,54 @@ func _build_patriarch_camp_architecture() -> void:
 	hearth.position = Vector3(-0.35, 0.13, 2.05)
 	tent_root.add_child(hearth)
 
-	var fire_mat := StandardMaterial3D.new()
-	fire_mat.albedo_color = Color(1.0, 0.52, 0.10)
-	fire_mat.emission_enabled = true
-	fire_mat.emission = Color(1.0, 0.44, 0.06)
-	fire_mat.emission_energy_multiplier = 2.6
+	var fire_outer_mat := StandardMaterial3D.new()
+	fire_outer_mat.albedo_color = Color(0.95, 0.32, 0.05)
+	fire_outer_mat.emission_enabled = true
+	fire_outer_mat.emission = Color(0.98, 0.34, 0.04)
+	fire_outer_mat.emission_energy_multiplier = 2.2
+	var fire_inner_mat := StandardMaterial3D.new()
+	fire_inner_mat.albedo_color = Color(1.0, 0.82, 0.25)
+	fire_inner_mat.emission_enabled = true
+	fire_inner_mat.emission = Color(1.0, 0.78, 0.22)
+	fire_inner_mat.emission_energy_multiplier = 3.0
+
+	var hearth_fire := Node3D.new()
+	hearth_fire.position = Vector3(-0.35, 0.24, 2.05)
+	tent_root.add_child(hearth_fire)
+	flame_nodes.append(hearth_fire)
+
+	# Crossed charred firewood logs
+	for ang_deg in [25.0, -35.0, 85.0]:
+		var log_m := MeshInstance3D.new()
+		var lc := CylinderMesh.new()
+		lc.top_radius = 0.05
+		lc.bottom_radius = 0.06
+		lc.height = 0.72
+		log_m.mesh = lc
+		log_m.material_override = wood_mat
+		log_m.rotation_degrees = Vector3(78.0, ang_deg, 0.0)
+		log_m.position = Vector3(0.0, 0.04, 0.0)
+		hearth_fire.add_child(log_m)
+
 	var fcone := CylinderMesh.new()
 	fcone.top_radius = 0.02
-	fcone.bottom_radius = 0.24
-	fcone.height = 0.56
-	var flame := MeshInstance3D.new()
-	flame.mesh = fcone
-	flame.material_override = fire_mat
-	flame.position = Vector3(-0.35, 0.44, 2.05)
-	tent_root.add_child(flame)
+	fcone.bottom_radius = 0.22
+	fcone.height = 0.48
+	var flame_out := MeshInstance3D.new()
+	flame_out.mesh = fcone
+	flame_out.material_override = fire_outer_mat
+	flame_out.position = Vector3(0.0, 0.24, 0.0)
+	hearth_fire.add_child(flame_out)
+
+	var flame_in := MeshInstance3D.new()
+	flame_in.mesh = fcone
+	flame_in.material_override = fire_inner_mat
+	flame_in.scale = Vector3(0.58, 0.72, 0.58)
+	flame_in.position = Vector3(0.0, 0.18, 0.0)
+	hearth_fire.add_child(flame_in)
 
 	var fire_light := OmniLight3D.new()
-	fire_light.light_color = Color(1.0, 0.62, 0.24)
+	fire_light.light_color = Color(1.0, 0.58, 0.20)
 	fire_light.light_energy = 1.8
 	fire_light.omni_range = 6.5
 	fire_light.position = Vector3(-0.35, 0.95, 2.05)
@@ -416,17 +482,12 @@ func _build_patriarch_camp_architecture() -> void:
 		post.position = Vector3(p.x, 0.86, p.y)
 		heal_root.add_child(post)
 
-	for slope in [[Vector3(0.0, 1.82, -0.52), -14.0], [Vector3(0.0, 1.82, 0.52), 14.0]]:
-		var hp := MeshInstance3D.new()
-		var hbox := BoxMesh.new()
-		hbox.size = Vector3(2.65, 0.08, 1.25)
-		hp.mesh = hbox
-		hp.material_override = linen_mat
-		hp.position = slope[0]
-		hp.rotation_degrees = Vector3(float(slope[1]), 0.0, 0.0)
-		heal_root.add_child(hp)
+	var heal_roof := MeshInstance3D.new()
+	heal_roof.mesh = _make_draped_roof_mesh(2.70, 2.25, 2.02, 1.56)
+	heal_roof.material_override = linen_mat
+	heal_root.add_child(heal_roof)
 
-	# Hanging olive side drapes + wooden herbalist table
+	# Hanging olive side drapes + drying herb bundles + wooden herbalist table + woven basket
 	for sx in [-1.14, 1.14]:
 		var sd := MeshInstance3D.new()
 		var sb := BoxMesh.new()
@@ -436,6 +497,17 @@ func _build_patriarch_camp_architecture() -> void:
 		sd.position = Vector3(sx, 1.0, 0.0)
 		heal_root.add_child(sd)
 
+	for hx_b in [-0.55, -0.22, 0.12]:
+		var herb := MeshInstance3D.new()
+		var hc := CylinderMesh.new()
+		hc.top_radius = 0.03
+		hc.bottom_radius = 0.09
+		hc.height = 0.34
+		herb.mesh = hc
+		herb.material_override = olive_cloth
+		herb.position = Vector3(hx_b, 1.38, 0.88)
+		heal_root.add_child(herb)
+
 	var table := MeshInstance3D.new()
 	var tb := BoxMesh.new()
 	tb.size = Vector3(1.25, 0.56, 0.58)
@@ -444,28 +516,51 @@ func _build_patriarch_camp_architecture() -> void:
 	table.position = Vector3(0.15, 0.28, 0.32)
 	heal_root.add_child(table)
 
+	var basket := MeshInstance3D.new()
+	var bkc := CylinderMesh.new()
+	bkc.top_radius = 0.24
+	bkc.bottom_radius = 0.18
+	bkc.height = 0.34
+	basket.mesh = bkc
+	basket.material_override = linen_mat
+	basket.position = Vector3(-0.62, 0.17, 0.52)
+	heal_root.add_child(basket)
+
 	# 3. Altar Fire & Rising White Smoke on North-Central Rocky Rise (1.0, -4.9)
 	var ay: float = get_terrain_height(1.0, -4.9)
-	var aflame := MeshInstance3D.new()
-	aflame.mesh = fcone
-	aflame.material_override = fire_mat
-	aflame.position = Vector3(1.0, ay + 0.62, -4.9)
-	aflame.scale = Vector3(1.45, 1.45, 1.45)
-	root.add_child(aflame)
+	var altar_fire := Node3D.new()
+	altar_fire.position = Vector3(1.0, ay + 0.34, -4.9)
+	altar_fire.scale = Vector3(1.4, 1.4, 1.4)
+	root.add_child(altar_fire)
+	flame_nodes.append(altar_fire)
+
+	var aflame_out := MeshInstance3D.new()
+	aflame_out.mesh = fcone
+	aflame_out.material_override = fire_outer_mat
+	aflame_out.position = Vector3(0.0, 0.24, 0.0)
+	altar_fire.add_child(aflame_out)
+
+	var aflame_in := MeshInstance3D.new()
+	aflame_in.mesh = fcone
+	aflame_in.material_override = fire_inner_mat
+	aflame_in.scale = Vector3(0.55, 0.72, 0.55)
+	aflame_in.position = Vector3(0.0, 0.18, 0.0)
+	altar_fire.add_child(aflame_in)
 
 	var smoke_mat := StandardMaterial3D.new()
-	smoke_mat.albedo_color = Color(0.95, 0.92, 0.86, 0.36)
+	smoke_mat.albedo_color = Color(0.95, 0.92, 0.86, 0.34)
 	smoke_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	smoke_mat.roughness = 1.0
 	for k in range(3):
 		var sm := MeshInstance3D.new()
 		var sp := SphereMesh.new()
-		sp.radius = 0.28 + float(k) * 0.14
+		sp.radius = 0.26 + float(k) * 0.14
 		sp.height = sp.radius * 1.4
 		sm.mesh = sp
 		sm.material_override = smoke_mat
 		sm.position = Vector3(1.0 + float(k) * 0.12, ay + 1.25 + float(k) * 0.48, -4.9 - float(k) * 0.08)
 		root.add_child(sm)
+		smoke_nodes.append(sm)
 
 
 func _build_spring_waterfall() -> void:
@@ -596,18 +691,64 @@ func _make_human_figure(pos: Vector3, tunic_col: Color, cloak_col: Color, has_be
 		beard.position = Vector3(0.0, 1.28, 0.08)
 		fig.add_child(beard)
 
+	# Leather waist belt
+	var belt := MeshInstance3D.new()
+	var belt_c := CylinderMesh.new()
+	belt_c.top_radius = 0.195
+	belt_c.bottom_radius = 0.195
+	belt_c.height = 0.08
+	belt.mesh = belt_c
+	var leather_mat := StandardMaterial3D.new()
+	leather_mat.albedo_color = Color(0.36, 0.21, 0.11)
+	leather_mat.roughness = 0.85
+	belt.material_override = leather_mat
+	belt.position = Vector3(0.0, 0.88, 0.0)
+	fig.add_child(belt)
+
+	# Left & Right Sculpted Arms (tunic sleeve + forearm)
+	for side in [-1.0, 1.0]:
+		var arm := MeshInstance3D.new()
+		var ac := CylinderMesh.new()
+		ac.top_radius = 0.068
+		ac.bottom_radius = 0.052
+		ac.height = 0.44
+		arm.mesh = ac
+		arm.material_override = tunic_mat
+		arm.position = Vector3(side * 0.24, 0.96, 0.05 if (has_crook and side > 0) else 0.0)
+		arm.rotation_degrees = Vector3(-28.0 if (has_crook and side > 0) else -10.0, 0.0, side * -14.0)
+		fig.add_child(arm)
+
+		var hand := MeshInstance3D.new()
+		var hsph := SphereMesh.new()
+		hsph.radius = 0.055
+		hsph.height = 0.11
+		hand.mesh = hsph
+		hand.material_override = skin_mat
+		hand.position = Vector3(side * 0.28, 0.78, 0.16 if (has_crook and side > 0) else 0.05)
+		fig.add_child(hand)
+
 	if has_crook:
 		var staff := MeshInstance3D.new()
 		var stc := CylinderMesh.new()
 		stc.top_radius = 0.024
 		stc.bottom_radius = 0.024
-		stc.height = 1.55
+		stc.height = 1.48
 		staff.mesh = stc
 		var smat := StandardMaterial3D.new()
 		smat.albedo_color = Color(0.42, 0.25, 0.12)
 		staff.material_override = smat
-		staff.position = Vector3(0.28, 0.80, 0.08)
+		staff.position = Vector3(0.31, 0.74, 0.16)
 		fig.add_child(staff)
+
+		var crook_top := MeshInstance3D.new()
+		var torus := TorusMesh.new()
+		torus.inner_radius = 0.065
+		torus.outer_radius = 0.11
+		crook_top.mesh = torus
+		crook_top.material_override = smat
+		crook_top.position = Vector3(0.31, 1.50, 0.24)
+		crook_top.rotation_degrees = Vector3(0.0, 90.0, 0.0)
+		fig.add_child(crook_top)
 
 	return fig
 
@@ -681,16 +822,35 @@ func _build_sheep_flocks() -> void:
 	head_mm.mesh = hm
 	head_mm.instance_count = spots.size()
 
+	var leg_mm := MultiMesh.new()
+	leg_mm.transform_format = MultiMesh.TRANSFORM_3D
+	var lm := CylinderMesh.new()
+	lm.top_radius = 0.032
+	lm.bottom_radius = 0.026
+	lm.height = 0.26
+	lm.radial_segments = 6
+	leg_mm.mesh = lm
+	leg_mm.instance_count = spots.size() * 4
+
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 909
+	var leg_offsets: Array[Vector3] = [
+		Vector3(-0.11, 0.13, 0.16),
+		Vector3(0.11, 0.13, 0.16),
+		Vector3(-0.11, 0.13, -0.16),
+		Vector3(0.11, 0.13, -0.16),
+	]
 	for i in range(spots.size()):
 		var s: Vector2 = spots[i]
 		var sy: float = get_terrain_height(s.x, s.y)
 		var yaw: float = rng.randf_range(0.0, TAU)
 		var rot := Basis().rotated(Vector3.UP, yaw)
 		body_mm.set_instance_transform(i, Transform3D(rot.scaled(Vector3(1.0, 0.85, 1.35)), Vector3(s.x, sy + 0.34, s.y)))
-		var h_off: Vector3 = rot * Vector3(0.0, 0.29, 0.36)
+		var h_off: Vector3 = rot * Vector3(0.0, 0.27, 0.36)
 		head_mm.set_instance_transform(i, Transform3D(rot, Vector3(s.x + h_off.x, sy + h_off.y, s.y + h_off.z)))
+		for j in range(4):
+			var lo: Vector3 = rot * leg_offsets[j]
+			leg_mm.set_instance_transform(i * 4 + j, Transform3D(rot, Vector3(s.x + lo.x, sy + lo.y, s.y + lo.z)))
 
 	var b_node := MultiMeshInstance3D.new()
 	b_node.multimesh = body_mm
@@ -701,6 +861,11 @@ func _build_sheep_flocks() -> void:
 	h_node.multimesh = head_mm
 	h_node.material_override = dark_mat
 	add_child(h_node)
+
+	var l_node := MultiMeshInstance3D.new()
+	l_node.multimesh = leg_mm
+	l_node.material_override = dark_mat
+	add_child(l_node)
 
 
 func _build_olive_groves() -> void:
@@ -995,6 +1160,15 @@ func _order_move_from_screen(screen_pos: Vector2) -> void:
 
 
 func _process(delta: float) -> void:
+	anim_time += delta
+	for i in range(flame_nodes.size()):
+		var fn: Node3D = flame_nodes[i]
+		var flick: float = 1.0 + sin(anim_time * 9.5 + float(i) * 2.1) * 0.14
+		fn.scale = Vector3(1.0, flick, 1.0) * (1.4 if i == 1 else 1.0)
+	for k in range(smoke_nodes.size()):
+		var sm: Node3D = smoke_nodes[k]
+		sm.position.x = 1.0 + float(k) * 0.12 + sin(anim_time * 1.4 + float(k)) * 0.08
+
 	if abram_actor != null:
 		var to_target := target_pos - abram_actor.global_position
 		to_target.y = 0.0
