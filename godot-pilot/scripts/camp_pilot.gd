@@ -979,14 +979,28 @@ func _build_patriarch_camp_architecture() -> void:
 		b_herbs.position = Vector3(-0.62, 0.36, 0.52)
 		heal_root.add_child(b_herbs)
 
-	# 3. Altar Shader Fire & Wispy Rising Smoke Plume on North-Central Rocky Rise (1.0, -4.9)
-	var ay: float = get_terrain_height(1.0, -4.9)
+	# 3. Altar Shader Fire & Wispy Rising Smoke Plume on North-Central Rocky Rise (1.0, -4.85)
+	var ay: float = get_terrain_height(1.0, -4.85)
+	# Dark charred ash/stone hearth bed inside the open 12-stone ring
+	var ash_bed := MeshInstance3D.new()
+	var ash_cyl := CylinderMesh.new()
+	ash_cyl.top_radius = 0.70
+	ash_cyl.bottom_radius = 0.78
+	ash_cyl.height = 0.10
+	ash_bed.mesh = ash_cyl
+	var ash_mat := StandardMaterial3D.new()
+	ash_mat.albedo_color = Color(0.24, 0.20, 0.17)
+	ash_mat.roughness = 0.96
+	ash_bed.material_override = ash_mat
+	ash_bed.position = Vector3(1.0, ay + 0.03, -4.85)
+	root.add_child(ash_bed)
+
 	var aflame := MeshInstance3D.new()
 	aflame.mesh = flame_card_mesh
 	aflame.material_override = flame_shader_mat
 	aflame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	aflame.position = Vector3(1.0, ay + 0.36, -4.9)
-	aflame.scale = Vector3(1.10, 1.10, 1.10)
+	aflame.position = Vector3(1.0, ay + 0.12, -4.85)
+	aflame.scale = Vector3(1.05, 1.05, 1.05)
 	root.add_child(aflame)
 
 	var smoke_shader_mat := ShaderMaterial.new()
@@ -995,7 +1009,7 @@ func _build_patriarch_camp_architecture() -> void:
 	plume.mesh = _make_crossed_card_mesh(1.15, 2.85, false)
 	plume.material_override = smoke_shader_mat
 	plume.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	plume.position = Vector3(1.0, ay + 0.72, -4.9)
+	plume.position = Vector3(1.0, ay + 0.56, -4.85)
 	root.add_child(plume)
 	smoke_nodes.append(plume)
 
@@ -1661,11 +1675,11 @@ func _build_set_dressing_multimesh() -> void:
 		var bld2 := "res://assets/cc0_models/namaqualand_boulder_02/namaqualand_boulder_02_1k.gltf"
 		var stones := "res://assets/cc0_models/namaqualand_stones_01/namaqualand_stones_01_1k.gltf"
 
-		# 1. Monumental North-Central Altar Rocky Massif (deeply rooted into slope — ZERO floating edges!)
+		# 1. Monumental North-Central Altar Rocky Massif framing BEHIND & FLANKING the open altar summit (zero clipping into fire!)
 		for cl in [
-			[cliff1, Vector3(1.0, 0.0, -5.2), 2.38, Vector3(0.0, 20.0, 0.0), 1.02, Vector3(1.12, 0.84, 1.02)],
-			[bld1, Vector3(-1.6, 0.0, -4.4), 1.78, Vector3(0.0, 55.0, 0.0), 0.72, Vector3(1.15, 0.88, 1.05)],
-			[cliff2, Vector3(3.6, 0.0, -4.4), 2.28, Vector3(0.0, -65.0, 0.0), 0.96, Vector3(1.02, 0.84, 0.96)],
+			[cliff1, Vector3(1.0, 0.0, -6.35), 2.15, Vector3(0.0, 20.0, 0.0), 1.08, Vector3(1.18, 0.78, 0.92)],
+			[bld1, Vector3(-1.85, 0.0, -4.85), 1.65, Vector3(0.0, 55.0, 0.0), 0.74, Vector3(1.10, 0.84, 1.02)],
+			[cliff2, Vector3(3.75, 0.0, -4.75), 2.15, Vector3(0.0, -65.0, 0.0), 0.98, Vector3(1.02, 0.82, 0.96)],
 			# Western Spring Grotto Cliff Outcrops (deeply sunk into spring basin — zero floating!)
 			[cliff1, Vector3(-8.4, 0.0, -2.5), 2.15, Vector3(0.0, 55.0, 0.0), 1.05, Vector3(0.95, 0.95, 0.95)],
 			[bld1, Vector3(-9.5, 0.0, -0.6), 1.55, Vector3(0.0, 110.0, 0.0), 0.82, Vector3.ONE],
@@ -1760,15 +1774,15 @@ func _build_set_dressing_multimesh() -> void:
 						var sy: float = get_terrain_height(sx, sz) - st_aabb.position.y * sf * 0.72 + 0.18 - float(s) * 0.09
 						st_tfs.append(Transform3D(rot, Vector3(sx, sy, sz)))
 
-			# 12-Stone Covenant Altar Ring on North Hill Summit (deeply embedded into summit rock — ZERO floating!)
+			# 12-Stone Covenant Altar Ring on open North Hill Summit (clear ring around flame, rooted into crest!)
 			for i in range(12):
 				var ang: float = float(i) / 12.0 * TAU
-				var rx: float = 1.0 + cos(ang) * 0.92
-				var rz: float = -4.9 + sin(ang) * 0.92
-				var sf: float = rng_r.randf_range(0.56, 0.68) / maxf(st_aabb.size.y, 0.001)
-				var rot := Basis().rotated(Vector3.UP, ang).scaled(Vector3(sf, sf * 1.15, sf))
-				var min_ay: float = minf(get_terrain_height(rx, rz), get_terrain_height(rx + cos(ang) * 0.35, rz + sin(ang) * 0.35))
-				var ry: float = min_ay - st_aabb.position.y * sf * 1.15 - 0.28
+				var rx: float = 1.0 + cos(ang) * 1.02
+				var rz: float = -4.85 + sin(ang) * 0.98
+				var sf: float = rng_r.randf_range(0.42, 0.52) / maxf(st_aabb.size.y, 0.001)
+				var rot := Basis().rotated(Vector3.UP, ang).scaled(Vector3(sf * 0.95, sf * 1.05, sf * 0.95))
+				var min_ay: float = minf(get_terrain_height(rx, rz), get_terrain_height(rx + cos(ang) * 0.25, rz + sin(ang) * 0.25))
+				var ry: float = min_ay - st_aabb.position.y * sf * 1.05 - 0.10
 				st_tfs.append(Transform3D(rot, Vector3(rx, ry, rz)))
 
 			var wall_mm_cc0 := MultiMesh.new()
