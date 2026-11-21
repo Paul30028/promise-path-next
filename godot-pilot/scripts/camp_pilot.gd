@@ -7,6 +7,13 @@ const GlbAssetLoader = preload("res://scripts/glb_asset_loader.gd")
 @onready var metrics_label: Label = $HudLayer/MetricsLabel
 
 var abram_actor: Node3D = null
+var sarai_actor: Node3D = null
+var abram_anim_tree: AnimationTree = null
+var abram_playback: AnimationNodeStateMachinePlayback = null
+var sarai_anim_tree: AnimationTree = null
+var sarai_playback: AnimationNodeStateMachinePlayback = null
+var abram_anim_state: StringName = &"Idle"
+var abram_pray_timer: float = 0.0
 var target_pos: Vector3 = Vector3(-1.85, 0.0, 1.25)
 var move_speed: float = 4.2
 var dragging: bool = false
@@ -1204,17 +1211,80 @@ func _make_human_figure(pos: Vector3, cloak_col: Color, has_beard: bool, has_cro
 	return fig
 
 
+func _find_first_animation_player(root: Node) -> AnimationPlayer:
+	var stack: Array[Node] = [root]
+	while not stack.is_empty():
+		var cur: Node = stack.pop_back()
+		if cur is AnimationPlayer:
+			return cur as AnimationPlayer
+		for ch in cur.get_children():
+			stack.append(ch)
+	return null
+
+
+func _setup_character_animation_tree(actor_root: Node3D, default_state: StringName = &"Idle") -> Dictionary:
+	var ap: AnimationPlayer = _find_first_animation_player(actor_root)
+	if ap == null:
+		return {}
+	# Ensure all 3 skeletal clips loop smoothly
+	for clip_name in ["Idle", "Walk", "Pray"]:
+		if ap.has_animation(clip_name):
+			var anim: Animation = ap.get_animation(clip_name)
+			if anim != null:
+				anim.loop_mode = Animation.LOOP_LINEAR
+
+	var sm := AnimationNodeStateMachine.new()
+	var states: Array[StringName] = [&"Idle", &"Walk", &"Pray"]
+	var positions: Array[Vector2] = [Vector2(120, 100), Vector2(340, 40), Vector2(340, 170)]
+	for i in range(states.size()):
+		var st_name: StringName = states[i]
+		if ap.has_animation(st_name):
+			var node_anim := AnimationNodeAnimation.new()
+			node_anim.animation = st_name
+			sm.add_node(st_name, node_anim, positions[i])
+
+	# Bidirectional cross-fade transitions (0.22s) between Idle, Walk, Pray
+	for a in states:
+		for b in states:
+			if a != b and sm.has_node(a) and sm.has_node(b):
+				var tr := AnimationNodeStateMachineTransition.new()
+				tr.xfade_time = 0.22
+				sm.add_transition(a, b, tr)
+
+	var tree := AnimationTree.new()
+	tree.name = "AnimationTree"
+	tree.tree_root = sm
+	actor_root.add_child(tree)
+	tree.anim_player = tree.get_path_to(ap)
+	tree.active = true
+	var pb := tree.get("parameters/playback") as AnimationNodeStateMachinePlayback
+	if pb != null and sm.has_node(default_state):
+		pb.start(default_state)
+	return {"tree": tree, "playback": pb, "player": ap}
+
+
 func _build_characters() -> void:
-	var abram_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Abram.glb", 1.76, Vector3(0.0, -75.0, 0.0), 0.02, 0.82, Color(1.26, 1.28, 1.30))
+	var abram_glb: Node3D = null
+	var abram_is_rigged: bool = false
+	if ResourceLoader.exists("res://assets/models/CHR_Abram_rigged.glb"):
+		abram_glb = GlbAssetLoader.load_scene_asset("res://assets/models/CHR_Abram_rigged.glb", 1.76, Vector3(0.0, 0.0, 0.0), 0.02, Vector3.ONE, Color(1.26, 1.28, 1.30))
+		abram_is_rigged = abram_glb != null
+	if abram_glb == null:
+		abram_glb = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Abram.glb", 1.76, Vector3(0.0, -75.0, 0.0), 0.02, 0.82, Color(1.26, 1.28, 1.30))
 	if abram_glb != null:
 		active_glb_slots += 1
 		abram_actor = Node3D.new()
 		abram_actor.name = "AbramCommercialGLB"
 		abram_actor.position = Vector3(-1.85, get_terrain_height(-1.85, 1.25), 1.25)
-		abram_actor.rotation_degrees = Vector3(0.0, 25.0, 0.0)
+		abram_actor.rotation_degrees = Vector3(0.0, 195.0 if abram_is_rigged else 25.0, 0.0)
 		abram_actor.add_child(abram_glb)
 		_add_contact_shadow(abram_actor, 0.52, 0.48, 0.03)
 		add_child(abram_actor)
+		if abram_is_rigged:
+			var a_anim: Dictionary = _setup_character_animation_tree(abram_actor, &"Idle")
+			abram_anim_tree = a_anim.get("tree", null)
+			abram_playback = a_anim.get("playback", null)
+			abram_anim_state = &"Idle"
 	else:
 		abram_actor = _make_human_figure(Vector3(-1.85, 0.0, 1.25), Color(0.28, 0.36, 0.50), true, true)
 		abram_actor.name = "AbramStylized"
@@ -1222,16 +1292,26 @@ func _build_characters() -> void:
 		_add_contact_shadow(abram_actor, 0.52, 0.48, 0.03)
 		add_child(abram_actor)
 
-	var sarai_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Sarai.glb", 1.60, Vector3(0.0, -75.0, 0.0), 0.02, 0.82, Color(1.26, 1.26, 1.28))
+	var sarai_glb: Node3D = null
+	var sarai_is_rigged: bool = false
+	if ResourceLoader.exists("res://assets/models/CHR_Sarai_rigged.glb"):
+		sarai_glb = GlbAssetLoader.load_scene_asset("res://assets/models/CHR_Sarai_rigged.glb", 1.60, Vector3(0.0, 0.0, 0.0), 0.02, Vector3.ONE, Color(1.26, 1.26, 1.28))
+		sarai_is_rigged = sarai_glb != null
+	if sarai_glb == null:
+		sarai_glb = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Sarai.glb", 1.60, Vector3(0.0, -75.0, 0.0), 0.02, 0.82, Color(1.26, 1.26, 1.28))
 	if sarai_glb != null:
 		active_glb_slots += 1
-		var sarai_n := Node3D.new()
-		sarai_n.name = "SaraiCommercialGLB"
-		sarai_n.position = Vector3(-0.75, get_terrain_height(-0.75, 1.30), 1.30)
-		sarai_n.rotation_degrees = Vector3(0.0, -25.0, 0.0)
-		sarai_n.add_child(sarai_glb)
-		_add_contact_shadow(sarai_n, 0.48, 0.44, 0.03)
-		add_child(sarai_n)
+		sarai_actor = Node3D.new()
+		sarai_actor.name = "SaraiCommercialGLB"
+		sarai_actor.position = Vector3(-0.75, get_terrain_height(-0.75, 1.30), 1.30)
+		sarai_actor.rotation_degrees = Vector3(0.0, 162.0 if sarai_is_rigged else -25.0, 0.0)
+		sarai_actor.add_child(sarai_glb)
+		_add_contact_shadow(sarai_actor, 0.48, 0.44, 0.03)
+		add_child(sarai_actor)
+		if sarai_is_rigged:
+			var s_anim: Dictionary = _setup_character_animation_tree(sarai_actor, &"Idle")
+			sarai_anim_tree = s_anim.get("tree", null)
+			sarai_playback = s_anim.get("playback", null)
 	else:
 		var sarai := _make_human_figure(Vector3(-0.75, 0.0, 1.30), Color(0.76, 0.50, 0.28), false, false)
 		sarai.name = "SaraiStylized"
@@ -2140,23 +2220,37 @@ func _process(delta: float) -> void:
 	if abram_actor != null:
 		var to_target := target_pos - abram_actor.global_position
 		to_target.y = 0.0
+		var desired_state: StringName = &"Idle"
 		if to_target.length() > 0.12:
-			var step: Vector3 = to_target.normalized() * minf(move_speed * delta, to_target.length())
+			abram_pray_timer = 0.0
+			desired_state = &"Walk"
+			var dir: Vector3 = to_target.normalized()
+			var step: Vector3 = dir * minf(move_speed * delta, to_target.length())
 			abram_actor.global_position += step
 			abram_actor.global_position.y = get_terrain_height(abram_actor.global_position.x, abram_actor.global_position.z)
-			abram_actor.look_at(abram_actor.global_position + to_target.normalized(), Vector3.UP)
+			# Rigged GLB faces -Z (Godot native look_at forward axis!)
+			abram_actor.look_at(abram_actor.global_position + dir, Vector3.UP)
 		elif pending_action != "":
 			if pending_action == "water":
 				water_count += 5
 				status_note = "已从西谷清泉取水 +5（当前饮水：%d）" % water_count
 			elif pending_action == "pray":
 				harmony_score = mini(100, harmony_score + 15)
+				abram_pray_timer = 4.2
+				desired_state = &"Pray"
 				status_note = "【创 13:4】亚伯兰在坛前求告耶和华的名，全营和睦升至 %d%%" % harmony_score
 			else:
 				status_note = "亚伯兰已回到主营大帐"
 			pending_action = ""
 			if status_label != null:
 				status_label.text = status_note
+		elif abram_pray_timer > 0.0:
+			abram_pray_timer = maxf(0.0, abram_pray_timer - delta)
+			desired_state = &"Pray"
+
+		if abram_playback != null and desired_state != abram_anim_state:
+			abram_playback.travel(desired_state)
+			abram_anim_state = desired_state
 
 	var draw_calls := Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
 	var mem_mb := Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0
