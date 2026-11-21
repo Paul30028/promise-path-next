@@ -166,35 +166,22 @@ func _build_courtyard_wall_and_well() -> void:
 	wood_mat.albedo_color = Color(0.38, 0.24, 0.13)
 	wood_mat.roughness = 0.90
 
-	# Stacked rectangular dry-stone terrace retaining wall around courtyard
-	var wall_segments: Array[Array] = [
-		[Vector3(-6.2, 0.0, 0.2), Vector3(0.45, 0.65, 5.2), 0.0],
-		[Vector3(-3.8, 0.0, 2.75), Vector3(4.2, 0.65, 0.45), 6.0],
-		[Vector3(1.1, 0.0, 2.65), Vector3(3.6, 0.65, 0.45), -8.0],
-		[Vector3(2.9, 0.0, 0.4), Vector3(0.45, 0.65, 4.4), 0.0],
-	]
-	for seg in wall_segments:
-		var pos: Vector3 = seg[0]
-		pos.y = get_terrain_height(pos.x, pos.z) + 0.12
-		var m := MeshInstance3D.new()
-		var b := BoxMesh.new()
-		b.size = seg[1]
-		m.mesh = b
-		m.material_override = wall_mat
-		m.position = pos
-		m.rotation_degrees = Vector3(0.0, float(seg[2]), 0.0)
-		root.add_child(m)
-
-	# 3 Wide Stone Steps at front of courtyard (-1.3, 2.9..3.6)
+	# 3 Wide Stone Steps at front of courtyard (-1.35, 2.75..3.6) using weathered boulder stone
+	var step_mat := StandardMaterial3D.new()
+	step_mat.albedo_texture = load("res://assets/textures/rock_boulder_albedo.png")
+	step_mat.normal_enabled = true
+	step_mat.normal_texture = load("res://assets/textures/rock_boulder_normal.png")
+	step_mat.albedo_color = Color(0.76, 0.70, 0.58)
+	step_mat.roughness = 0.94
 	for s in range(3):
 		var step := MeshInstance3D.new()
 		var sb := BoxMesh.new()
-		sb.size = Vector3(1.85, 0.22, 0.44)
+		sb.size = Vector3(1.9, 0.24, 0.46)
 		step.mesh = sb
-		step.material_override = wall_mat
+		step.material_override = step_mat
 		var sx: float = -1.35
-		var sz: float = 2.75 + float(s) * 0.42
-		step.position = Vector3(sx, get_terrain_height(sx, sz) + 0.26 - float(s) * 0.11, sz)
+		var sz: float = 2.72 + float(s) * 0.42
+		step.position = Vector3(sx, get_terrain_height(sx, sz) + 0.28 - float(s) * 0.11, sz)
 		root.add_child(step)
 
 	# Circular Stacked-Stone Water Well at front-left (-7.2, 2.2) matching camp-scene-mobile.png
@@ -330,7 +317,7 @@ func _build_patriarch_camp_architecture() -> void:
 	back_curtain.position = Vector3(0.0, 0.95, -1.12)
 	tent_root.add_child(back_curtain)
 
-	# 2 Tekhelet Blue & Pomegranate Tapestry Banners
+	# 2 Tekhelet Blue & Pomegranate Tapestry Banners + Woven Floor Rug + 2 Wooden Benches
 	for bx in [-1.25, 1.25]:
 		var banner := MeshInstance3D.new()
 		var plane := QuadMesh.new()
@@ -339,6 +326,23 @@ func _build_patriarch_camp_architecture() -> void:
 		banner.material_override = tap_mat
 		banner.position = Vector3(bx, 1.18, 1.18)
 		tent_root.add_child(banner)
+
+	var rug := MeshInstance3D.new()
+	var rmesh := BoxMesh.new()
+	rmesh.size = Vector3(1.85, 0.03, 1.25)
+	rug.mesh = rmesh
+	rug.material_override = tap_mat
+	rug.position = Vector3(0.0, 0.03, 0.05)
+	tent_root.add_child(rug)
+
+	for bench_x in [-0.72, 0.72]:
+		var bench := MeshInstance3D.new()
+		var bmesh := BoxMesh.new()
+		bmesh.size = Vector3(0.92, 0.32, 0.44)
+		bench.mesh = bmesh
+		bench.material_override = wood_mat
+		bench.position = Vector3(bench_x, 0.16, -0.58)
+		tent_root.add_child(bench)
 
 	# 3 Terracotta Amphorae Cluster by Left Post (matching camp-scene-mobile.png!)
 	for jar in [[Vector3(-2.15, 0.42, 1.35), 0.28, 0.84], [Vector3(-1.72, 0.32, 1.55), 0.22, 0.64], [Vector3(-1.42, 0.22, 1.82), 0.16, 0.44]]:
@@ -481,18 +485,20 @@ func _build_spring_waterfall() -> void:
 	water.position = Vector3(sx, sy, sz)
 	add_child(water)
 
-	# White cascading waterfall ribbon feeding the pool from rock ledge
+	# Tapered cascading spring stream + foam stones feeding the teal pool
 	var fall := MeshInstance3D.new()
-	var fb := BoxMesh.new()
-	fb.size = Vector3(0.42, 0.95, 0.14)
-	fall.mesh = fb
+	var fc := CylinderMesh.new()
+	fc.top_radius = 0.14
+	fc.bottom_radius = 0.34
+	fc.height = 0.92
+	fall.mesh = fc
 	var fmat := StandardMaterial3D.new()
-	fmat.albedo_color = Color(0.84, 0.94, 0.95, 0.85)
+	fmat.albedo_color = Color(0.78, 0.91, 0.92, 0.78)
 	fmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	fmat.roughness = 0.2
+	fmat.roughness = 0.22
 	fall.material_override = fmat
-	fall.position = Vector3(sx - 0.55, sy + 0.45, sz - 1.35)
-	fall.rotation_degrees = Vector3(22.0, 20.0, 0.0)
+	fall.position = Vector3(sx - 0.55, sy + 0.38, sz - 1.35)
+	fall.rotation_degrees = Vector3(26.0, 20.0, 0.0)
 	add_child(fall)
 
 
@@ -645,67 +651,76 @@ func _build_characters() -> void:
 
 
 func _build_sheep_flocks() -> void:
-	var root := Node3D.new()
-	root.name = "GrazingFlocks"
-	add_child(root)
-
+	# Batched GPU-instanced grazing flocks (2 Draw Calls total for all 9 sheep!)
 	var wool_mat := StandardMaterial3D.new()
-	wool_mat.albedo_color = Color(0.92, 0.88, 0.78)
+	wool_mat.albedo_color = Color(0.88, 0.84, 0.74)
 	wool_mat.roughness = 0.95
 	var dark_mat := StandardMaterial3D.new()
 	dark_mat.albedo_color = Color(0.24, 0.20, 0.16)
 	dark_mat.roughness = 0.92
 
-	# Two separated grazing flocks (matching camp-scene-mobile.png bottom-center & bottom-right!)
 	var spots: Array[Vector2] = [
 		Vector2(-0.4, 5.2), Vector2(0.5, 4.9), Vector2(1.2, 5.4), Vector2(0.2, 5.8),
 		Vector2(4.6, 4.6), Vector2(5.4, 4.3), Vector2(6.0, 5.0), Vector2(5.2, 5.5), Vector2(6.5, 4.5),
 	]
+	var body_mm := MultiMesh.new()
+	body_mm.transform_format = MultiMesh.TRANSFORM_3D
+	var bm := SphereMesh.new()
+	bm.radius = 0.28
+	bm.height = 0.46
+	bm.radial_segments = 10
+	bm.rings = 6
+	body_mm.mesh = bm
+	body_mm.instance_count = spots.size()
+
+	var head_mm := MultiMesh.new()
+	head_mm.transform_format = MultiMesh.TRANSFORM_3D
+	var hm := SphereMesh.new()
+	hm.radius = 0.11
+	hm.height = 0.22
+	head_mm.mesh = hm
+	head_mm.instance_count = spots.size()
+
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 909
-	for s in spots:
-		var sh := Node3D.new()
-		sh.position = Vector3(s.x, get_terrain_height(s.x, s.y), s.y)
-		sh.rotation_degrees = Vector3(0.0, rng.randf_range(0.0, 360.0), 0.0)
-		root.add_child(sh)
+	for i in range(spots.size()):
+		var s: Vector2 = spots[i]
+		var sy: float = get_terrain_height(s.x, s.y)
+		var yaw: float = rng.randf_range(0.0, TAU)
+		var rot := Basis().rotated(Vector3.UP, yaw)
+		body_mm.set_instance_transform(i, Transform3D(rot.scaled(Vector3(1.0, 0.85, 1.35)), Vector3(s.x, sy + 0.34, s.y)))
+		var h_off: Vector3 = rot * Vector3(0.0, 0.29, 0.36)
+		head_mm.set_instance_transform(i, Transform3D(rot, Vector3(s.x + h_off.x, sy + h_off.y, s.y + h_off.z)))
 
-		var body := MeshInstance3D.new()
-		var bm := SphereMesh.new()
-		bm.radius = 0.28
-		bm.height = 0.46
-		bm.radial_segments = 10
-		bm.rings = 6
-		body.mesh = bm
-		body.material_override = wool_mat
-		body.scale = Vector3(1.0, 0.85, 1.35)
-		body.position = Vector3(0.0, 0.34, 0.0)
-		sh.add_child(body)
+	var b_node := MultiMeshInstance3D.new()
+	b_node.multimesh = body_mm
+	b_node.material_override = wool_mat
+	add_child(b_node)
 
-		var head := MeshInstance3D.new()
-		var hm := SphereMesh.new()
-		hm.radius = 0.11
-		hm.height = 0.22
-		head.mesh = hm
-		head.material_override = dark_mat
-		head.position = Vector3(0.0, 0.29, 0.36)
-		sh.add_child(head)
+	var h_node := MultiMeshInstance3D.new()
+	h_node.multimesh = head_mm
+	h_node.material_override = dark_mat
+	add_child(h_node)
 
 
 func _build_olive_groves() -> void:
-	var root := Node3D.new()
-	root.name = "OliveGroves"
-	add_child(root)
-
+	# Batched GPU-instanced olive groves (3 Draw Calls total for all 6 trees & 36 foliage clusters!)
 	var bark_mat := StandardMaterial3D.new()
-	bark_mat.albedo_color = Color(0.34, 0.23, 0.14)
-	bark_mat.roughness = 0.94
+	bark_mat.albedo_color = Color(0.32, 0.21, 0.13)
+	bark_mat.roughness = 0.95
 
 	var leaf_mat := StandardMaterial3D.new()
-	leaf_mat.albedo_color = Color(0.32, 0.40, 0.23)
-	leaf_mat.roughness = 0.92
+	leaf_mat.albedo_texture = load("res://assets/textures/terrain_grass_albedo.png")
+	leaf_mat.normal_enabled = true
+	leaf_mat.normal_texture = load("res://assets/textures/terrain_grass_normal.png")
+	leaf_mat.albedo_color = Color(0.60, 0.66, 0.46)
+	leaf_mat.roughness = 0.94
 
 	var leaf_mat_hi := StandardMaterial3D.new()
-	leaf_mat_hi.albedo_color = Color(0.44, 0.50, 0.28)
+	leaf_mat_hi.albedo_texture = load("res://assets/textures/terrain_grass_albedo.png")
+	leaf_mat_hi.normal_enabled = true
+	leaf_mat_hi.normal_texture = load("res://assets/textures/terrain_grass_normal.png")
+	leaf_mat_hi.albedo_color = Color(0.76, 0.80, 0.56)
 	leaf_mat_hi.roughness = 0.92
 
 	var tree_spots: Array[Vector3] = [
@@ -716,47 +731,70 @@ func _build_olive_groves() -> void:
 		Vector3(8.2, 0.0, -2.8),
 		Vector3(4.2, 0.0, -6.8),
 	]
+	var offsets: Array[Vector3] = [
+		Vector3(0.0, 1.75, 0.0),
+		Vector3(-0.68, 1.54, 0.28),
+		Vector3(0.68, 1.56, -0.24),
+		Vector3(0.20, 1.60, 0.58),
+		Vector3(-0.30, 1.52, -0.56),
+		Vector3(0.32, 1.94, 0.12),
+	]
+
+	var trunk_tfs: Array[Transform3D] = []
+	var leaf_dark_tfs: Array[Transform3D] = []
+	var leaf_hi_tfs: Array[Transform3D] = []
+
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 407
 	for spot in tree_spots:
 		var ty: float = get_terrain_height(spot.x, spot.z)
-		var tree := Node3D.new()
-		tree.position = Vector3(spot.x, ty, spot.z)
-		var scale_f: float = rng.randf_range(0.90, 1.22)
-		tree.scale = Vector3(scale_f, scale_f, scale_f)
-		root.add_child(tree)
+		var sf: float = rng.randf_range(0.90, 1.22)
+		var tb := Basis().rotated(Vector3.RIGHT, deg_to_rad(rng.randf_range(-6.0, 6.0))).rotated(Vector3.FORWARD, deg_to_rad(rng.randf_range(-8.0, 8.0))).scaled(Vector3(sf, sf, sf))
+		trunk_tfs.append(Transform3D(tb, Vector3(spot.x, ty + 0.74 * sf, spot.z)))
 
-		var trunk := MeshInstance3D.new()
-		var tcyl := CylinderMesh.new()
-		tcyl.top_radius = 0.14
-		tcyl.bottom_radius = 0.24
-		tcyl.height = 1.48
-		tcyl.radial_segments = 7
-		trunk.mesh = tcyl
-		trunk.material_override = bark_mat
-		trunk.position = Vector3(0.0, 0.74, 0.0)
-		trunk.rotation_degrees = Vector3(rng.randf_range(-6.0, 6.0), 0.0, rng.randf_range(-8.0, 8.0))
-		tree.add_child(trunk)
-
-		var offsets: Array[Vector3] = [
-			Vector3(0.0, 1.75, 0.0),
-			Vector3(-0.68, 1.54, 0.28),
-			Vector3(0.68, 1.56, -0.24),
-			Vector3(0.20, 1.60, 0.58),
-			Vector3(-0.30, 1.52, -0.56),
-			Vector3(0.32, 1.94, 0.12),
-		]
 		for j in range(offsets.size()):
-			var cl := MeshInstance3D.new()
-			var sm := SphereMesh.new()
-			sm.radius = rng.randf_range(0.55, 0.78)
-			sm.height = sm.radius * 1.1
-			sm.radial_segments = 8
-			sm.rings = 5
-			cl.mesh = sm
-			cl.material_override = leaf_mat_hi if j % 2 == 0 else leaf_mat
-			cl.position = offsets[j]
-			tree.add_child(cl)
+			var off: Vector3 = offsets[j] * sf
+			var rad: float = rng.randf_range(0.55, 0.78) * sf
+			var lb := Basis().rotated(Vector3.UP, rng.randf_range(0.0, TAU)).scaled(Vector3(rad, rad * 0.65, rad))
+			var tf := Transform3D(lb, Vector3(spot.x + off.x, ty + off.y, spot.z + off.z))
+			if j % 2 == 0:
+				leaf_hi_tfs.append(tf)
+			else:
+				leaf_dark_tfs.append(tf)
+
+	var tcyl := CylinderMesh.new()
+	tcyl.top_radius = 0.14
+	tcyl.bottom_radius = 0.24
+	tcyl.height = 1.48
+	tcyl.radial_segments = 7
+	var t_mm := MultiMesh.new()
+	t_mm.transform_format = MultiMesh.TRANSFORM_3D
+	t_mm.mesh = tcyl
+	t_mm.instance_count = trunk_tfs.size()
+	for i in range(trunk_tfs.size()):
+		t_mm.set_instance_transform(i, trunk_tfs[i])
+	var t_node := MultiMeshInstance3D.new()
+	t_node.multimesh = t_mm
+	t_node.material_override = bark_mat
+	add_child(t_node)
+
+	var lmesh := SphereMesh.new()
+	lmesh.radius = 1.0
+	lmesh.height = 1.7
+	lmesh.radial_segments = 8
+	lmesh.rings = 5
+	for pair in [[leaf_dark_tfs, leaf_mat], [leaf_hi_tfs, leaf_mat_hi]]:
+		var arr: Array[Transform3D] = pair[0]
+		var l_mm := MultiMesh.new()
+		l_mm.transform_format = MultiMesh.TRANSFORM_3D
+		l_mm.mesh = lmesh
+		l_mm.instance_count = arr.size()
+		for i in range(arr.size()):
+			l_mm.set_instance_transform(i, arr[i])
+		var l_node := MultiMeshInstance3D.new()
+		l_node.multimesh = l_mm
+		l_node.material_override = pair[1]
+		add_child(l_node)
 
 
 func _build_set_dressing_multimesh() -> void:
@@ -786,6 +824,18 @@ func _build_set_dressing_multimesh() -> void:
 		var ry: float = get_terrain_height(rx, rz) + 0.18
 		var b := Basis().rotated(Vector3.UP, ang).scaled(Vector3(1.15, 0.95, 1.05))
 		rock_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
+
+	# Tightly stacked organic dry-stone courtyard retaining wall (2 tiers, leaving front step gap at x in [-2.3, -0.4])
+	for tier in range(2):
+		for i in range(44):
+			var ang: float = float(i) / 44.0 * TAU
+			var rx: float = -1.75 + cos(ang) * 4.55
+			var rz: float = 0.25 + sin(ang) * 2.65
+			if rz > 2.2 and rx > -2.35 and rx < -0.35:
+				continue # front stone steps opening
+			var ry: float = get_terrain_height(rx, rz) + 0.08 + float(tier) * 0.28
+			var b := Basis().rotated(Vector3.UP, ang + float(tier) * 0.2).scaled(Vector3(0.95, 0.56, 0.78))
+			rock_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
 
 	# Western spring rim boulders
 	for i in range(14):

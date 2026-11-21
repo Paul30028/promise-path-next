@@ -29,9 +29,12 @@ void fragment() {
 	vec3 n_grass = texture(grass_normal, uv).rgb;
 	vec3 n_rock = texture(rock_normal, uv * 0.8).rgb;
 
-	ALBEDO = c_dirt * w.r + c_grass * w.g + c_rock * w.b;
+	vec3 base_albedo = c_dirt * w.r + c_grass * w.g + c_rock * w.b;
+	// Subtle warm golden-hour contrast & ambient occlusion darkening in valleys
+	float ao = clamp(0.84 + world_pos.y * 0.08, 0.78, 1.0);
+	ALBEDO = base_albedo * 0.80 * ao;
 	NORMAL_MAP = normalize(n_dirt * w.r + n_grass * w.g + n_rock * w.b);
-	NORMAL_MAP_DEPTH = 0.85;
-	ROUGHNESS = mix(0.94, 0.86, w.b);
+	NORMAL_MAP_DEPTH = 1.15;
+	ROUGHNESS = mix(0.95, 0.87, w.b);
 	METALLIC = 0.0;
 }
