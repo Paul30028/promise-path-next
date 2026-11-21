@@ -143,3 +143,31 @@ static func load_glb_instance(
 	pivot.add_child(inst)
 	wrapper.add_child(pivot)
 	return wrapper
+
+
+static func extract_first_mesh_data(res_path: String, roughness_min: float = 0.82, albedo_boost: Color = Color(1.08, 1.06, 1.02)) -> Dictionary:
+	# Extracts Mesh, tuned Material, and normalized AABB for 1-Draw-Call MultiMesh instancing!
+	var node: Node3D = load_glb_instance(res_path, 1.0, Vector3.ZERO, 0.0, roughness_min, albedo_boost)
+	if node == null:
+		return {}
+	var stack: Array[Node] = [node]
+	while not stack.is_empty():
+		var cur: Node = stack.pop_back()
+		if cur is MeshInstance3D:
+			var mi := cur as MeshInstance3D
+			if mi.mesh != null and mi.mesh.get_surface_count() > 0:
+				var mat: Material = mi.get_surface_override_material(0)
+				if mat == null:
+					mat = mi.get_active_material(0)
+				var aabb: AABB = mi.mesh.get_aabb()
+				var res := {
+					"mesh": mi.mesh,
+					"material": mat,
+					"aabb": aabb,
+				}
+				node.free()
+				return res
+		for child in cur.get_children():
+			stack.append(child)
+	node.free()
+	return {}

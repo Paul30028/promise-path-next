@@ -16,30 +16,30 @@ background_mode = 2
 sky = SubResource("Sky_1")
 ambient_light_source = 3
 ambient_light_sky_contribution = 0.86
-ambient_light_energy = 0.22
+ambient_light_energy = 0.24
 tonemap_mode = 3
-tonemap_exposure = 1.02
+tonemap_exposure = 0.94
 tonemap_white = 6.0
 ssao_enabled = true
-ssao_radius = 1.30
-ssao_intensity = 3.0
-ssao_power = 1.75
-ssao_detail = 0.75
+ssao_radius = 1.15
+ssao_intensity = 1.85
+ssao_power = 1.50
+ssao_detail = 0.50
 ssil_enabled = true
-ssil_radius = 3.8
-ssil_intensity = 0.72
+ssil_radius = 3.2
+ssil_intensity = 0.55
 glow_enabled = true
-glow_intensity = 0.50
-glow_strength = 0.92
-glow_bloom = 0.14
-glow_hdr_threshold = 1.05
+glow_intensity = 0.26
+glow_strength = 0.72
+glow_bloom = 0.05
+glow_hdr_threshold = 1.18
 fog_enabled = true
 fog_light_color = Color(0.84, 0.85, 0.80, 1)
-fog_density = 0.0022
+fog_density = 0.0020
 adjustment_enabled = true
-adjustment_brightness = 1.00
-adjustment_contrast = 1.18
-adjustment_saturation = 1.24
+adjustment_brightness = 0.99
+adjustment_contrast = 1.07
+adjustment_saturation = 1.09
 
 [sub_resource type="PlaneMesh" id="GroundMesh_1"]
 size = Vector2(64, 48)
@@ -61,8 +61,8 @@ environment = SubResource("Env_1")
 
 [node name="SunLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.788, -0.454, 0.416, 0, 0.675, 0.738, -0.616, -0.581, 0.532, 12, 16, 10)
-light_color = Color(1, 0.89, 0.70, 1)
-light_energy = 1.62
+light_color = Color(1, 0.89, 0.72, 1)
+light_energy = 1.28
 shadow_enabled = true
 shadow_bias = 0.025
 shadow_blur = 1.15
@@ -72,9 +72,9 @@ directional_shadow_mode = 2
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6, 0.2, 0.8)
 
 [node name="Camera3D" type="Camera3D" parent="CameraRig"]
-transform = Transform3D(1, 0, 0, 0, 0.755, 0.656, 0, -0.656, 0.755, 0, 12.0, 13.6)
+transform = Transform3D(1, 0, 0, 0, 0.766, 0.643, 0, -0.643, 0.766, 0, 13.0, 15.6)
 current = true
-fov = 34.5
+fov = 36.0
 far = 120.0
 
 [node name="GroundBody" type="StaticBody3D" parent="."]

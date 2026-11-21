@@ -85,6 +85,8 @@ def run_batch(targets):
 
     MAP = {
         "CHR_Abram": "abram_front.png",
+        "CHR_Sarai": "CHR_Sarai.png",
+        "ENV_OliveTree": "ENV_OliveTree.png",
         "BLD_MainTent": "BLD_MainTent.png",
         "BLD_StoneWell": "BLD_StoneWell.png",
         "CHR_Sheep": "CHR_Sheep.png",

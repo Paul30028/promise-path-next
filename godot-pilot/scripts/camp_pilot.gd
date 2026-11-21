@@ -87,12 +87,12 @@ static func _make_draped_roof_mesh(w: float, d: float, ridge_h: float, eave_h: f
 
 
 static func _make_sculpted_rock_mesh(seed_val: int) -> ArrayMesh:
-	# Faceted, weathered Canaanite limestone block (organic chiseled ridges, NOT a smooth sphere!)
-	var base := SphereMesh.new()
-	base.radius = 0.48
-	base.height = 0.62
-	base.radial_segments = 8
-	base.rings = 4
+	# Broad, flat-topped, stepped sedimentary Canaanite limestone block (NO bumpy popcorn spheres!)
+	var base := BoxMesh.new()
+	base.size = Vector3(1.15, 0.54, 0.92)
+	base.subdivide_width = 2
+	base.subdivide_height = 2
+	base.subdivide_depth = 2
 	var arrays: Array = base.surface_get_arrays(0)
 	var src_v: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 	var src_uv: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
@@ -100,18 +100,15 @@ static func _make_sculpted_rock_mesh(seed_val: int) -> ArrayMesh:
 
 	var displaced: PackedVector3Array = PackedVector3Array()
 	displaced.resize(src_v.size())
-	var fseed: float = float(seed_val) * 1.37
+	var fseed: float = float(seed_val) * 1.73
 	for i in range(src_v.size()):
 		var v: Vector3 = src_v[i]
-		# Deterministic layered rock displacement
-		var n1: float = sin(v.x * 5.2 + fseed) * cos(v.z * 4.8 - fseed) * 0.16
-		var n2: float = sin((v.x + v.z) * 7.5 + v.y * 4.0) * 0.08
-		var scale_r: float = 1.0 + n1 + n2
-		var nv := Vector3(v.x * scale_r, v.y * (0.85 + n2 * 0.5), v.z * scale_r)
-		# Flatten top slightly like natural sedimentary limestone
-		if nv.y > 0.22:
-			nv.y = 0.22 + (nv.y - 0.22) * 0.38
-		displaced[i] = nv
+		# Subtle angular chiseled limestone strata bevels (keeps broad clean sunlit faces!)
+		var bevel: float = 0.86 if v.y > 0.15 else 1.04
+		var nx: float = sin(v.z * 3.1 + fseed) * 0.08
+		var nz: float = cos(v.x * 2.9 - fseed) * 0.08
+		var ny: float = sin((v.x - v.z) * 2.4 + fseed) * 0.035
+		displaced[i] = Vector3(v.x * bevel + nx, v.y + ny, v.z * bevel + nz)
 
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -119,7 +116,6 @@ static func _make_sculpted_rock_mesh(seed_val: int) -> ArrayMesh:
 		var a: int = src_idx[i]
 		var b: int = src_idx[i + 1]
 		var c: int = src_idx[i + 2]
-		# Flat-faceted limestone normals per triangle for crisp chiseled sunlight catch
 		var va: Vector3 = displaced[a]
 		var vb: Vector3 = displaced[b]
 		var vc: Vector3 = displaced[c]
@@ -732,8 +728,9 @@ func _build_patriarch_camp_architecture() -> void:
 		linen_mat.albedo_texture = load("res://assets/textures/linen_canopy_albedo.png")
 		linen_mat.normal_enabled = true
 		linen_mat.normal_texture = load("res://assets/textures/linen_canopy_normal.png")
-		linen_mat.albedo_color = Color(1.38, 1.26, 1.02)
-		linen_mat.roughness = 0.92
+		linen_mat.normal_scale = 0.75
+		linen_mat.albedo_color = Color(1.08, 0.99, 0.82)
+		linen_mat.roughness = 0.94
 		linen_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 		var olive_cloth := StandardMaterial3D.new()
 		olive_cloth.albedo_color = Color(0.24, 0.40, 0.14)
@@ -894,7 +891,7 @@ func _build_spring_waterfall() -> void:
 	wet_rock_mat.albedo_texture = load("res://assets/textures/rock_boulder_albedo.png")
 	wet_rock_mat.normal_enabled = true
 	wet_rock_mat.normal_texture = load("res://assets/textures/rock_boulder_normal.png")
-	wet_rock_mat.albedo_color = Color(0.46, 0.43, 0.37)
+	wet_rock_mat.albedo_color = Color(0.68, 0.62, 0.50)
 	wet_rock_mat.roughness = 0.42
 	var wet_mesh := _make_sculpted_rock_mesh(33)
 	for wr in [
@@ -1067,15 +1064,15 @@ func _build_characters() -> void:
 		_add_contact_shadow(abram_actor, 0.52, 0.48, 0.03)
 		add_child(abram_actor)
 
-	var sarai_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Sarai.glb", 1.54, Vector3(0.0, 90.0, 0.0), 0.02, 0.78, Color(1.25, 1.22, 1.16))
+	var sarai_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Sarai.glb", 1.56, Vector3(0.0, -75.0, 0.0), 0.02, 0.80, Color(1.12, 1.08, 1.02))
 	if sarai_glb != null:
 		active_glb_slots += 1
 		var sarai_n := Node3D.new()
 		sarai_n.name = "SaraiCommercialGLB"
 		sarai_n.position = Vector3(-0.75, get_terrain_height(-0.75, 1.30), 1.30)
-		sarai_n.rotation_degrees = Vector3(0.0, -75.0, 0.0)
+		sarai_n.rotation_degrees = Vector3(0.0, -25.0, 0.0)
 		sarai_n.add_child(sarai_glb)
-		_add_contact_shadow(sarai_n, 0.48, 0.46, 0.03)
+		_add_contact_shadow(sarai_n, 0.48, 0.44, 0.03)
 		add_child(sarai_n)
 	else:
 		var sarai := _make_human_figure(Vector3(-0.75, 0.0, 1.30), Color(0.76, 0.50, 0.28), false, false)
@@ -1125,23 +1122,30 @@ func _build_sheep_flocks() -> void:
 		Vector2(4.6, 4.6), Vector2(5.4, 4.3), Vector2(6.0, 5.0), Vector2(5.2, 5.5), Vector2(6.5, 4.5),
 	]
 	if FileAccess.file_exists("res://assets/models/CHR_Sheep.glb"):
-		var rng_g := RandomNumberGenerator.new()
-		rng_g.seed = 909
-		var flock_root := Node3D.new()
-		flock_root.name = "SheepFlockGLB"
-		add_child(flock_root)
-		var loaded_any := false
-		for s in spots:
-			var sf: float = rng_g.randf_range(0.64, 0.76)
-			# Orient sheep within sunlit grazing arc so bright cream wool catches Mediterranean sun!
-			var yaw_deg: float = rng_g.randf_range(-55.0, 55.0)
-			var sheep_inst: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Sheep.glb", sf, Vector3(0.0, yaw_deg, 0.0), 0.02, 0.88, Color(1.20, 1.16, 1.08))
-			if sheep_inst != null:
-				loaded_any = true
-				sheep_inst.position = Vector3(s.x, get_terrain_height(s.x, s.y), s.y)
-				_add_contact_shadow(sheep_inst, 0.42, 0.42, 0.03)
-				flock_root.add_child(sheep_inst)
-		if loaded_any:
+		var mesh_data: Dictionary = GlbAssetLoader.extract_first_mesh_data("res://assets/models/CHR_Sheep.glb", 0.90, Color(1.12, 1.08, 1.00))
+		if not mesh_data.is_empty():
+			var s_mesh: Mesh = mesh_data["mesh"]
+			var s_mat: Material = mesh_data["material"]
+			var s_aabb: AABB = mesh_data["aabb"]
+			var s_mm := MultiMesh.new()
+			s_mm.transform_format = MultiMesh.TRANSFORM_3D
+			s_mm.mesh = s_mesh
+			s_mm.instance_count = spots.size()
+			var rng_g := RandomNumberGenerator.new()
+			rng_g.seed = 909
+			for i in range(spots.size()):
+				var s: Vector2 = spots[i]
+				var target_h: float = rng_g.randf_range(0.64, 0.76)
+				var sf: float = target_h / maxf(s_aabb.size.y, 0.001)
+				var yaw: float = deg_to_rad(rng_g.randf_range(-55.0, 55.0))
+				var rot := Basis().rotated(Vector3.UP, yaw).scaled(Vector3(sf, sf, sf))
+				var sy: float = get_terrain_height(s.x, s.y) - s_aabb.position.y * sf - 0.02
+				s_mm.set_instance_transform(i, Transform3D(rot, Vector3(s.x, sy, s.y)))
+			var s_node := MultiMeshInstance3D.new()
+			s_node.name = "SheepFlockGLB_MultiMesh"
+			s_node.multimesh = s_mm
+			s_node.material_override = s_mat
+			add_child(s_node)
 			active_glb_slots += 1
 			return
 
@@ -1216,7 +1220,52 @@ func _build_sheep_flocks() -> void:
 
 
 func _build_olive_groves() -> void:
-	# Sculpted multi-branch olive trees with alpha-cutout leaf cards (ONLY 2 Draw Calls total!)
+	var tree_spots: Array[Vector3] = [
+		Vector3(-7.6, 0.0, -4.6),
+		Vector3(-4.2, 0.0, -4.2),
+		Vector3(-9.2, 0.0, 3.8),
+		Vector3(5.6, 0.0, -4.4),
+		Vector3(8.2, 0.0, -2.8),
+		Vector3(4.2, 0.0, -6.8),
+		Vector3(-10.5, 0.0, -6.8),
+		Vector3(-6.2, 0.0, -7.8),
+		Vector3(-2.4, 0.0, -8.2),
+		Vector3(6.8, 0.0, -7.2),
+		Vector3(10.2, 0.0, -5.8),
+		Vector3(11.4, 0.0, -1.8),
+		Vector3(-11.2, 0.0, 0.4),
+	]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 407
+
+	# TRUE Mediterranean Umbrella Olive Tree Commercial GLB (ALL 13 trees in 1 Draw Call!)
+	if FileAccess.file_exists("res://assets/models/ENV_OliveTree.glb"):
+		var tdata: Dictionary = GlbAssetLoader.extract_first_mesh_data("res://assets/models/ENV_OliveTree.glb", 0.90, Color(1.06, 1.08, 1.00))
+		if not tdata.is_empty():
+			var t_mesh: Mesh = tdata["mesh"]
+			var t_mat: Material = tdata["material"]
+			var t_aabb: AABB = tdata["aabb"]
+			var t_mm := MultiMesh.new()
+			t_mm.transform_format = MultiMesh.TRANSFORM_3D
+			t_mm.mesh = t_mesh
+			t_mm.instance_count = tree_spots.size()
+			for i in range(tree_spots.size()):
+				var spot: Vector3 = tree_spots[i]
+				var target_h: float = rng.randf_range(3.2, 4.3)
+				var sf: float = target_h / maxf(t_aabb.size.y, 0.001)
+				var yaw: float = deg_to_rad(rng.randf_range(-40.0, 40.0))
+				var rot := Basis().rotated(Vector3.UP, yaw).scaled(Vector3(sf * 1.12, sf, sf * 1.12))
+				var ty: float = get_terrain_height(spot.x, spot.z) - t_aabb.position.y * sf - 0.14
+				t_mm.set_instance_transform(i, Transform3D(rot, Vector3(spot.x, ty, spot.z)))
+			var t_node := MultiMeshInstance3D.new()
+			t_node.name = "OliveGrovesGLB_MultiMesh"
+			t_node.multimesh = t_mm
+			t_node.material_override = t_mat
+			add_child(t_node)
+			active_glb_slots += 1
+			return
+
+	# Fallback procedural olive trees if ENV_OliveTree.glb is absent
 	var bark_mat := StandardMaterial3D.new()
 	if FileAccess.file_exists("res://assets/textures/wood_timber_albedo.png"):
 		bark_mat.albedo_texture = load("res://assets/textures/wood_timber_albedo.png")
@@ -1236,22 +1285,6 @@ func _build_olive_groves() -> void:
 	leaf_mat.set_shader_parameter("wind_strength", 0.05)
 	leaf_mat.set_shader_parameter("wind_speed", 1.3)
 
-	var tree_spots: Array[Vector3] = [
-		Vector3(-7.6, 0.0, -4.6),
-		Vector3(-4.2, 0.0, -4.2),
-		Vector3(-9.2, 0.0, 3.8),
-		Vector3(5.6, 0.0, -4.4),
-		Vector3(8.2, 0.0, -2.8),
-		Vector3(4.2, 0.0, -6.8),
-		# Background terraced hill olive grove (matching camp-scene-mobile.png!)
-		Vector3(-10.5, 0.0, -6.8),
-		Vector3(-6.2, 0.0, -7.8),
-		Vector3(-2.4, 0.0, -8.2),
-		Vector3(6.8, 0.0, -7.2),
-		Vector3(10.2, 0.0, -5.8),
-		Vector3(11.4, 0.0, -1.8),
-		Vector3(-11.2, 0.0, 0.4),
-	]
 	var offsets: Array[Vector3] = [
 		Vector3(0.0, 1.75, 0.0),
 		Vector3(-0.92, 1.54, 0.36),
@@ -1264,8 +1297,6 @@ func _build_olive_groves() -> void:
 
 	var trunk_tfs: Array[Transform3D] = []
 	var leaf_tfs: Array[Transform3D] = []
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 407
 
 	for spot in tree_spots:
 		var ty: float = get_terrain_height(spot.x, spot.z)
@@ -1333,28 +1364,32 @@ func _build_grass_meadow_multimesh() -> void:
 	var tfs: Array[Transform3D] = []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 2026
-	for _i in range(3600):
-		var gx: float = rng.randf_range(-14.5, 13.5)
-		var gz: float = rng.randf_range(-9.5, 9.5)
-		# Keep courtyard floor, spring water & main dirt path clear
-		if Vector2((gx + 2.0) * 0.65, (gz - 0.2) * 0.92).length() < 4.9:
+	# De-noised organic clustered grass tufts (1,400 tufts along trails, rocks & meadow pockets — NO uniform carpet!)
+	for _i in range(1400):
+		var gx: float = rng.randf_range(-15.5, 14.5)
+		var gz: float = rng.randf_range(-10.5, 10.5)
+		if Vector2((gx + 2.0) * 0.65, (gz - 0.2) * 0.92).length() < 5.0:
 			continue
-		if Vector2(gx + 7.8, gz + 1.2).length() < 2.4:
+		if Vector2(gx + 7.8, gz + 1.2).length() < 2.5:
 			continue
 		var trail_front: float = abs(gz - (3.8 - (gx + 1.0) * 0.22))
 		var trail_right: float = abs(gx - (4.2 + sin(gz * 0.24) * 1.1))
-		if minf(trail_front, trail_right) < 1.12:
+		if minf(trail_front, trail_right) < 1.25:
 			continue
 		var gy: float = get_terrain_height(gx, gz)
-		if gy > 1.15:
-			continue # rocky altar peak stays bare limestone
-		var s: float = rng.randf_range(0.38, 0.72)
-		var b := Basis().rotated(Vector3.UP, rng.randf_range(0.0, TAU)).scaled(Vector3(s, s * rng.randf_range(0.8, 1.3), s))
+		if gy > 1.10:
+			continue
+		# Natural clumping wave so grass grows in organic clusters with breathing room
+		var clump: float = sin(gx * 0.65) * cos(gz * 0.58)
+		if clump < -0.15 and rng.randf() < 0.72:
+			continue
+		var s: float = rng.randf_range(0.32, 0.62)
+		var b := Basis().rotated(Vector3.UP, rng.randf_range(0.0, TAU)).scaled(Vector3(s, s * rng.randf_range(0.75, 1.15), s))
 		tfs.append(Transform3D(b, Vector3(gx, gy - 0.02, gz)))
 
 	var g_mm := MultiMesh.new()
 	g_mm.transform_format = MultiMesh.TRANSFORM_3D
-	g_mm.mesh = _make_crossed_card_mesh(0.85, 0.65, false)
+	g_mm.mesh = _make_crossed_card_mesh(0.80, 0.56, false)
 	g_mm.instance_count = tfs.size()
 	for i in range(tfs.size()):
 		g_mm.set_instance_transform(i, tfs[i])
@@ -1365,45 +1400,17 @@ func _build_grass_meadow_multimesh() -> void:
 	g_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(g_node)
 
-	# 240 Bright Golden-Yellow Mediterranean Buttercup Wildflowers (1 Draw Call!)
-	var flw_tfs: Array[Transform3D] = []
-	for i in range(0, tfs.size(), maxi(1, tfs.size() / 240)):
-		var base_xf: Transform3D = tfs[i]
-		var flw_s: float = rng.randf_range(0.055, 0.095)
-		flw_tfs.append(Transform3D(Basis().scaled(Vector3(flw_s, flw_s * 0.7, flw_s)), base_xf.origin + Vector3(0.0, 0.22, 0.0)))
-	var flw_mm := MultiMesh.new()
-	flw_mm.transform_format = MultiMesh.TRANSFORM_3D
-	var fsp := SphereMesh.new()
-	fsp.radius = 1.0
-	fsp.height = 1.6
-	fsp.radial_segments = 5
-	fsp.rings = 3
-	flw_mm.mesh = fsp
-	flw_mm.instance_count = flw_tfs.size()
-	for i in range(flw_tfs.size()):
-		flw_mm.set_instance_transform(i, flw_tfs[i])
-	var flw_mat := StandardMaterial3D.new()
-	flw_mat.albedo_color = Color(0.98, 0.82, 0.14)
-	flw_mat.emission_enabled = true
-	flw_mat.emission = Color(0.95, 0.76, 0.10)
-	flw_mat.emission_energy_multiplier = 0.28
-	flw_mat.roughness = 0.75
-	var flw_node := MultiMeshInstance3D.new()
-	flw_node.multimesh = flw_mm
-	flw_node.material_override = flw_mat
-	flw_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(flw_node)
-
 
 func _build_set_dressing_multimesh() -> void:
 	var rock_mat := StandardMaterial3D.new()
-	rock_mat.albedo_texture = load("res://assets/textures/rock_boulder_albedo.png")
+	# Clean weathered Canaanite limestone (NO noisy brick-wall popcorn texture!)
+	rock_mat.albedo_texture = load("res://assets/textures/linen_canopy_albedo.png")
 	rock_mat.normal_enabled = true
 	rock_mat.normal_texture = load("res://assets/textures/rock_boulder_normal.png")
-	rock_mat.normal_scale = 1.65
-	rock_mat.albedo_color = Color(1.78, 1.70, 1.50)
+	rock_mat.normal_scale = 0.42
+	rock_mat.albedo_color = Color(1.16, 1.04, 0.84)
 	rock_mat.vertex_color_use_as_albedo = true
-	rock_mat.roughness = 0.90
+	rock_mat.roughness = 0.92
 
 	# Sculpted faceted Canaanite limestone boulder mesh with per-instance color variation!
 	var rock_mm := MultiMesh.new()
