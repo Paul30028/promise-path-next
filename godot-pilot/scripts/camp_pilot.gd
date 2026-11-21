@@ -1660,23 +1660,27 @@ func _build_set_dressing_multimesh() -> void:
 		var bld2 := "res://assets/cc0_models/namaqualand_boulder_02/namaqualand_boulder_02_1k.gltf"
 		var stones := "res://assets/cc0_models/namaqualand_stones_01/namaqualand_stones_01_1k.gltf"
 
-		# 1. Monumental North-Central Altar Rocky Massif (real geological cliff scans!)
+		# 1. Monumental North-Central Altar Rocky Massif (deeply rooted into slope — ZERO floating edges!)
 		for cl in [
-			[cliff1, Vector3(1.0, 0.0, -5.2), 2.25, Vector3(0.0, 20.0, 0.0), 0.85, Vector3(1.12, 0.82, 1.02)],
-			[bld1, Vector3(-1.6, 0.0, -4.4), 1.65, Vector3(0.0, 55.0, 0.0), 0.48, Vector3(1.15, 0.88, 1.05)],
-			[cliff2, Vector3(3.6, 0.0, -4.4), 2.15, Vector3(0.0, -65.0, 0.0), 0.78, Vector3(1.02, 0.82, 0.96)],
+			[cliff1, Vector3(1.0, 0.0, -5.2), 2.38, Vector3(0.0, 20.0, 0.0), 1.02, Vector3(1.12, 0.84, 1.02)],
+			[bld1, Vector3(-1.6, 0.0, -4.4), 1.78, Vector3(0.0, 55.0, 0.0), 0.72, Vector3(1.15, 0.88, 1.05)],
+			[cliff2, Vector3(3.6, 0.0, -4.4), 2.28, Vector3(0.0, -65.0, 0.0), 0.96, Vector3(1.02, 0.84, 0.96)],
 			# Western Spring Grotto Cliff Outcrops
-			[cliff1, Vector3(-8.4, 0.0, -2.5), 1.95, Vector3(0.0, 55.0, 0.0), 0.55, Vector3(0.92, 0.90, 0.90)],
-			[bld1, Vector3(-9.5, 0.0, -0.6), 1.35, Vector3(0.0, 110.0, 0.0), 0.35, Vector3.ONE],
-			[bld2, Vector3(-6.4, 0.0, -2.6), 1.25, Vector3(0.0, -30.0, 0.0), 0.32, Vector3.ONE],
+			[cliff1, Vector3(-8.4, 0.0, -2.5), 2.08, Vector3(0.0, 55.0, 0.0), 0.76, Vector3(0.92, 0.90, 0.90)],
+			[bld1, Vector3(-9.5, 0.0, -0.6), 1.48, Vector3(0.0, 110.0, 0.0), 0.56, Vector3.ONE],
+			[bld2, Vector3(-6.4, 0.0, -2.6), 1.38, Vector3(0.0, -30.0, 0.0), 0.52, Vector3.ONE],
 		]:
 			var pos_v: Vector3 = cl[1]
 			var inst: Node3D = GlbAssetLoader.load_scene_asset(cl[0], cl[2], cl[3], cl[4], cl[5], limestone_tint)
 			if inst != null:
-				inst.position = Vector3(pos_v.x, get_terrain_height(pos_v.x, pos_v.z), pos_v.z)
+				var min_h: float = minf(
+					get_terrain_height(pos_v.x, pos_v.z),
+					minf(get_terrain_height(pos_v.x + 0.8, pos_v.z + 0.8), get_terrain_height(pos_v.x - 0.8, pos_v.z + 0.8))
+				)
+				inst.position = Vector3(pos_v.x, min_h, pos_v.z)
 				rocks_root.add_child(inst)
 
-		# 2A. HANDCRAFTED CC0 DRY-STONE COURTYARD RETAINING WALL (Innerscene CC0, merged 4-mesh) + STONE ENTRY STAIRS (Grab3D CC0)!
+		# 2A. HANDCRAFTED CC0 DRY-STONE COURTYARD RETAINING WALL (deeply embedded base) + SEAMLESS ENTRY STAIRS!
 		var has_cc0_wall: bool = FileAccess.file_exists("res://assets/models/CC0_DryStoneWall_Optimized.glb")
 		if has_cc0_wall:
 			var seg_n: int = 16
@@ -1690,19 +1694,35 @@ func _build_set_dressing_multimesh() -> void:
 				var tx: float = -4.68 * sin(ang)
 				var tz: float = 2.68 * cos(ang)
 				var yaw_deg: float = rad_to_deg(atan2(tx, tz)) + 90.0 + sin(float(i) * 2.4) * 2.2
-				var w_inst: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_DryStoneWall_Optimized.glb", 0.78, Vector3(0.0, yaw_deg, 0.0), 0.14, 0.94, Color(1.25, 1.13, 0.98))
+				# Taller mesh + deeper y_sink (0.28m) guarantees base never floats on terrace lip
+				var w_inst: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_DryStoneWall_Optimized.glb", 0.92, Vector3(0.0, yaw_deg, 0.0), 0.28, 0.94, Color(1.25, 1.13, 0.98))
 				if w_inst != null:
-					w_inst.position = Vector3(rx, get_terrain_height(rx, rz) + sin(float(i) * 1.7) * 0.025, rz)
+					var wy: float = minf(get_terrain_height(rx, rz), get_terrain_height(rx, rz + 0.35))
+					w_inst.position = Vector3(rx, wy + sin(float(i) * 1.7) * 0.02, rz)
 					rocks_root.add_child(w_inst)
+			# Two dry-stone entrance cheek piers locking the curved wall ends cleanly onto the stone stairs!
+			for pier_cfg in [
+				[Vector3(-2.68, 0.0, 2.86), 8.0],
+				[Vector3(-0.62, 0.0, 2.86), -8.0],
+			]:
+				var pp: Vector3 = pier_cfg[0]
+				var pier: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_DryStoneWall_Optimized.glb", 0.90, Vector3(0.0, float(pier_cfg[1]), 0.0), 0.30, 0.94, Color(1.22, 1.10, 0.96))
+				if pier != null:
+					pier.scale = Vector3(0.46, 1.0, 1.25)
+					var py: float = minf(get_terrain_height(pp.x, pp.z), get_terrain_height(pp.x, pp.z + 0.4))
+					pier.position = Vector3(pp.x, py, pp.z)
+					rocks_root.add_child(pier)
 			active_glb_slots += 1
 
 		var has_cc0_stairs: bool = FileAccess.file_exists("res://assets/models/CC0_StoneStairs.glb")
 		if has_cc0_stairs:
-			var st_inst: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_StoneStairs.glb", 0.56, Vector3(0.0, 0.0, 0.0), 0.14, 0.94, Color(0.66, 0.54, 0.40))
+			# Centered on the exact wall gap (x = -1.65), tucked cleanly into both cheek piers & flush with courtyard terrace!
+			var st_inst: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_StoneStairs.glb", 0.68, Vector3(0.0, 0.0, 0.0), 0.22, 0.94, Color(0.68, 0.56, 0.42))
 			if st_inst != null:
 				_apply_entry_limestone(st_inst)
-				st_inst.position = Vector3(-1.32, get_terrain_height(-1.32, 2.86), 2.86)
-				st_inst.scale = Vector3(2.5, 0.88, 1.15)
+				var base_y: float = minf(get_terrain_height(-1.65, 3.25), get_terrain_height(-1.65, 2.90))
+				st_inst.position = Vector3(-1.65, base_y + 0.02, 2.94)
+				st_inst.scale = Vector3(3.10, 0.92, 1.38)
 				rocks_root.add_child(st_inst)
 				active_glb_slots += 1
 
@@ -1739,14 +1759,14 @@ func _build_set_dressing_multimesh() -> void:
 						var sy: float = get_terrain_height(sx, sz) - st_aabb.position.y * sf * 0.72 + 0.18 - float(s) * 0.09
 						st_tfs.append(Transform3D(rot, Vector3(sx, sy, sz)))
 
-			# 12-Stone Covenant Altar Ring on North Hill Summit
+			# 12-Stone Covenant Altar Ring on North Hill Summit (rooted firmly into summit rock)
 			for i in range(12):
 				var ang: float = float(i) / 12.0 * TAU
 				var rx: float = 1.0 + cos(ang) * 1.10
 				var rz: float = -4.9 + sin(ang) * 1.10
 				var sf: float = rng_r.randf_range(0.56, 0.70) / maxf(st_aabb.size.y, 0.001)
 				var rot := Basis().rotated(Vector3.UP, ang).scaled(Vector3(sf, sf, sf))
-				var ry: float = get_terrain_height(rx, rz) - st_aabb.position.y * sf + 0.38
+				var ry: float = get_terrain_height(rx, rz) - st_aabb.position.y * sf + 0.16
 				st_tfs.append(Transform3D(rot, Vector3(rx, ry, rz)))
 
 			var wall_mm_cc0 := MultiMesh.new()
@@ -1761,17 +1781,21 @@ func _build_set_dressing_multimesh() -> void:
 			wall_node_cc0.material_override = st_mat
 			rocks_root.add_child(wall_node_cc0)
 
-		# 3. Curated Hillside Outcrops (strictly off footpath!)
+		# 3. Curated Hillside Outcrops (deeply embedded at min-footprint height — ZERO floating rocks!)
 		for hb in [
-			[bld1, Vector3(4.5, 0.0, 2.2), 1.05, 35.0],
-			[bld1, Vector3(-7.0, 0.0, 4.4), 0.95, -55.0],
-			[stones, Vector3(-9.8, 0.0, -5.8), 0.85, 20.0],
-			[stones, Vector3(6.8, 0.0, -5.6), 0.88, -18.0],
+			[bld2, Vector3(4.8, 0.0, 2.4), 0.95, 35.0, 0.44],
+			[bld2, Vector3(-7.0, 0.0, 4.4), 0.90, -55.0, 0.42],
+			[stones, Vector3(-9.8, 0.0, -5.8), 0.88, 20.0, 0.40],
+			[stones, Vector3(6.8, 0.0, -5.6), 0.90, -18.0, 0.40],
 		]:
 			var hp: Vector3 = hb[1]
-			var bi: Node3D = GlbAssetLoader.load_scene_asset(hb[0], hb[2], Vector3(0.0, hb[3], 0.0), 0.22, Vector3.ONE, Color(1.36, 1.28, 1.10))
+			var bi: Node3D = GlbAssetLoader.load_scene_asset(hb[0], hb[2], Vector3(0.0, hb[3], 0.0), float(hb[4]), Vector3.ONE, Color(1.24, 1.18, 1.04))
 			if bi != null:
-				bi.position = Vector3(hp.x, get_terrain_height(hp.x, hp.z), hp.z)
+				var min_by: float = minf(
+					minf(get_terrain_height(hp.x, hp.z), get_terrain_height(hp.x + 0.8, hp.z)),
+					minf(get_terrain_height(hp.x - 0.8, hp.z), minf(get_terrain_height(hp.x, hp.z + 0.8), get_terrain_height(hp.x, hp.z - 0.8)))
+				)
+				bi.position = Vector3(hp.x, min_by, hp.z)
 				rocks_root.add_child(bi)
 
 		active_glb_slots += 1
