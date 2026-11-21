@@ -398,21 +398,8 @@ func _build_courtyard_steps_and_well() -> void:
 	wood_mat.albedo_color = Color(0.36, 0.22, 0.12)
 	wood_mat.roughness = 0.90
 
-	# Chiseled Multi-Block Canaanite Limestone Slab Stairs (replaces flat BoxMesh steps!)
-	var slab_mesh := _make_sculpted_rock_mesh(88)
-	for s in range(3):
-		var sz: float = 2.68 + float(s) * 0.44
-		for b in range(4):
-			var sx: float = -2.02 + float(b) * 0.46 + (0.06 if (s % 2 == 1) else 0.0)
-			var step_stone := MeshInstance3D.new()
-			step_stone.mesh = slab_mesh
-			step_stone.material_override = step_mat
-			step_stone.position = Vector3(sx, get_terrain_height(sx, sz) + 0.16 - float(s) * 0.08, sz)
-			step_stone.scale = Vector3(0.56, 0.34, 0.54)
-			step_stone.rotation_degrees = Vector3(0.0, float((s * 3 + b) * 23 % 360), 0.0)
-			root.add_child(step_stone)
-
 	# Circular Stacked-Stone Water Well at front-left (-7.2, 2.2)
+	# (Note: 12 courtyard limestone stair slabs are batched into rock_mm in _build_set_dressing_multimesh for fewer Draw Calls!)
 	var wx: float = -7.2
 	var wz: float = 2.2
 	var wy: float = get_terrain_height(wx, wz)
@@ -631,14 +618,27 @@ func _build_patriarch_camp_architecture() -> void:
 		tent_root.add_child(amphora_glb)
 	else:
 		var amphora_mesh := _make_amphora_mesh()
+		var handle_mesh := TorusMesh.new()
+		handle_mesh.inner_radius = 0.065
+		handle_mesh.outer_radius = 0.105
 		for jar in [[Vector3(-2.15, 0.0, 1.35), 0.95], [Vector3(-1.68, 0.0, 1.56), 0.72], [Vector3(-1.35, 0.0, 1.85), 0.52]]:
+			var jar_n := Node3D.new()
+			jar_n.position = jar[0]
+			var js: float = float(jar[1])
+			jar_n.scale = Vector3(js, js, js)
 			var jm := MeshInstance3D.new()
 			jm.mesh = amphora_mesh
 			jm.material_override = clay_mat
-			jm.position = jar[0]
-			var js: float = float(jar[1])
-			jm.scale = Vector3(js, js, js)
-			tent_root.add_child(jm)
+			jar_n.add_child(jm)
+			for side_h in [-1.0, 1.0]:
+				var hm := MeshInstance3D.new()
+				hm.mesh = handle_mesh
+				hm.material_override = clay_mat
+				hm.position = Vector3(side_h * 0.20, 0.72, 0.0)
+				hm.rotation_degrees = Vector3(90.0, 0.0, 0.0)
+				jar_n.add_child(hm)
+			_add_contact_shadow(jar_n, 0.36, 0.40, 0.02)
+			tent_root.add_child(jar_n)
 
 	# Stone Hearth + Crossed Logs + Shader Flame
 	var hearth := MeshInstance3D.new()
@@ -676,6 +676,30 @@ func _build_patriarch_camp_architecture() -> void:
 	fire_light.omni_range = 6.5
 	fire_light.position = Vector3(-0.35, 0.95, 2.05)
 	tent_root.add_child(fire_light)
+
+	# Rising Golden Campfire Ember Motes
+	var embers := CPUParticles3D.new()
+	embers.position = Vector3(-0.35, 0.42, 2.05)
+	embers.amount = 14
+	embers.lifetime = 2.2
+	embers.preprocess = 1.2
+	embers.direction = Vector3(0.1, 1.0, -0.05)
+	embers.spread = 22.0
+	embers.gravity = Vector3(0.0, 0.15, 0.0)
+	embers.initial_velocity_min = 0.45
+	embers.initial_velocity_max = 0.95
+	var em_mesh := SphereMesh.new()
+	em_mesh.radius = 0.028
+	em_mesh.height = 0.056
+	var em_mat := StandardMaterial3D.new()
+	em_mat.albedo_color = Color(1.0, 0.72, 0.24)
+	em_mat.emission_enabled = true
+	em_mat.emission = Color(1.0, 0.55, 0.12)
+	em_mat.emission_energy_multiplier = 3.2
+	em_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	em_mesh.material = em_mat
+	embers.mesh = em_mesh
+	tent_root.add_child(embers)
 
 	# 2. Herbal Healing Linen Canopy at (0.9, y, -0.2)
 	var hx: float = 0.9
@@ -1038,10 +1062,38 @@ func _build_characters() -> void:
 		_add_contact_shadow(sarai_n, 0.48, 0.46, 0.03)
 		add_child(sarai_n)
 	else:
-		var sarai := _make_human_figure(Vector3(-0.75, 0.0, 1.30), Color(0.68, 0.42, 0.28), false, false)
+		var sarai := _make_human_figure(Vector3(-0.75, 0.0, 1.30), Color(0.76, 0.50, 0.28), false, false)
 		sarai.name = "SaraiStylized"
-		sarai.scale = Vector3(0.94, 0.94, 0.94)
+		sarai.scale = Vector3(0.95, 0.95, 0.95)
 		sarai.rotation_degrees = Vector3(0.0, -75.0, 0.0)
+		# Sculpted flowing dark wavy back-hair + bronze-gold olive circlet headband (matching camp-scene-mobile.png!)
+		var back_hair := MeshInstance3D.new()
+		var bh_cyl := CylinderMesh.new()
+		bh_cyl.top_radius = 0.14
+		bh_cyl.bottom_radius = 0.19
+		bh_cyl.height = 0.44
+		back_hair.mesh = bh_cyl
+		var bh_mat := StandardMaterial3D.new()
+		bh_mat.albedo_color = Color(0.18, 0.11, 0.07)
+		bh_mat.roughness = 0.88
+		back_hair.material_override = bh_mat
+		back_hair.position = Vector3(0.0, 1.24, -0.10)
+		back_hair.rotation_degrees = Vector3(14.0, 0.0, 0.0)
+		sarai.add_child(back_hair)
+
+		var circlet := MeshInstance3D.new()
+		var ct := TorusMesh.new()
+		ct.inner_radius = 0.145
+		ct.outer_radius = 0.168
+		circlet.mesh = ct
+		var gold_mat := StandardMaterial3D.new()
+		gold_mat.albedo_color = Color(0.84, 0.66, 0.28)
+		gold_mat.metallic = 0.55
+		gold_mat.roughness = 0.35
+		circlet.material_override = gold_mat
+		circlet.position = Vector3(0.0, 1.46, 0.0)
+		sarai.add_child(circlet)
+
 		_add_contact_shadow(sarai, 0.48, 0.46, 0.03)
 		add_child(sarai)
 
@@ -1296,15 +1348,36 @@ func _build_set_dressing_multimesh() -> void:
 	rock_mat.albedo_texture = load("res://assets/textures/rock_boulder_albedo.png")
 	rock_mat.normal_enabled = true
 	rock_mat.normal_texture = load("res://assets/textures/rock_boulder_normal.png")
-	rock_mat.albedo_color = Color(0.82, 0.76, 0.65)
+	rock_mat.normal_scale = 1.65
+	rock_mat.albedo_color = Color(0.88, 0.82, 0.70)
+	rock_mat.vertex_color_use_as_albedo = true
 	rock_mat.roughness = 0.94
 
-	# Sculpted faceted Canaanite limestone boulder mesh (NO smooth spheres!)
+	# Sculpted faceted Canaanite limestone boulder mesh with per-instance color variation!
 	var rock_mm := MultiMesh.new()
 	rock_mm.transform_format = MultiMesh.TRANSFORM_3D
+	rock_mm.use_colors = true
 	rock_mm.mesh = _make_sculpted_rock_mesh(13)
 
 	var rock_transforms: Array[Transform3D] = []
+	var rock_colors: Array[Color] = []
+	var palette: Array[Color] = [
+		Color(1.00, 0.96, 0.88),
+		Color(0.92, 0.85, 0.74),
+		Color(0.82, 0.76, 0.66),
+		Color(0.74, 0.67, 0.56),
+		Color(0.95, 0.89, 0.78),
+	]
+
+	# 12 Batched Limestone Courtyard Entry Steps (0 extra Draw Calls!)
+	for s in range(3):
+		var sz: float = 2.68 + float(s) * 0.44
+		for b in range(4):
+			var sx: float = -2.02 + float(b) * 0.46 + (0.06 if (s % 2 == 1) else 0.0)
+			var sy: float = get_terrain_height(sx, sz) + 0.16 - float(s) * 0.08
+			var sb := Basis().rotated(Vector3.UP, deg_to_rad(float((s * 3 + b) * 23 % 360))).scaled(Vector3(0.56, 0.34, 0.54))
+			rock_transforms.append(Transform3D(sb, Vector3(sx, sy, sz)))
+			rock_colors.append(palette[(s + b) % palette.size()])
 
 	# 12-Stone Covenant Altar on north rise (1.0, -4.9)
 	for i in range(12):
@@ -1378,8 +1451,12 @@ func _build_set_dressing_multimesh() -> void:
 		rock_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
 
 	rock_mm.instance_count = rock_transforms.size()
+	var crng := RandomNumberGenerator.new()
+	crng.seed = 4040
 	for i in range(rock_transforms.size()):
 		rock_mm.set_instance_transform(i, rock_transforms[i])
+		var col: Color = rock_colors[i] if i < rock_colors.size() else palette[crng.randi() % palette.size()]
+		rock_mm.set_instance_color(i, col)
 
 	var rock_node := MultiMeshInstance3D.new()
 	rock_node.multimesh = rock_mm
@@ -1389,18 +1466,51 @@ func _build_set_dressing_multimesh() -> void:
 
 func _build_mobile_hud() -> void:
 	var hud: CanvasLayer = $HudLayer
+
+	# Luxury Bronze-Bordered Top Resource Pill
+	var top_panel := PanelContainer.new()
+	top_panel.offset_left = 14.0
+	top_panel.offset_top = 10.0
+	top_panel.offset_right = 640.0
+	top_panel.offset_bottom = 48.0
+	var top_style := StyleBoxFlat.new()
+	top_style.bg_color = Color(0.11, 0.08, 0.05, 0.74)
+	top_style.border_color = Color(0.76, 0.60, 0.32, 0.85)
+	top_style.set_border_width_all(2)
+	top_style.set_corner_radius_all(10)
+	top_style.content_margin_left = 14.0
+	top_style.content_margin_right = 14.0
+	top_style.content_margin_top = 4.0
+	top_style.content_margin_bottom = 4.0
+	top_panel.add_theme_stylebox_override("panel", top_style)
+	hud.add_child(top_panel)
+	hud.move_child(top_panel, 0)
+
+	metrics_label.offset_left = 26.0
+	metrics_label.offset_top = 16.0
+
 	var bar := HBoxContainer.new()
 	bar.anchor_left = 0.5
 	bar.anchor_right = 0.5
 	bar.anchor_top = 1.0
 	bar.anchor_bottom = 1.0
-	bar.offset_left = -280.0
-	bar.offset_right = 280.0
-	bar.offset_top = -68.0
+	bar.offset_left = -290.0
+	bar.offset_right = 290.0
+	bar.offset_top = -66.0
 	bar.offset_bottom = -14.0
 	bar.alignment = BoxContainer.ALIGNMENT_CENTER
-	bar.add_theme_constant_override("separation", 10)
+	bar.add_theme_constant_override("separation", 12)
 	hud.add_child(bar)
+
+	var btn_style := StyleBoxFlat.new()
+	btn_style.bg_color = Color(0.14, 0.10, 0.06, 0.82)
+	btn_style.border_color = Color(0.80, 0.64, 0.34, 0.90)
+	btn_style.set_border_width_all(2)
+	btn_style.set_corner_radius_all(10)
+
+	var btn_hover := btn_style.duplicate() as StyleBoxFlat
+	btn_hover.bg_color = Color(0.22, 0.16, 0.09, 0.92)
+	btn_hover.border_color = Color(0.95, 0.78, 0.42, 1.0)
 
 	var actions: Array[Array] = [
 		["取水 · 西谷清泉", "water"],
@@ -1410,16 +1520,20 @@ func _build_mobile_hud() -> void:
 	for act in actions:
 		var btn := Button.new()
 		btn.text = act[0]
-		btn.custom_minimum_size = Vector2(168, 48)
+		btn.custom_minimum_size = Vector2(176, 48)
+		btn.add_theme_stylebox_override("normal", btn_style)
+		btn.add_theme_stylebox_override("hover", btn_hover)
+		btn.add_theme_stylebox_override("pressed", btn_hover)
+		btn.add_theme_color_override("font_color", Color(0.98, 0.94, 0.82))
 		var action_key: String = act[1]
 		btn.pressed.connect(func() -> void: _trigger_action(action_key))
 		bar.add_child(btn)
 
 	status_label = Label.new()
-	status_label.offset_left = 16.0
-	status_label.offset_top = 42.0
+	status_label.offset_left = 18.0
+	status_label.offset_top = 52.0
 	status_label.offset_right = 820.0
-	status_label.offset_bottom = 76.0
+	status_label.offset_bottom = 84.0
 	status_label.add_theme_color_override("font_color", Color(0.98, 0.94, 0.82))
 	status_label.add_theme_color_override("font_outline_color", Color(0.12, 0.08, 0.04))
 	status_label.add_theme_constant_override("outline_size", 4)

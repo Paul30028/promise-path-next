@@ -64,9 +64,9 @@ directional_shadow_mode = 2
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6, 0.2, 0.8)
 
 [node name="Camera3D" type="Camera3D" parent="CameraRig"]
-transform = Transform3D(1, 0, 0, 0, 0.755, 0.656, 0, -0.656, 0.755, 0, 11.4, 13.0)
+transform = Transform3D(1, 0, 0, 0, 0.755, 0.656, 0, -0.656, 0.755, 0, 12.0, 13.6)
 current = true
-fov = 33.0
+fov = 34.5
 far = 120.0
 
 [node name="GroundBody" type="StaticBody3D" parent="."]
