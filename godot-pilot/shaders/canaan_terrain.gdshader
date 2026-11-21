@@ -24,9 +24,9 @@ void fragment() {
 	// Macro non-repeating terrain color breakup (eliminates tiling feel!)
 	float macro = sin(world_pos.x * 0.19) * cos(world_pos.z * 0.23) * 0.08 + sin((world_pos.x + world_pos.z) * 0.11) * 0.06;
 
-	vec3 c_dirt = texture(dirt_albedo, uv).rgb;
-	vec3 c_grass = texture(grass_albedo, uv).rgb;
-	vec3 c_rock = texture(rock_albedo, uv * 0.78).rgb;
+	vec3 c_dirt = texture(dirt_albedo, uv).rgb * vec3(1.06, 0.94, 0.78);
+	vec3 c_grass = texture(grass_albedo, uv).rgb * vec3(0.76, 0.90, 0.56);
+	vec3 c_rock = texture(rock_albedo, uv * 0.78).rgb * vec3(1.02, 0.98, 0.90);
 
 	vec3 n_dirt = texture(dirt_normal, uv).rgb;
 	vec3 n_grass = texture(grass_normal, uv).rgb;
