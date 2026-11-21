@@ -702,7 +702,7 @@ func _build_patriarch_camp_architecture() -> void:
 			[Vector3(-1.66, 0.0, 1.58), 0.72, -32.0],
 			[Vector3(-1.32, 0.0, 1.84), 0.54, 52.0],
 		]:
-			var amp_i: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_Amphora.glb", float(jar_cfg[1]), Vector3(0.0, float(jar_cfg[2]), 0.0), 0.02, 0.78, Color(1.06, 0.98, 0.90))
+			var amp_i: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_Amphora.glb", float(jar_cfg[1]), Vector3(0.0, float(jar_cfg[2]), 0.0), 0.02, 0.78, Color(0.84, 0.88, 0.85))
 			if amp_i != null:
 				amp_i.position = jar_cfg[0]
 				_add_contact_shadow(amp_i, float(jar_cfg[1]) * 0.36, 0.40, 0.02)
@@ -776,8 +776,8 @@ func _build_patriarch_camp_architecture() -> void:
 
 	var fire_light := OmniLight3D.new()
 	fire_light.light_color = Color(1.0, 0.58, 0.20)
-	fire_light.light_energy = 1.9
-	fire_light.omni_range = 6.5
+	fire_light.light_energy = 1.15
+	fire_light.omni_range = 4.0
 	fire_light.position = Vector3(-0.35, 0.95, 2.05)
 	tent_root.add_child(fire_light)
 
@@ -799,7 +799,7 @@ func _build_patriarch_camp_architecture() -> void:
 	em_mat.albedo_color = Color(1.0, 0.72, 0.24)
 	em_mat.emission_enabled = true
 	em_mat.emission = Color(1.0, 0.55, 0.12)
-	em_mat.emission_energy_multiplier = 3.2
+	em_mat.emission_energy_multiplier = 1.8
 	em_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	em_mesh.material = em_mat
 	embers.mesh = em_mesh
@@ -813,6 +813,18 @@ func _build_patriarch_camp_architecture() -> void:
 	heal_root.position = Vector3(hx, hy, hz)
 	root.add_child(heal_root)
 
+	# Warm courtyard bounce onto the shaded apothecary table, without extra shadow passes.
+	var herb_bounce := OmniLight3D.new()
+	herb_bounce.name = "HerbTableBounce"
+	herb_bounce.position = Vector3(0.0, 1.25, 0.85)
+	herb_bounce.light_color = Color(1.0, 0.84, 0.65)
+	herb_bounce.light_energy = 0.75
+	herb_bounce.omni_range = 2.3
+	herb_bounce.omni_attenuation = 1.35
+	herb_bounce.light_size = 0.65
+	herb_bounce.shadow_enabled = false
+	heal_root.add_child(herb_bounce)
+
 	var heal_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/BLD_HealingCanopy_cloth.glb", 2.15, Vector3(0.0, 0.0, 0.0), 0.04, 0.90, Color(1.04, 1.00, 0.92))
 	if heal_glb != null:
 		active_glb_slots += 1
@@ -822,7 +834,7 @@ func _build_patriarch_camp_architecture() -> void:
 		if tbl_cc0 != null:
 			tbl_cc0.position = Vector3(0.12, 0.0, 0.25)
 			heal_root.add_child(tbl_cc0)
-		var vase_cc0: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_Amphora.glb", 0.56, Vector3(0.0, 35.0, 0.0), 0.02, 0.78, Color(1.06, 0.98, 0.90))
+		var vase_cc0: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_Amphora.glb", 0.56, Vector3(0.0, 35.0, 0.0), 0.02, 0.78, Color(0.84, 0.88, 0.85))
 		if vase_cc0 == null:
 			vase_cc0 = GlbAssetLoader.load_scene_asset("res://assets/cc0_models/antique_ceramic_vase_01/antique_ceramic_vase_01_1k.gltf", 0.42, Vector3(0.0, 35.0, 0.0), 0.02)
 		if vase_cc0 != null:
@@ -1264,7 +1276,7 @@ func _build_sheep_flocks() -> void:
 			var s: Vector2 = spots[i]
 			var target_h: float = rng_s.randf_range(0.68, 0.80)
 			var yaw_deg: float = rng_s.randf_range(-160.0, 160.0)
-			var sh_i: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_Sheep_Grab3D.glb", target_h, Vector3(0.0, yaw_deg, 0.0), 0.02, 0.92, Color(1.06, 1.04, 0.98))
+			var sh_i: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_Sheep_Grab3D.glb", target_h, Vector3(0.0, yaw_deg, 0.0), 0.02, 0.92, Color(0.81, 0.77, 0.67))
 			if sh_i != null:
 				sh_i.position = Vector3(s.x, get_terrain_height(s.x, s.y), s.y)
 				_add_contact_shadow(sh_i, 0.36, 0.38, 0.02)
@@ -1677,17 +1689,18 @@ func _build_set_dressing_multimesh() -> void:
 				# Tangent angle along ellipse (-rx_rad*sin, +rz_rad*cos)
 				var tx: float = -4.68 * sin(ang)
 				var tz: float = 2.68 * cos(ang)
-				var yaw_deg: float = rad_to_deg(atan2(tx, tz)) + 90.0
-				var w_inst: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_DryStoneWall_Optimized.glb", 0.78, Vector3(0.0, yaw_deg, 0.0), 0.14, 0.94, Color(1.22, 1.18, 1.08))
+				var yaw_deg: float = rad_to_deg(atan2(tx, tz)) + 90.0 + sin(float(i) * 2.4) * 2.2
+				var w_inst: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_DryStoneWall_Optimized.glb", 0.78, Vector3(0.0, yaw_deg, 0.0), 0.14, 0.94, Color(1.25, 1.13, 0.98))
 				if w_inst != null:
-					w_inst.position = Vector3(rx, get_terrain_height(rx, rz), rz)
+					w_inst.position = Vector3(rx, get_terrain_height(rx, rz) + sin(float(i) * 1.7) * 0.025, rz)
 					rocks_root.add_child(w_inst)
 			active_glb_slots += 1
 
 		var has_cc0_stairs: bool = FileAccess.file_exists("res://assets/models/CC0_StoneStairs.glb")
 		if has_cc0_stairs:
-			var st_inst: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_StoneStairs.glb", 0.56, Vector3(0.0, 0.0, 0.0), 0.14, 0.94, Color(1.24, 1.20, 1.10))
+			var st_inst: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CC0_StoneStairs.glb", 0.56, Vector3(0.0, 0.0, 0.0), 0.14, 0.94, Color(0.66, 0.54, 0.40))
 			if st_inst != null:
+				_apply_entry_limestone(st_inst)
 				st_inst.position = Vector3(-1.32, get_terrain_height(-1.32, 2.86), 2.86)
 				st_inst.scale = Vector3(2.5, 0.88, 1.15)
 				rocks_root.add_child(st_inst)
@@ -1897,6 +1910,25 @@ func _build_set_dressing_multimesh() -> void:
 	wall_node.multimesh = wall_mm
 	wall_node.material_override = wall_mat
 	add_child(wall_node)
+
+
+func _apply_entry_limestone(stairs: Node3D) -> void:
+	# Keep the CC0 stair geometry; match its striped source finish to scanned camp limestone.
+	var stone := StandardMaterial3D.new()
+	stone.uv1_triplanar = true
+	stone.uv1_scale = Vector3(2.0, 2.0, 2.0)
+	stone.normal_enabled = true
+	stone.normal_texture = load("res://assets/textures/terrain_rock_normal.png")
+	stone.normal_scale = 0.65
+	stone.albedo_color = Color(0.56, 0.52, 0.45)
+	stone.roughness = 0.94
+	var stack: Array[Node] = [stairs]
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		if node is MeshInstance3D:
+			(node as MeshInstance3D).material_override = stone
+		for child in node.get_children():
+			stack.append(child)
 
 
 func _build_mobile_hud() -> void:
