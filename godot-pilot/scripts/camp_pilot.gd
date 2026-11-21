@@ -49,11 +49,12 @@ static func get_terrain_height(x: float, z: float) -> float:
 	return h
 
 
-static func _make_draped_roof_mesh(w: float, d: float, ridge_h: float, eave_h: float) -> ArrayMesh:
+static func _make_draped_roof_mesh(w: float, d: float, ridge_h: float, eave_h: float, skirt_drop: float = 0.26, post_cols: int = 3) -> ArrayMesh:
+	# True tensioned woven fabric canopy with post-peak cones, catenary sag, organic edge ripples & hanging eave valance!
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var sx: int = 12
-	var sz: int = 8
+	var sx: int = 20
+	var sz: int = 14
 	var verts: Array[Vector3] = []
 	var uvs: Array[Vector2] = []
 	verts.resize((sx + 1) * (sz + 1))
@@ -65,12 +66,22 @@ static func _make_draped_roof_mesh(w: float, d: float, ridge_h: float, eave_h: f
 			var x: float = (u - 0.5) * w
 			var z: float = (v - 0.5) * d
 			var nz: float = abs(v - 0.5) * 2.0
-			var catenary: float = pow(1.0 - nz, 1.35)
-			var pole_sag: float = -sin(u * PI * 2.0) * 0.055 * (1.0 - nz * 0.35)
-			var y: float = eave_h + (ridge_h - eave_h) * catenary + pole_sag
+			var nx: float = abs(u - 0.5) * 2.0
+			# Natural catenary roof slope from ridgepole to eaves
+			var catenary: float = pow(maxf(0.0, 1.0 - nz), 1.45)
+			# Tension sag between timber posts along X
+			var span_freq: float = float(post_cols - 1) * PI
+			var pole_sag: float = -abs(sin(u * span_freq)) * 0.13 * (0.45 + 0.55 * nz)
+			# Subtle cloth wrinkle wave
+			var wrinkle: float = sin(u * PI * 9.0 + v * 3.0) * 0.018 * nz
+			var y: float = eave_h + (ridge_h - eave_h) * catenary + pole_sag + wrinkle
+			# Hanging scalloped fabric valance along outer perimeter (eliminates rigid board edge!)
+			if r == 0 or r == sz or c == 0 or c == sx:
+				var scallop: float = abs(sin((u + v) * PI * 6.0)) * 0.055
+				y -= (skirt_drop + scallop)
 			var idx: int = r * (sx + 1) + c
 			verts[idx] = Vector3(x, y, z)
-			uvs[idx] = Vector2(u * 2.0, v * 2.0)
+			uvs[idx] = Vector2(u * 2.2, v * 2.2)
 	for r in range(sz):
 		for c in range(sx):
 			var i0: int = r * (sx + 1) + c
@@ -86,13 +97,13 @@ static func _make_draped_roof_mesh(w: float, d: float, ridge_h: float, eave_h: f
 	return st.commit()
 
 
-static func _make_sculpted_rock_mesh(seed_val: int) -> ArrayMesh:
-	# Broad, flat-topped, stepped sedimentary Canaanite limestone block (NO bumpy popcorn spheres!)
-	var base := BoxMesh.new()
-	base.size = Vector3(1.15, 0.54, 0.92)
-	base.subdivide_width = 2
-	base.subdivide_height = 2
-	base.subdivide_depth = 2
+static func _make_natural_cliff_rock_mesh(seed_val: int) -> ArrayMesh:
+	# Type 1: Chiseled flat-faceted Canaanite limestone outcrop (crisp angular geological planes, NO pillows, NO concrete boxes!)
+	var base := SphereMesh.new()
+	base.radius = 0.62
+	base.height = 0.72
+	base.radial_segments = 9
+	base.rings = 5
 	var arrays: Array = base.surface_get_arrays(0)
 	var src_v: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 	var src_uv: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
@@ -100,15 +111,16 @@ static func _make_sculpted_rock_mesh(seed_val: int) -> ArrayMesh:
 
 	var displaced: PackedVector3Array = PackedVector3Array()
 	displaced.resize(src_v.size())
-	var fseed: float = float(seed_val) * 1.73
+	var fseed: float = float(seed_val) * 1.41
 	for i in range(src_v.size()):
 		var v: Vector3 = src_v[i]
-		# Subtle angular chiseled limestone strata bevels (keeps broad clean sunlit faces!)
-		var bevel: float = 0.86 if v.y > 0.15 else 1.04
-		var nx: float = sin(v.z * 3.1 + fseed) * 0.08
-		var nz: float = cos(v.x * 2.9 - fseed) * 0.08
-		var ny: float = sin((v.x - v.z) * 2.4 + fseed) * 0.035
-		displaced[i] = Vector3(v.x * bevel + nx, v.y + ny, v.z * bevel + nz)
+		var lobe1: float = sin(v.x * 3.8 + fseed) * cos(v.z * 3.5 - fseed) * 0.18
+		var lobe2: float = sin((v.x - v.z) * 5.2 + v.y * 3.4) * 0.09
+		var r_scale: float = 1.0 + lobe1 + lobe2
+		var nv := Vector3(v.x * r_scale, v.y * (0.86 + lobe2 * 0.45), v.z * r_scale)
+		if nv.y > 0.16:
+			nv.y = 0.16 + (nv.y - 0.16) * 0.42
+		displaced[i] = nv
 
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -126,6 +138,51 @@ static func _make_sculpted_rock_mesh(seed_val: int) -> ArrayMesh:
 			st.add_vertex(displaced[vi])
 	st.generate_tangents()
 	return st.commit()
+
+
+static func _make_masonry_wall_stone_mesh(seed_val: int) -> ArrayMesh:
+	# Type 2: Hewn weathered Bronze Age fieldstone block (flat-faceted chiseled limestone, NO smooth pillows!)
+	var base := SphereMesh.new()
+	base.radius = 0.48
+	base.height = 0.54
+	base.radial_segments = 8
+	base.rings = 4
+	var arrays: Array = base.surface_get_arrays(0)
+	var src_v: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var src_uv: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
+	var src_idx: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+
+	var displaced: PackedVector3Array = PackedVector3Array()
+	displaced.resize(src_v.size())
+	var fseed: float = float(seed_val) * 2.13
+	for i in range(src_v.size()):
+		var v: Vector3 = src_v[i]
+		var sx_c: float = signf(v.x) * pow(absf(v.x), 0.82) * 1.10
+		var sy_c: float = signf(v.y) * pow(absf(v.y), 0.80) * 0.80
+		var sz_c: float = signf(v.z) * pow(absf(v.z), 0.82) * 0.94
+		var bump: float = sin(v.x * 4.6 + fseed) * cos(v.z * 4.2 - fseed) * 0.085
+		displaced[i] = Vector3(sx_c * (1.0 + bump), sy_c, sz_c * (1.0 - bump * 0.6))
+
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in range(0, src_idx.size(), 3):
+		var a: int = src_idx[i]
+		var b: int = src_idx[i + 1]
+		var c: int = src_idx[i + 2]
+		var va: Vector3 = displaced[a]
+		var vb: Vector3 = displaced[b]
+		var vc: Vector3 = displaced[c]
+		var nrm: Vector3 = (vc - va).cross(vb - va).normalized()
+		for vi in [a, b, c]:
+			st.set_normal(nrm)
+			st.set_uv(src_uv[vi])
+			st.add_vertex(displaced[vi])
+	st.generate_tangents()
+	return st.commit()
+
+
+static func _make_sculpted_rock_mesh(seed_val: int) -> ArrayMesh:
+	return _make_natural_cliff_rock_mesh(seed_val)
 
 
 static func _make_amphora_mesh() -> ArrayMesh:
@@ -262,8 +319,25 @@ func _ready() -> void:
 	_build_grass_meadow_multimesh()
 	_build_set_dressing_multimesh()
 	_build_mobile_hud()
+	_optimize_small_shadow_casters()
 	if abram_actor != null:
 		target_pos = abram_actor.global_position
+
+
+func _optimize_small_shadow_casters() -> void:
+	# Cut shadow-cascade draw calls on tiny props (<0.62m) that are already grounded by SSAO + contact shadows!
+	var stack: Array[Node] = [self]
+	while not stack.is_empty():
+		var cur: Node = stack.pop_back()
+		if cur is MeshInstance3D and not (cur is MultiMeshInstance3D):
+			var mi := cur as MeshInstance3D
+			if mi.mesh != null and mi.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+				var sz: Vector3 = mi.mesh.get_aabb().size * mi.scale
+				var max_dim: float = maxf(sz.x, maxf(sz.y, sz.z))
+				if max_dim < 1.05 or sz.y < 0.08:
+					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		for child in cur.get_children():
+			stack.append(child)
 
 
 func _build_pbr_terrain() -> void:
@@ -576,7 +650,7 @@ func _build_patriarch_camp_architecture() -> void:
 			tent_root.add_child(rope_m)
 
 		var main_roof := MeshInstance3D.new()
-		main_roof.mesh = _make_draped_roof_mesh(4.35, 2.95, 2.42, 1.82)
+		main_roof.mesh = _make_draped_roof_mesh(4.50, 3.10, 2.52, 1.94, 0.30, 3)
 		main_roof.material_override = tent_mat
 		tent_root.add_child(main_roof)
 
@@ -748,7 +822,7 @@ func _build_patriarch_camp_architecture() -> void:
 			heal_root.add_child(post)
 
 		var heal_roof := MeshInstance3D.new()
-		heal_roof.mesh = _make_draped_roof_mesh(2.70, 2.25, 2.02, 1.56)
+		heal_roof.mesh = _make_draped_roof_mesh(2.82, 2.38, 2.12, 1.66, 0.24, 2)
 		heal_roof.material_override = linen_mat
 		heal_root.add_child(heal_roof)
 
@@ -1110,10 +1184,11 @@ func _build_characters() -> void:
 		_add_contact_shadow(sarai, 0.48, 0.46, 0.03)
 		add_child(sarai)
 
-	var healer := _make_human_figure(Vector3(1.15, 0.0, -0.35), Color(0.34, 0.42, 0.22), false, false)
-	healer.scale = Vector3(0.92, 0.92, 0.92)
-	_add_contact_shadow(healer, 0.46, 0.44, 0.03)
-	add_child(healer)
+	# Replace primitive cylinder healer with clean scaled GLB or omit crude cylinder
+	var healer_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Sarai.glb", 1.48, Vector3(0.0, -25.0, 0.0), 0.02, 0.85, Color(0.92, 0.96, 0.84))
+	if healer_glb != null:
+		healer_glb.position = Vector3(1.15, get_terrain_height(1.15, -0.35), -0.35)
+		add_child(healer_glb)
 
 
 func _build_sheep_flocks() -> void:
@@ -1402,52 +1477,48 @@ func _build_grass_meadow_multimesh() -> void:
 
 
 func _build_set_dressing_multimesh() -> void:
-	var rock_mat := StandardMaterial3D.new()
-	# Clean weathered Canaanite limestone (NO noisy brick-wall popcorn texture!)
-	rock_mat.albedo_texture = load("res://assets/textures/linen_canopy_albedo.png")
-	rock_mat.normal_enabled = true
-	rock_mat.normal_texture = load("res://assets/textures/rock_boulder_normal.png")
-	rock_mat.normal_scale = 0.42
-	rock_mat.albedo_color = Color(1.16, 1.04, 0.84)
-	rock_mat.vertex_color_use_as_albedo = true
-	rock_mat.roughness = 0.92
+	# Warm sun-kissed sandy Canaanite limestone (NO cold concrete gray, NO golden popcorn!)
+	var cliff_mat := StandardMaterial3D.new()
+	cliff_mat.albedo_texture = load("res://assets/textures/linen_canopy_albedo.png")
+	cliff_mat.normal_enabled = true
+	cliff_mat.normal_texture = load("res://assets/textures/rock_boulder_normal.png")
+	cliff_mat.normal_scale = 0.50
+	cliff_mat.albedo_color = Color(1.14, 0.98, 0.72)
+	cliff_mat.vertex_color_use_as_albedo = true
+	cliff_mat.roughness = 0.93
 
-	# Sculpted faceted Canaanite limestone boulder mesh with per-instance color variation!
-	var rock_mm := MultiMesh.new()
-	rock_mm.transform_format = MultiMesh.TRANSFORM_3D
-	rock_mm.use_colors = true
-	rock_mm.mesh = _make_sculpted_rock_mesh(13)
+	var wall_mat := cliff_mat.duplicate() as StandardMaterial3D
+	wall_mat.albedo_color = Color(1.20, 1.04, 0.78)
 
-	var rock_transforms: Array[Transform3D] = []
-	var rock_colors: Array[Color] = []
+	var cliff_transforms: Array[Transform3D] = []
+	var wall_transforms: Array[Transform3D] = []
 	var palette: Array[Color] = [
-		Color(1.00, 0.98, 0.92),
-		Color(0.94, 0.90, 0.82),
-		Color(0.84, 0.82, 0.78),
-		Color(0.76, 0.73, 0.68),
-		Color(0.97, 0.93, 0.85),
+		Color(1.00, 0.96, 0.86),
+		Color(0.93, 0.87, 0.76),
+		Color(0.86, 0.79, 0.68),
+		Color(0.96, 0.91, 0.80),
+		Color(0.82, 0.76, 0.66),
 	]
 
-	# 12 Batched Limestone Courtyard Entry Steps (0 extra Draw Calls!)
+	# Type 2 (Masonry Fieldstone): 12 Foot-Worn Rounded Limestone Entry Steps
 	for s in range(3):
-		var sz: float = 2.68 + float(s) * 0.44
+		var sz: float = 2.66 + float(s) * 0.42
 		for b in range(4):
 			var sx: float = -2.02 + float(b) * 0.46 + (0.06 if (s % 2 == 1) else 0.0)
-			var sy: float = get_terrain_height(sx, sz) + 0.16 - float(s) * 0.08
-			var sb := Basis().rotated(Vector3.UP, deg_to_rad(float((s * 3 + b) * 23 % 360))).scaled(Vector3(0.56, 0.34, 0.54))
-			rock_transforms.append(Transform3D(sb, Vector3(sx, sy, sz)))
-			rock_colors.append(palette[(s + b) % palette.size()])
+			var sy: float = get_terrain_height(sx, sz) + 0.14 - float(s) * 0.08
+			var sb := Basis().rotated(Vector3.UP, deg_to_rad(float((s * 3 + b) * 23 % 360))).scaled(Vector3(0.72, 0.40, 0.66))
+			wall_transforms.append(Transform3D(sb, Vector3(sx, sy, sz)))
 
-	# 12-Stone Covenant Altar on north rise (1.0, -4.9)
+	# Type 2 (Masonry Fieldstone): 12-Stone Covenant Altar on north rise (1.0, -4.9)
 	for i in range(12):
 		var ang: float = float(i) / 12.0 * TAU
-		var rx: float = 1.0 + cos(ang) * 1.08
-		var rz: float = -4.9 + sin(ang) * 1.08
-		var ry: float = get_terrain_height(rx, rz) + 0.16
-		var b := Basis().rotated(Vector3.UP, ang).scaled(Vector3(1.18, 0.95, 1.05))
-		rock_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
+		var rx: float = 1.0 + cos(ang) * 1.10
+		var rz: float = -4.9 + sin(ang) * 1.10
+		var ry: float = get_terrain_height(rx, rz) + 0.18
+		var b := Basis().rotated(Vector3.UP, ang).scaled(Vector3(1.15, 0.92, 1.05))
+		wall_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
 
-	# Craggy Limestone Cliff Outcrops wrapping the Altar Hill (matching camp-scene-mobile.png!)
+	# Type 1 (Natural Rounded Cliff Outcrop): Organic Limestone Strata wrapping Altar Hill
 	for tier in range(2):
 		var ring_r: float = 2.25 + float(tier) * 1.15
 		var count_c: int = 16 + tier * 6
@@ -1455,28 +1526,28 @@ func _build_set_dressing_multimesh() -> void:
 			var ang: float = float(i) / float(count_c) * TAU + float(tier) * 0.25
 			var rx: float = 1.0 + cos(ang) * ring_r * 1.18
 			var rz: float = -4.9 + sin(ang) * ring_r * 0.88
-			var ry: float = get_terrain_height(rx, rz) + 0.14
+			var ry: float = get_terrain_height(rx, rz) + 0.10
 			var crag_s: float = 1.35 + float(i % 3) * 0.35
-			var b := Basis().rotated(Vector3.UP, ang * 1.7).scaled(Vector3(crag_s, crag_s * 0.88, crag_s * 0.92))
-			rock_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
+			var b := Basis().rotated(Vector3.UP, ang * 1.7).scaled(Vector3(crag_s, crag_s * 0.82, crag_s * 0.92))
+			cliff_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
 
-	# Upper-Left & Upper-Right Canaanite Dry-Stone Terrace Walls (0 extra Draw Calls!)
+	# Type 2 (Masonry Fieldstone): Upper-Left & Upper-Right Canaanite Dry-Stone Terrace Walls
 	for i in range(22):
 		var t_u: float = float(i) / 21.0
 		var rx: float = lerpf(-12.5, -2.5, t_u)
 		var rz: float = -6.8 - sin(t_u * PI) * 0.9
 		var ry: float = get_terrain_height(rx, rz) + 0.14
-		var b := Basis().rotated(Vector3.UP, 0.15 + float(i % 2) * 0.1).scaled(Vector3(0.95, 0.68, 0.72))
-		rock_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
+		var b := Basis().rotated(Vector3.UP, 0.15 + float(i % 2) * 0.1).scaled(Vector3(0.95, 0.66, 0.72))
+		wall_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
 	for i in range(18):
 		var t_u: float = float(i) / 17.0
 		var rx: float = lerpf(4.8, 12.8, t_u)
 		var rz: float = -5.4 - t_u * 1.4 + sin(t_u * PI) * 0.6
 		var ry: float = get_terrain_height(rx, rz) + 0.14
-		var b := Basis().rotated(Vector3.UP, -0.22).scaled(Vector3(0.95, 0.68, 0.72))
-		rock_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
+		var b := Basis().rotated(Vector3.UP, -0.22).scaled(Vector3(0.95, 0.66, 0.72))
+		wall_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
 
-	# 2-tier sculpted dry-stone courtyard retaining wall
+	# Type 2 (Masonry Fieldstone): 2-tier hand-laid dry-stone courtyard retaining wall
 	for tier in range(2):
 		for i in range(44):
 			var ang: float = float(i) / 44.0 * TAU
@@ -1485,42 +1556,60 @@ func _build_set_dressing_multimesh() -> void:
 			if rz > 2.2 and rx > -2.35 and rx < -0.35:
 				continue
 			var ry: float = get_terrain_height(rx, rz) + 0.08 + float(tier) * 0.28
-			var b := Basis().rotated(Vector3.UP, ang + float(tier) * 0.2).scaled(Vector3(0.95, 0.56, 0.78))
-			rock_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
+			var b := Basis().rotated(Vector3.UP, ang + float(tier) * 0.2).scaled(Vector3(0.98, 0.62, 0.80))
+			wall_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
 
-	# Western spring cliff boulders
+	# Type 1 (Natural Rounded Cliff Outcrop): Western spring grotto & hillside outcrops
 	for i in range(14):
 		var ang: float = float(i) / 14.0 * TAU
 		var rx: float = -7.8 + cos(ang) * 2.2
 		var rz: float = -1.2 + sin(ang) * 2.0
-		var ry: float = get_terrain_height(rx, rz) + 0.22
-		var b := Basis().rotated(Vector3.UP, ang).scaled(Vector3(1.3, 1.05, 1.1))
-		rock_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
+		var ry: float = get_terrain_height(rx, rz) + 0.18
+		var b := Basis().rotated(Vector3.UP, ang).scaled(Vector3(1.25, 0.95, 1.05))
+		cliff_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1318
-	for _i in range(52):
+	for _i in range(42):
 		var rx: float = rng.randf_range(-14.0, 13.0)
 		var rz: float = rng.randf_range(-10.0, 9.0)
 		if Vector2(rx + 2.0, rz - 0.2).length() < 5.6:
 			continue
-		var ry: float = get_terrain_height(rx, rz) + 0.04
-		var s: float = rng.randf_range(0.55, 1.55)
-		var b := Basis().rotated(Vector3.UP, rng.randf_range(0, TAU)).scaled(Vector3(s, s * 0.65, s * 0.9))
-		rock_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
+		var ry: float = get_terrain_height(rx, rz) + 0.02
+		var s: float = rng.randf_range(0.50, 1.30)
+		var b := Basis().rotated(Vector3.UP, rng.randf_range(0, TAU)).scaled(Vector3(s, s * 0.60, s * 0.88))
+		cliff_transforms.append(Transform3D(b, Vector3(rx, ry, rz)))
 
-	rock_mm.instance_count = rock_transforms.size()
 	var crng := RandomNumberGenerator.new()
 	crng.seed = 4040
-	for i in range(rock_transforms.size()):
-		rock_mm.set_instance_transform(i, rock_transforms[i])
-		var col: Color = rock_colors[i] if i < rock_colors.size() else palette[crng.randi() % palette.size()]
-		rock_mm.set_instance_color(i, col)
 
-	var rock_node := MultiMeshInstance3D.new()
-	rock_node.multimesh = rock_mm
-	rock_node.material_override = rock_mat
-	add_child(rock_node)
+	# MultiMesh A: Natural Limestone Cliff Outcrops (1 Draw Call)
+	var cliff_mm := MultiMesh.new()
+	cliff_mm.transform_format = MultiMesh.TRANSFORM_3D
+	cliff_mm.use_colors = true
+	cliff_mm.mesh = _make_natural_cliff_rock_mesh(13)
+	cliff_mm.instance_count = cliff_transforms.size()
+	for i in range(cliff_transforms.size()):
+		cliff_mm.set_instance_transform(i, cliff_transforms[i])
+		cliff_mm.set_instance_color(i, palette[crng.randi() % palette.size()])
+	var cliff_node := MultiMeshInstance3D.new()
+	cliff_node.multimesh = cliff_mm
+	cliff_node.material_override = cliff_mat
+	add_child(cliff_node)
+
+	# MultiMesh B: Hand-Laid Tumbled Limestone Masonry Wall, Altar & Steps (1 Draw Call)
+	var wall_mm := MultiMesh.new()
+	wall_mm.transform_format = MultiMesh.TRANSFORM_3D
+	wall_mm.use_colors = true
+	wall_mm.mesh = _make_masonry_wall_stone_mesh(29)
+	wall_mm.instance_count = wall_transforms.size()
+	for i in range(wall_transforms.size()):
+		wall_mm.set_instance_transform(i, wall_transforms[i])
+		wall_mm.set_instance_color(i, palette[crng.randi() % palette.size()])
+	var wall_node := MultiMeshInstance3D.new()
+	wall_node.multimesh = wall_mm
+	wall_node.material_override = wall_mat
+	add_child(wall_node)
 
 
 func _build_mobile_hud() -> void:
