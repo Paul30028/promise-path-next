@@ -224,3 +224,37 @@ static func load_scene_asset(
 	pivot.add_child(root_n)
 	wrapper.add_child(pivot)
 	return wrapper
+
+
+static func extract_scene_mesh_data(res_path: String, albedo_tint: Color = Color.WHITE) -> Dictionary:
+	# Extracts Mesh, PBR Material, and AABB from a natively imported .gltf PackedScene for 1-Draw-Call MultiMesh!
+	if not ResourceLoader.exists(res_path):
+		return {}
+	var packed: Resource = ResourceLoader.load(res_path)
+	if packed == null or not (packed is PackedScene):
+		return {}
+	var inst: Node = (packed as PackedScene).instantiate()
+	if inst == null:
+		return {}
+	var stack: Array[Node] = [inst]
+	while not stack.is_empty():
+		var cur: Node = stack.pop_back()
+		if cur is MeshInstance3D:
+			var mi := cur as MeshInstance3D
+			if mi.mesh != null and mi.mesh.get_surface_count() > 0:
+				var mat: Material = mi.get_active_material(0)
+				if mat is StandardMaterial3D and albedo_tint != Color.WHITE:
+					var sm := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
+					sm.albedo_color = sm.albedo_color * albedo_tint
+					mat = sm
+				var res := {
+					"mesh": mi.mesh,
+					"material": mat,
+					"aabb": mi.mesh.get_aabb(),
+				}
+				inst.free()
+				return res
+		for ch in cur.get_children():
+			stack.append(ch)
+	inst.free()
+	return {}

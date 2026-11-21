@@ -757,7 +757,8 @@ func _build_patriarch_camp_architecture() -> void:
 	hflame.mesh = flame_card_mesh
 	hflame.material_override = flame_shader_mat
 	hflame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	hflame.position = Vector3(-0.35, 0.22, 2.05)
+	hflame.position = Vector3(-0.35, 0.24, 2.05)
+	hflame.scale = Vector3(0.72, 0.72, 0.72)
 	tent_root.add_child(hflame)
 
 	var fire_light := OmniLight3D.new()
@@ -1328,7 +1329,17 @@ func _build_olive_groves() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 407
 
-	# REAL Photoscanned Airy Branched Mediterranean Trees & Shrubs (Poly Haven CC0 — ZERO broccoli blobs!)
+	# 8 Curated Airy Mediterranean Trees matching camp-scene-mobile.png exact framing (cleaner & far fewer Draw Calls!)
+	var curated_trees: Array[Vector3] = [
+		Vector3(-9.6, 0.0, 2.8),
+		Vector3(-8.2, 0.0, -5.0),
+		Vector3(-4.4, 0.0, -5.6),
+		Vector3(5.8, 0.0, -5.2),
+		Vector3(9.4, 0.0, -3.6),
+		Vector3(8.6, 0.0, -7.2),
+		Vector3(-10.8, 0.0, -7.2),
+		Vector3(-1.8, 0.0, -8.2),
+	]
 	if ResourceLoader.exists("res://assets/cc0_models/island_tree_01/island_tree_01_1k.gltf"):
 		var trees_root := Node3D.new()
 		trees_root.name = "PhotoscannedOliveGrovesCC0"
@@ -1338,30 +1349,28 @@ func _build_olive_groves() -> void:
 			"res://assets/cc0_models/island_tree_02/island_tree_02_1k.gltf",
 		]
 		var tree_tint := Color(0.92, 0.98, 0.76)
-		for i in range(tree_spots.size()):
-			var spot: Vector3 = tree_spots[i]
+		for i in range(curated_trees.size()):
+			var spot: Vector3 = curated_trees[i]
 			var tpath: String = tree_paths[i % tree_paths.size()]
-			var target_h: float = rng.randf_range(3.6, 4.8)
+			var target_h: float = rng.randf_range(3.8, 4.7)
 			var yaw_d: float = rng.randf_range(0.0, 360.0)
-			var t_inst: Node3D = GlbAssetLoader.load_scene_asset(tpath, target_h, Vector3(0.0, yaw_d, 0.0), 0.18, Vector3(1.12, 0.92, 1.12), tree_tint)
+			var t_inst: Node3D = GlbAssetLoader.load_scene_asset(tpath, target_h, Vector3(0.0, yaw_d, 0.0), 0.18, Vector3(1.12, 0.90, 1.12), tree_tint)
 			if t_inst != null:
 				t_inst.position = Vector3(spot.x, get_terrain_height(spot.x, spot.z), spot.z)
 				trees_root.add_child(t_inst)
-		# Real Photoscanned Mediterranean Shrubs tucked organically along boulders, water bank & walls!
+		# Curated shrubs strictly along boulders, spring & walls (ZERO stray shrubs blocking footpath!)
 		var shrub_paths: Array[String] = [
 			"res://assets/cc0_models/shrub_01/shrub_01_1k.gltf",
 			"res://assets/cc0_models/shrub_02/shrub_02_1k.gltf",
 		]
 		var shrub_spots: Array[Vector2] = [
-			Vector2(-6.4, 0.6), Vector2(-5.8, -2.6), Vector2(-4.9, 3.1), Vector2(2.8, 2.5),
-			Vector2(3.7, 1.0), Vector2(3.8, -1.9), Vector2(-0.9, -3.4), Vector2(3.1, -3.7),
-			Vector2(-5.5, -3.5), Vector2(5.4, 2.2), Vector2(-7.8, 3.6), Vector2(-3.2, 4.4),
-			Vector2(6.8, -0.5), Vector2(7.4, 2.2),
+			Vector2(-6.5, 0.6), Vector2(-6.0, -2.5), Vector2(3.4, 1.2), Vector2(3.8, -1.8),
+			Vector2(-0.8, -3.4), Vector2(3.2, -3.7), Vector2(-7.6, 3.8), Vector2(6.8, -0.5),
 		]
 		for si in range(shrub_spots.size()):
 			var bs: Vector2 = shrub_spots[si]
 			var spath: String = shrub_paths[si % shrub_paths.size()]
-			var sh_inst: Node3D = GlbAssetLoader.load_scene_asset(spath, rng.randf_range(0.55, 0.95), Vector3(0.0, rng.randf_range(0.0, 360.0), 0.0), 0.06, Vector3.ONE, Color(0.90, 0.96, 0.72))
+			var sh_inst: Node3D = GlbAssetLoader.load_scene_asset(spath, rng.randf_range(0.55, 0.88), Vector3(0.0, rng.randf_range(0.0, 360.0), 0.0), 0.06, Vector3.ONE, Color(0.88, 0.96, 0.70))
 			if sh_inst != null:
 				sh_inst.position = Vector3(bs.x, get_terrain_height(bs.x, bs.y), bs.y)
 				trees_root.add_child(sh_inst)
@@ -1563,53 +1572,70 @@ func _build_set_dressing_multimesh() -> void:
 				inst.position = Vector3(pos_v.x, get_terrain_height(pos_v.x, pos_v.z), pos_v.z)
 				rocks_root.add_child(inst)
 
-		# 2. 12-Stone Covenant Altar Ring on North Hill Summit (real photoscanned weathered boulders!)
-		for i in range(12):
-			var ang: float = float(i) / 12.0 * TAU
-			var rx: float = 1.0 + cos(ang) * 1.12
-			var rz: float = -4.9 + sin(ang) * 1.12
-			var st_inst: Node3D = GlbAssetLoader.load_scene_asset(bld2, rng_r.randf_range(0.52, 0.68), Vector3(0.0, rad_to_deg(ang) + rng_r.randf_range(-25, 25), 0.0), 0.14, Vector3.ONE, Color(1.22, 1.14, 0.98))
-			if st_inst != null:
-				st_inst.position = Vector3(rx, get_terrain_height(rx, rz), rz)
-				rocks_root.add_child(st_inst)
+		# 2. BATCHED 1-DRAW-CALL PHOTOSCANNED LIMESTONE RETAINING WALL, CENTRAL STEPS & 12-STONE ALTAR!
+		var stone_data: Dictionary = GlbAssetLoader.extract_scene_mesh_data(bld2, Color(1.42, 1.32, 1.12))
+		if not stone_data.is_empty():
+			var st_mesh: Mesh = stone_data["mesh"]
+			var st_mat: Material = stone_data["material"]
+			var st_aabb: AABB = stone_data["aabb"]
+			var st_tfs: Array[Transform3D] = []
 
-		# 3. Hand-Laid Irregular Courtyard Retaining Wall & Steps (real photoscanned stone clusters, staggered & half-buried!)
-		for i in range(24):
-			var ang: float = float(i) / 24.0 * TAU
-			var rx: float = -1.75 + cos(ang) * 4.55
-			var rz: float = 0.25 + sin(ang) * 2.65
-			if rz > 2.15 and rx > -2.35 and rx < -0.35:
-				continue
-			var src_p: String = stones if (i % 2 == 0) else bld2
-			var w_inst: Node3D = GlbAssetLoader.load_scene_asset(src_p, rng_r.randf_range(0.62, 0.82), Vector3(0.0, rad_to_deg(ang) + 90.0 + rng_r.randf_range(-18, 18), 0.0), 0.18, Vector3(1.15, 0.82, 0.92), limestone_tint)
-			if w_inst != null:
-				w_inst.position = Vector3(rx, get_terrain_height(rx, rz), rz)
-				rocks_root.add_child(w_inst)
+			# Continuous 2-tier Dry-Stone Courtyard Retaining Wall (matching camp-scene-mobile.png exact enclosure!)
+			for tier in range(2):
+				var seg_count: int = 44
+				for i in range(seg_count):
+					var ang: float = float(i) / float(seg_count) * TAU
+					var rx: float = -1.65 + cos(ang) * 4.65
+					var rz: float = 0.25 + sin(ang) * 2.65
+					if rz > 2.15 and rx > -2.25 and rx < -0.25:
+						continue
+					var target_h: float = rng_r.randf_range(0.42, 0.54)
+					var sf: float = target_h / maxf(st_aabb.size.y, 0.001)
+					var rot := Basis().rotated(Vector3.UP, ang + float(tier) * 0.35 + rng_r.randf_range(-0.2, 0.2)).scaled(Vector3(sf * 1.15, sf * 0.85, sf * 0.95))
+					var ry: float = get_terrain_height(rx, rz) - st_aabb.position.y * sf * 0.85 + float(tier) * 0.26 - 0.06
+					st_tfs.append(Transform3D(rot, Vector3(rx, ry, rz)))
 
-		# 3-Tier Worn Courtyard Entry Steps (half-buried photoscanned flat boulders)
-		for s in range(3):
-			var sz: float = 2.65 + float(s) * 0.44
-			for b in range(3):
-				var sx: float = -1.92 + float(b) * 0.58 + (0.08 if s % 2 == 1 else 0.0)
-				var step_n: Node3D = GlbAssetLoader.load_scene_asset(bld2, 0.36, Vector3(0.0, rng_r.randf_range(0, 360), 0.0), 0.14, Vector3(1.35, 0.65, 1.15), Color(1.20, 1.12, 0.96))
-				if step_n != null:
-					step_n.position = Vector3(sx, get_terrain_height(sx, sz) + 0.10 - float(s) * 0.06, sz)
-					rocks_root.add_child(step_n)
+			# Crisp 3-Tier Central Limestone Entry Steps (solid, clean, NO messy rubble!)
+			for s in range(3):
+				var sz: float = 2.62 + float(s) * 0.42
+				for b in range(4):
+					var sx: float = -1.98 + float(b) * 0.48 + (0.06 if s % 2 == 1 else 0.0)
+					var sf: float = 0.30 / maxf(st_aabb.size.y, 0.001)
+					var rot := Basis().rotated(Vector3.UP, rng_r.randf_range(-0.15, 0.15)).scaled(Vector3(sf * 1.35, sf * 0.72, sf * 1.15))
+					var sy: float = get_terrain_height(sx, sz) - st_aabb.position.y * sf * 0.72 + 0.18 - float(s) * 0.09
+					st_tfs.append(Transform3D(rot, Vector3(sx, sy, sz)))
 
-		# 4. Curated Natural Hillside Boulder Clusters (grounded, half-buried, NOT random uniform scatter!)
+			# 12-Stone Covenant Altar Ring on North Hill Summit
+			for i in range(12):
+				var ang: float = float(i) / 12.0 * TAU
+				var rx: float = 1.0 + cos(ang) * 1.10
+				var rz: float = -4.9 + sin(ang) * 1.10
+				var sf: float = rng_r.randf_range(0.56, 0.70) / maxf(st_aabb.size.y, 0.001)
+				var rot := Basis().rotated(Vector3.UP, ang).scaled(Vector3(sf, sf, sf))
+				var ry: float = get_terrain_height(rx, rz) - st_aabb.position.y * sf + 0.38
+				st_tfs.append(Transform3D(rot, Vector3(rx, ry, rz)))
+
+			var wall_mm_cc0 := MultiMesh.new()
+			wall_mm_cc0.transform_format = MultiMesh.TRANSFORM_3D
+			wall_mm_cc0.mesh = st_mesh
+			wall_mm_cc0.instance_count = st_tfs.size()
+			for i in range(st_tfs.size()):
+				wall_mm_cc0.set_instance_transform(i, st_tfs[i])
+			var wall_node_cc0 := MultiMeshInstance3D.new()
+			wall_node_cc0.name = "PhotoscannedLimestoneWall_MultiMesh"
+			wall_node_cc0.multimesh = wall_mm_cc0
+			wall_node_cc0.material_override = st_mat
+			rocks_root.add_child(wall_node_cc0)
+
+		# 3. Curated Hillside Outcrops (strictly off footpath!)
 		for hb in [
-			[bld1, Vector3(4.2, 0.0, 2.2), 1.05, 35.0],
-			[bld2, Vector3(5.0, 0.0, 1.6), 0.72, 140.0],
-			[bld1, Vector3(-6.8, 0.0, 4.2), 0.95, -55.0],
-			[stones, Vector3(-5.8, 0.0, 4.6), 0.68, 80.0],
-			[bld2, Vector3(7.2, 0.0, -1.6), 1.10, 15.0],
+			[bld1, Vector3(4.5, 0.0, 2.2), 1.05, 35.0],
+			[bld1, Vector3(-7.0, 0.0, 4.4), 0.95, -55.0],
 			[stones, Vector3(-9.8, 0.0, -5.8), 0.85, 20.0],
-			[stones, Vector3(-5.8, 0.0, -6.4), 0.88, 12.0],
-			[stones, Vector3(6.2, 0.0, -5.6), 0.88, -18.0],
-			[stones, Vector3(9.6, 0.0, -6.2), 0.85, -24.0],
+			[stones, Vector3(6.8, 0.0, -5.6), 0.88, -18.0],
 		]:
 			var hp: Vector3 = hb[1]
-			var bi: Node3D = GlbAssetLoader.load_scene_asset(hb[0], hb[2], Vector3(0.0, hb[3], 0.0), 0.22, Vector3.ONE, limestone_tint)
+			var bi: Node3D = GlbAssetLoader.load_scene_asset(hb[0], hb[2], Vector3(0.0, hb[3], 0.0), 0.22, Vector3.ONE, Color(1.36, 1.28, 1.10))
 			if bi != null:
 				bi.position = Vector3(hp.x, get_terrain_height(hp.x, hp.z), hp.z)
 				rocks_root.add_child(bi)

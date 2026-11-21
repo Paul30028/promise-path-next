@@ -173,43 +173,47 @@ def build_main_tent():
     scene = trimesh.Scene()
     wood_mat = make_mat("CedarWood", load_tex("wood_timber_albedo.png", (0.82, 0.70, 0.54)), roughness=0.88)
     rope_mat = make_mat("HempRope", load_tex("linen_canopy_albedo.png", (0.85, 0.74, 0.52)), roughness=0.94)
-    goat_mat = make_mat("GoatHairRoof", load_tex("tent_goathair_albedo.png", (0.68, 0.56, 0.44)), roughness=0.95)
-    tap_mat = make_mat("TekheletTap", load_tex("tapestry_tekhelet_albedo.png", (1.10, 1.08, 1.08)), roughness=0.86)
+    goat_mat = make_mat("GoatHairRoof", load_tex("tent_goathair_albedo.png", (0.95, 0.88, 0.80)), roughness=0.95)
+    tap_mat = make_mat("TekheletTap", load_tex("tapestry_tekhelet_albedo.png", (1.15, 1.12, 1.12)), roughness=0.86)
     cush_mat = make_mat("LinenCushion", load_tex("linen_canopy_albedo.png", (0.96, 0.90, 0.78)), roughness=0.92)
 
     posts = [(-1.85, -1.15), (0.0, -1.15), (1.85, -1.15), (-1.85, 1.15), (0.0, 1.15), (1.85, 1.15)]
     for i, (px, pz) in enumerate(posts):
-        scene.add_geometry(make_hewn_post((px, 0.0, pz), (px, 1.78, pz), 0.11, 0.085, wood_mat, bend=0.022 * (1 if i % 2 == 0 else -1)))
-        tor = trimesh.creation.torus(major_radius=0.115, minor_radius=0.026, major_sections=14, minor_sections=6)
-        tor.apply_transform(trimesh.transformations.rotation_matrix(math.pi / 2, [1, 0, 0]))
-        tor.apply_translation([px, 1.66, pz])
-        tor.visual = trimesh.visual.TextureVisuals(uv=np.zeros((len(tor.vertices), 2)), material=rope_mat)
-        scene.add_geometry(tor)
+        # Corner posts rise slightly proud of eave with visible rope lashings (matching camp-scene-mobile.png!)
+        post_h = 2.08 if abs(px) > 1.0 else 1.82
+        scene.add_geometry(make_hewn_post((px, 0.0, pz), (px, post_h, pz), 0.115, 0.090, wood_mat, bend=0.02 * (1 if i % 2 == 0 else -1)))
+        for k in range(3):
+            tor = trimesh.creation.torus(major_radius=0.118, minor_radius=0.024, major_sections=14, minor_sections=6)
+            tor.apply_transform(trimesh.transformations.rotation_matrix(math.pi / 2, [1, 0, 0]))
+            tor.apply_translation([px, 1.72 + (k - 1) * 0.045, pz])
+            tor.visual = trimesh.visual.TextureVisuals(uv=np.zeros((len(tor.vertices), 2)), material=rope_mat)
+            scene.add_geometry(tor)
 
-    # Ridgebeam & eave beams tucked cleanly UNDER the cloth canopy (zero beam poke-through!)
-    scene.add_geometry(make_hewn_post((-1.92, 2.28, 0.0), (1.92, 2.28, 0.0), 0.068, 0.064, wood_mat, 0.01))
-    scene.add_geometry(make_hewn_post((-1.90, 1.70, 1.15), (1.90, 1.70, 1.15), 0.060, 0.056, wood_mat, 0.01))
-    scene.add_geometry(make_hewn_post((-1.90, 1.70, -1.15), (1.90, 1.70, -1.15), 0.060, 0.056, wood_mat, 0.01))
+    # Ridgebeam & eave beams tucked cleanly UNDER the cloth canopy
+    scene.add_geometry(make_hewn_post((-1.92, 2.34, 0.0), (1.92, 2.34, 0.0), 0.068, 0.064, wood_mat, 0.01))
+    scene.add_geometry(make_hewn_post((-1.88, 1.72, 1.15), (1.88, 1.72, 1.15), 0.060, 0.056, wood_mat, 0.01))
+    scene.add_geometry(make_hewn_post((-1.88, 1.72, -1.15), (1.88, 1.72, -1.15), 0.060, 0.056, wood_mat, 0.01))
 
     # 4 Guy-ropes + wooden ground stakes
     for p0, p1 in [
-        ((-1.85, 1.70, 1.15), (-2.55, 0.0, 1.82)),
-        ((1.85, 1.70, 1.15), (2.55, 0.0, 1.82)),
-        ((-1.85, 1.70, -1.15), (-2.55, 0.0, -1.82)),
-        ((1.85, 1.70, -1.15), (2.55, 0.0, -1.82)),
+        ((-1.85, 1.76, 1.15), (-2.55, 0.0, 1.82)),
+        ((1.85, 1.76, 1.15), (2.55, 0.0, 1.82)),
+        ((-1.85, 1.76, -1.15), (-2.55, 0.0, -1.82)),
+        ((1.85, 1.76, -1.15), (2.55, 0.0, -1.82)),
     ]:
         scene.add_geometry(make_hewn_post(p0, p1, 0.016, 0.016, rope_mat, 0.015, segs=6, rings=4))
         scene.add_geometry(make_hewn_post((p1[0], -0.04, p1[2]), (p1[0] * 1.03, 0.24, p1[2] * 1.03), 0.032, 0.022, wood_mat, 0.0, segs=6, rings=3))
 
-    # REAL PHYSICS-SIMULATED GOAT-HAIR CANOPY ROOF DRAPED CLEANLY OVER THE BEAMS!
+    # REAL PHYSICS-SIMULATED GOAT-HAIR CANOPY ROOF (sags gently between posts, cleanly covers beams!)
     def pin_main(x, z, u, v):
-        if abs(z) < 0.18 and abs(x) <= 2.02:
+        if abs(z) < 0.16 and abs(x) <= 1.96:
             return True
-        if abs(abs(z) - 1.15) < 0.16 and abs(x) <= 1.98:
-            return True
+        for px, pz in posts:
+            if math.hypot(x - px, z - pz) < 0.30:
+                return True
         return False
 
-    verts, faces, uvs = simulate_verlet_cloth(36, 24, 4.45, 2.98, 2.56, 2.04, pin_main, wind_vec=(0.14, 0.0, 0.10), steps=180, skirt_drop=0.22)
+    verts, faces, uvs = simulate_verlet_cloth(36, 24, 4.18, 2.74, 2.58, 1.98, pin_main, wind_vec=(0.12, 0.0, 0.08), steps=190, skirt_drop=0.18)
     roof_m = trimesh.Trimesh(vertices=verts, faces=faces, visual=trimesh.visual.TextureVisuals(uv=uvs, material=goat_mat), process=False)
     scene.add_geometry(roof_m)
 
@@ -229,15 +233,17 @@ def build_main_tent():
             bfaces.extend([[i0, i0 + 18, i0 + 1], [i0 + 1, i0 + 18, i0 + 19]])
     scene.add_geometry(trimesh.Trimesh(vertices=np.array(bverts), faces=np.array(bfaces), visual=trimesh.visual.TextureVisuals(uv=np.array(buvs), material=goat_mat), process=False))
 
-    # 2 Hanging Tekhelet & Pomegranate woven banners cleanly visible in front of eaves
-    for idx, cx in enumerate([-1.28, 1.28]):
-        ux = np.linspace(-0.40, 0.40, 8)
-        uy = np.linspace(0.56, 1.72, 12)
+    # 2 Hanging Tekhelet & Pomegranate woven banners hung prominently IN FRONT of front posts (matching camp-scene-mobile.png!)
+    for idx, cx in enumerate([-1.32, 1.32]):
+        # Horizontal wooden banner crossbar between corner post and inner post
+        scene.add_geometry(make_hewn_post((cx - 0.48, 1.66, 1.24), (cx + 0.48, 1.66, 1.24), 0.035, 0.035, wood_mat, 0.0, segs=8, rings=3))
+        ux = np.linspace(-0.42, 0.42, 8)
+        uy = np.linspace(0.46, 1.64, 12)
         tv, tuv, tf = [], [], []
         for r, yv in enumerate(uy):
-            drop = max(0.0, (1.72 - yv) / 1.16)
+            drop = max(0.0, (1.64 - yv) / 1.18)
             for c, dx in enumerate(ux):
-                zv = 1.28 + math.sin(drop * 3.8 + idx * 1.3 + dx * 2.0) * 0.045 * drop
+                zv = 1.28 + math.sin(drop * 3.2 + idx * 1.2 + dx * 1.8) * 0.04 * drop
                 tv.append([cx + dx, yv, zv])
                 tuv.append([c / 7.0, 1.0 - r / 11.0])
         for r in range(11):
@@ -272,25 +278,24 @@ def build_healing_canopy():
     scene = trimesh.Scene()
     wood_mat = make_mat("CedarWoodH", load_tex("wood_timber_albedo.png", (0.82, 0.70, 0.54)), roughness=0.88)
     rope_mat = make_mat("HempRopeH", load_tex("linen_canopy_albedo.png", (0.85, 0.74, 0.52)), roughness=0.94)
-    linen_mat = make_mat("CreamLinenRoof", load_tex("linen_canopy_albedo.png", (1.02, 0.94, 0.80)), roughness=0.93)
-    olive_mat = make_mat("OliveCurtain", load_tex("linen_canopy_albedo.png", (0.36, 0.50, 0.22)), roughness=0.93)
+    linen_mat = make_mat("CreamLinenRoof", load_tex("linen_canopy_albedo.png", (1.14, 1.05, 0.88)), roughness=0.92)
+    olive_mat = make_mat("OliveCurtain", load_tex("linen_canopy_albedo.png", (0.34, 0.48, 0.20)), roughness=0.93)
     herb_mat = make_mat("DriedHerbs", base_color=(64, 98, 38, 255), roughness=0.94)
 
     corners = [(-1.18, -0.92), (1.18, -0.92), (-1.18, 0.92), (1.18, 0.92)]
     for i, (px, pz) in enumerate(corners):
-        scene.add_geometry(make_hewn_post((px, 0.0, pz), (px, 1.56, pz), 0.072, 0.058, wood_mat, bend=0.02))
-    scene.add_geometry(make_hewn_post((-1.14, 1.50, 0.92), (1.14, 1.50, 0.92), 0.044, 0.042, wood_mat, 0.01))
-    scene.add_geometry(make_hewn_post((-1.14, 1.50, -0.92), (1.14, 1.50, -0.92), 0.044, 0.042, wood_mat, 0.01))
+        scene.add_geometry(make_hewn_post((px, 0.0, pz), (px, 1.82, pz), 0.072, 0.058, wood_mat, bend=0.02))
+    scene.add_geometry(make_hewn_post((-1.16, 1.62, 0.92), (1.16, 1.62, 0.92), 0.042, 0.040, wood_mat, 0.01))
+    scene.add_geometry(make_hewn_post((-1.16, 1.62, -0.92), (1.16, 1.62, -0.92), 0.042, 0.040, wood_mat, 0.01))
 
-    # REAL PHYSICS-SIMULATED WARM CREAM LINEN CANOPY DRAPED CLEANLY OVER BEAMS!
+    # REAL PHYSICS-SIMULATED WARM CREAM LINEN CANOPY WITH PRONOUNCED 4-CORNER TENSION & CENTRAL SAG!
     def pin_heal(x, z, u, v):
-        if math.hypot(x, z) < 0.22:
-            return True
-        if abs(abs(z) - 0.92) < 0.15 and abs(x) <= 1.22:
-            return True
+        for px, pz in corners:
+            if math.hypot(x - px, z - pz) < 0.28:
+                return True
         return False
 
-    verts, faces, uvs = simulate_verlet_cloth(28, 22, 2.75, 2.28, 2.12, 1.82, pin_heal, wind_vec=(0.14, 0.0, 0.10), steps=180, skirt_drop=0.20)
+    verts, faces, uvs = simulate_verlet_cloth(28, 22, 2.70, 2.22, 2.02, 1.94, pin_heal, wind_vec=(0.12, 0.0, 0.08), steps=240, skirt_drop=0.18)
     scene.add_geometry(trimesh.Trimesh(vertices=verts, faces=faces, visual=trimesh.visual.TextureVisuals(uv=uvs, material=linen_mat), process=False))
 
     # Sculpted tied-back olive-green side curtains (stay strictly UNDER 1.62m crossbars!)
