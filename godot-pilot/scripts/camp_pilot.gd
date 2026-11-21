@@ -1,5 +1,7 @@
 extends Node3D
 
+const GlbAssetLoader = preload("res://scripts/glb_asset_loader.gd")
+
 @onready var camera_rig: Node3D = $CameraRig
 @onready var camera: Camera3D = $CameraRig/Camera3D
 @onready var metrics_label: Label = $HudLayer/MetricsLabel
@@ -194,6 +196,10 @@ static func _make_crossed_card_mesh(w: float, h: float, centered_y: bool) -> Arr
 	return st.commit()
 
 
+func _exit_tree() -> void:
+	GlbAssetLoader.clear_cache()
+
+
 func _ready() -> void:
 	_build_pbr_terrain()
 	_build_courtyard_steps_and_well()
@@ -333,7 +339,7 @@ func _build_courtyard_steps_and_well() -> void:
 	well.position = Vector3(wx, wy, wz)
 	root.add_child(well)
 
-	var well_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/BLD_StoneWell.glb", 1.85, 25.0, 0.04, 0.72)
+	var well_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/BLD_StoneWell.glb", 1.75, Vector3(-15.0, 25.0, 11.0), 0.14, 0.85, Color(1.12, 1.08, 1.02))
 	if well_glb != null:
 		active_glb_slots += 1
 		well.add_child(well_glb)
@@ -438,7 +444,7 @@ func _build_patriarch_camp_architecture() -> void:
 	tent_root.position = Vector3(cx, cy, cz)
 	root.add_child(tent_root)
 
-	var tent_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/BLD_MainTent.glb", 2.75, -18.0, 0.04, 0.78)
+	var tent_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/BLD_MainTent_trellis.glb", 2.75, Vector3(0.0, -18.0, 0.0), 0.04, 0.78)
 	if tent_glb != null:
 		active_glb_slots += 1
 		tent_root.add_child(tent_glb)
@@ -494,7 +500,7 @@ func _build_patriarch_camp_architecture() -> void:
 			tent_root.add_child(bench)
 
 	# 3 Lathe-Turned Bronze Age Canaanite Amphorae by Left Post (or Commercial GLB!)
-	var amphora_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/PRP_AmphoraCluster.glb", 0.96, 15.0, 0.02, 0.65)
+	var amphora_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/PRP_AmphoraCluster.glb", 0.96, Vector3(0.0, 15.0, 0.0), 0.02, 0.65)
 	if amphora_glb != null:
 		active_glb_slots += 1
 		amphora_glb.position = Vector3(-1.82, 0.0, 1.56)
@@ -555,7 +561,7 @@ func _build_patriarch_camp_architecture() -> void:
 	heal_root.position = Vector3(hx, hy, hz)
 	root.add_child(heal_root)
 
-	var heal_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/BLD_HealingCanopy.glb", 2.15, -12.0, 0.04, 0.78)
+	var heal_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/BLD_HealingCanopy.glb", 2.15, Vector3(0.0, -12.0, 0.0), 0.04, 0.78)
 	if heal_glb != null:
 		active_glb_slots += 1
 		heal_root.add_child(heal_glb)
@@ -823,13 +829,13 @@ func _make_human_figure(pos: Vector3, cloak_col: Color, has_beard: bool, has_cro
 
 
 func _build_characters() -> void:
-	var abram_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Abram.glb", 1.65, 0.0, 0.02, 0.72)
+	var abram_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Abram.glb", 1.72, Vector3(0.0, -75.0, 0.0), 0.02, 0.78, Color(1.10, 1.08, 1.04))
 	if abram_glb != null:
 		active_glb_slots += 1
 		abram_actor = Node3D.new()
 		abram_actor.name = "AbramCommercialGLB"
 		abram_actor.position = Vector3(-1.85, get_terrain_height(-1.85, 1.25), 1.25)
-		abram_actor.rotation_degrees = Vector3(0.0, 65.0, 0.0)
+		abram_actor.rotation_degrees = Vector3(0.0, 25.0, 0.0)
 		abram_actor.add_child(abram_glb)
 		add_child(abram_actor)
 	else:
@@ -838,7 +844,7 @@ func _build_characters() -> void:
 		abram_actor.rotation_degrees = Vector3(0.0, 65.0, 0.0)
 		add_child(abram_actor)
 
-	var sarai_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Sarai.glb", 1.54, 0.0, 0.02, 0.72)
+	var sarai_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Sarai.glb", 1.54, Vector3(0.0, 90.0, 0.0), 0.02, 0.78, Color(1.25, 1.22, 1.16))
 	if sarai_glb != null:
 		active_glb_slots += 1
 		var sarai_n := Node3D.new()
@@ -872,9 +878,9 @@ func _build_sheep_flocks() -> void:
 		add_child(flock_root)
 		var loaded_any := false
 		for s in spots:
-			var sf: float = rng_g.randf_range(0.62, 0.76)
+			var sf: float = rng_g.randf_range(0.64, 0.76)
 			var yaw_deg: float = rng_g.randf_range(0.0, 360.0)
-			var sheep_inst: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Sheep.glb", sf, yaw_deg, 0.02, 0.85)
+			var sheep_inst: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/CHR_Sheep.glb", sf, Vector3(0.0, yaw_deg, 0.0), 0.02, 0.90, Color(1.14, 1.12, 1.06))
 			if sheep_inst != null:
 				loaded_any = true
 				sheep_inst.position = Vector3(s.x, get_terrain_height(s.x, s.y), s.y)

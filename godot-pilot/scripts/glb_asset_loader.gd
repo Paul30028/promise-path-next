@@ -4,6 +4,14 @@ extends RefCounted
 static var _cache: Dictionary = {}
 
 
+static func clear_cache() -> void:
+	for k in _cache.keys():
+		var n: Node = _cache[k]
+		if is_instance_valid(n):
+			n.free()
+	_cache.clear()
+
+
 static func _compute_combined_aabb(node: Node3D, root_inv: Transform3D) -> AABB:
 	var combined := AABB()
 	var has_any := false
@@ -51,7 +59,7 @@ static func _compute_local_aabb(node: Node3D) -> AABB:
 	return combined
 
 
-static func _tune_materials(root: Node, roughness_min: float = 0.62) -> void:
+static func _tune_materials(root: Node, roughness_min: float = 0.62, albedo_boost: Color = Color(1.15, 1.12, 1.06)) -> void:
 	var stack: Array[Node] = [root]
 	while not stack.is_empty():
 		var cur: Node = stack.pop_back()
@@ -61,12 +69,19 @@ static func _tune_materials(root: Node, roughness_min: float = 0.62) -> void:
 			if mi.mesh != null:
 				for s in range(mi.mesh.get_surface_count()):
 					var mat: Material = mi.get_active_material(s)
+					var sm: StandardMaterial3D = null
 					if mat is StandardMaterial3D:
-						var sm := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
-						sm.roughness = maxf(sm.roughness, roughness_min)
-						sm.metallic = minf(sm.metallic, 0.12)
-						sm.cull_mode = BaseMaterial3D.CULL_DISABLED
-						mi.set_surface_override_material(s, sm)
+						sm = (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
+					else:
+						sm = StandardMaterial3D.new()
+					sm.roughness = maxf(sm.roughness, roughness_min)
+					sm.metallic = minf(sm.metallic, 0.08)
+					sm.cull_mode = BaseMaterial3D.CULL_DISABLED
+					var fmt: int = mi.mesh.surface_get_format(s)
+					if (fmt & Mesh.ARRAY_FORMAT_COLOR) != 0 and sm.albedo_texture == null:
+						sm.vertex_color_use_as_albedo = true
+					sm.albedo_color = albedo_boost
+					mi.set_surface_override_material(s, sm)
 		for child in cur.get_children():
 			stack.append(child)
 
@@ -74,9 +89,10 @@ static func _tune_materials(root: Node, roughness_min: float = 0.62) -> void:
 static func load_glb_instance(
 	res_path: String,
 	target_height: float,
-	rot_y_deg: float = 0.0,
+	rot_deg: Vector3 = Vector3.ZERO,
 	y_sink: float = 0.0,
-	roughness_min: float = 0.62
+	roughness_min: float = 0.62,
+	albedo_boost: Color = Color(1.15, 1.12, 1.06)
 ) -> Node3D:
 	if not FileAccess.file_exists(res_path):
 		return null
@@ -101,7 +117,7 @@ static func load_glb_instance(
 		_cache[res_path] = proto
 
 	var inst: Node3D = proto.duplicate() as Node3D
-	_tune_materials(inst, roughness_min)
+	_tune_materials(inst, roughness_min, albedo_boost)
 
 	var aabb: AABB = _compute_local_aabb(inst)
 	var wrapper := Node3D.new()
@@ -123,7 +139,7 @@ static func load_glb_instance(
 
 	var pivot := Node3D.new()
 	pivot.name = "Pivot"
-	pivot.rotation_degrees = Vector3(0.0, rot_y_deg, 0.0)
+	pivot.rotation_degrees = rot_deg
 	pivot.add_child(inst)
 	wrapper.add_child(pivot)
 	return wrapper
