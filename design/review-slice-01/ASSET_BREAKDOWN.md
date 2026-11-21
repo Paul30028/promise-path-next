@@ -71,6 +71,6 @@
 |---|---|---|---|---|---|---|
 | `CONCEPT_CampScene` | Codex (`imagegen`) | 待核验记录 | OpenAI 商业使用条款（待归档日期） | 无（仅作概念审稿，不直接入引擎） | 待用户审核 | `design/review-slice-01/camp-scene-mobile.png` |
 | `CONCEPT_Abram4View` | Codex (`imagegen`) | 待核验记录 | OpenAI 商业使用条款（待归档日期） | 无（仅作三视图/四视图审稿） | 待用户审核 | `design/review-slice-01/abram-turnaround-4view.png` |
-| `CHR_Abram` | Tripo（须付费商用档） | 须开启 Private / 不公开 | 待生成前核验 Tripo 付费商用条款 | 待 Blender 清理 + Auto-Rig Pro 绑骨 | 未开始（等概念过审） | — |
-| `PRP_ShepherdCrook` | Tripo / Blender 手工 | 须开启 Private | 待核验 | 待清理与挂点对齐 | 未开始（等概念过审） | — |
-| `PRP_AmphoraCluster` | Tripo（须付费商用档） | 须开启 Private | 待核验 | 待清理与碰撞体分离 | 未开始（等概念过审） | — |
+| `CHR_Abram` | Tencent Hunyuan3D-2.1（免费开源云端 Space） | 仅作小样白模试制；正式批量建议本机 RTX 5060 跑本地模型保障隐私 | Tencent Hunyuan Community License（中小团队免费商用，已核验 2026-11-21） | 已生成四视图白模（`5.7 MB`）并导入 Godot 4.7.2 验证；待 Blender 删底板、减面至 5k、烘焙 PBR 贴图 + AccuRIG 绑骨 | 小样白模已导入 Godot 实机截图验收 | `design/review-slice-01/pilot-glb/CHR_Abram_pilot.glb` |
+| `PRP_ShepherdCrook` | Blender 手工 / 免费开源 | 本地私有 | 100% 自有商用 | 待建独立挂件 | 待排产 | — |
+| `PRP_AmphoraCluster` | Tencent Hunyuan3D-2.1（免费开源云端 Space） | 同上 | Tencent Hunyuan Community License（已核验 2026-11-21） | 已生成白模（`49 KB`）并导入 Godot 4.7.2 验证；待 Blender 贴图与碰撞体分离 | 小样白模已导入 Godot 实机截图验收 | `design/review-slice-01/pilot-glb/PRP_Amphora_pilot.glb` |
