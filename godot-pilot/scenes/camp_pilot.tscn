@@ -18,13 +18,21 @@ ambient_light_source = 3
 ambient_light_sky_contribution = 0.72
 ambient_light_energy = 0.24
 tonemap_mode = 3
-tonemap_exposure = 0.90
+tonemap_exposure = 1.04
 tonemap_white = 6.0
+ssao_enabled = true
+ssao_radius = 1.25
+ssao_intensity = 2.6
+ssao_power = 1.65
+ssao_detail = 0.65
+ssil_enabled = true
+ssil_radius = 3.8
+ssil_intensity = 0.80
 glow_enabled = true
-glow_intensity = 0.42
-glow_strength = 0.85
-glow_bloom = 0.10
-glow_hdr_threshold = 1.08
+glow_intensity = 0.48
+glow_strength = 0.90
+glow_bloom = 0.14
+glow_hdr_threshold = 1.05
 fog_enabled = true
 fog_light_color = Color(0.92, 0.78, 0.56, 1)
 fog_density = 0.007
@@ -53,11 +61,11 @@ environment = SubResource("Env_1")
 
 [node name="SunLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.788, -0.454, 0.416, 0, 0.675, 0.738, -0.616, -0.581, 0.532, 12, 16, 10)
-light_color = Color(1, 0.83, 0.56, 1)
-light_energy = 1.14
+light_color = Color(1, 0.85, 0.58, 1)
+light_energy = 1.44
 shadow_enabled = true
-shadow_bias = 0.03
-shadow_blur = 0.65
+shadow_bias = 0.025
+shadow_blur = 1.15
 directional_shadow_mode = 2
 
 [node name="CameraRig" type="Node3D" parent="."]

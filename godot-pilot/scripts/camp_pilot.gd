@@ -475,7 +475,14 @@ func _build_patriarch_camp_architecture() -> void:
 	add_child(root)
 
 	var wood_mat := StandardMaterial3D.new()
-	wood_mat.albedo_color = Color(0.38, 0.23, 0.12)
+	if FileAccess.file_exists("res://assets/textures/wood_timber_albedo.png"):
+		wood_mat.albedo_texture = load("res://assets/textures/wood_timber_albedo.png")
+		wood_mat.normal_enabled = true
+		wood_mat.normal_texture = load("res://assets/textures/wood_timber_normal.png")
+		wood_mat.normal_scale = 1.2
+		wood_mat.albedo_color = Color(0.82, 0.72, 0.58)
+	else:
+		wood_mat.albedo_color = Color(0.38, 0.23, 0.12)
 	wood_mat.roughness = 0.88
 
 	var tent_mat := StandardMaterial3D.new()
@@ -584,12 +591,18 @@ func _build_patriarch_camp_architecture() -> void:
 		back_curtain.position = Vector3(0.0, 0.95, -1.12)
 		tent_root.add_child(back_curtain)
 
+		var banner_mat := ShaderMaterial.new()
+		banner_mat.shader = load("res://shaders/cloth_sway.gdshader")
+		banner_mat.set_shader_parameter("albedo_tex", load("res://assets/textures/tapestry_tekhelet_albedo.png"))
 		for bx in [-1.25, 1.25]:
 			var banner := MeshInstance3D.new()
-			var plane := QuadMesh.new()
+			var plane := PlaneMesh.new()
 			plane.size = Vector2(0.75, 1.12)
+			plane.subdivide_width = 6
+			plane.subdivide_depth = 8
+			plane.orientation = PlaneMesh.FACE_Z
 			banner.mesh = plane
-			banner.material_override = tap_mat
+			banner.material_override = banner_mat
 			banner.position = Vector3(bx, 1.18, 1.18)
 			tent_root.add_child(banner)
 
@@ -716,8 +729,10 @@ func _build_patriarch_camp_architecture() -> void:
 	else:
 		var linen_mat := StandardMaterial3D.new()
 		linen_mat.albedo_texture = load("res://assets/textures/linen_canopy_albedo.png")
-		linen_mat.albedo_color = Color(0.84, 0.79, 0.67)
-		linen_mat.roughness = 0.93
+		linen_mat.normal_enabled = true
+		linen_mat.normal_texture = load("res://assets/textures/linen_canopy_normal.png")
+		linen_mat.albedo_color = Color(1.18, 1.10, 0.94)
+		linen_mat.roughness = 0.92
 		linen_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 		var olive_cloth := StandardMaterial3D.new()
 		olive_cloth.albedo_color = Color(0.30, 0.39, 0.20)
@@ -1202,7 +1217,14 @@ func _build_sheep_flocks() -> void:
 func _build_olive_groves() -> void:
 	# Sculpted multi-branch olive trees with alpha-cutout leaf cards (ONLY 2 Draw Calls total!)
 	var bark_mat := StandardMaterial3D.new()
-	bark_mat.albedo_color = Color(0.32, 0.21, 0.13)
+	if FileAccess.file_exists("res://assets/textures/wood_timber_albedo.png"):
+		bark_mat.albedo_texture = load("res://assets/textures/wood_timber_albedo.png")
+		bark_mat.normal_enabled = true
+		bark_mat.normal_texture = load("res://assets/textures/wood_timber_normal.png")
+		bark_mat.normal_scale = 1.4
+		bark_mat.albedo_color = Color(0.68, 0.60, 0.50)
+	else:
+		bark_mat.albedo_color = Color(0.32, 0.21, 0.13)
 	bark_mat.roughness = 0.95
 
 	var leaf_mat := ShaderMaterial.new()
@@ -1349,9 +1371,9 @@ func _build_set_dressing_multimesh() -> void:
 	rock_mat.normal_enabled = true
 	rock_mat.normal_texture = load("res://assets/textures/rock_boulder_normal.png")
 	rock_mat.normal_scale = 1.65
-	rock_mat.albedo_color = Color(0.88, 0.82, 0.70)
+	rock_mat.albedo_color = Color(1.52, 1.44, 1.26)
 	rock_mat.vertex_color_use_as_albedo = true
-	rock_mat.roughness = 0.94
+	rock_mat.roughness = 0.92
 
 	# Sculpted faceted Canaanite limestone boulder mesh with per-instance color variation!
 	var rock_mm := MultiMesh.new()
@@ -1466,6 +1488,43 @@ func _build_set_dressing_multimesh() -> void:
 
 func _build_mobile_hud() -> void:
 	var hud: CanvasLayer = $HudLayer
+
+	# Subtle Warm Mediterranean Film Vignette
+	var vig := ColorRect.new()
+	vig.set_anchors_preset(Control.PRESET_FULL_RECT)
+	vig.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var vig_mat := ShaderMaterial.new()
+	vig_mat.shader = load("res://shaders/vignette.gdshader")
+	vig.material = vig_mat
+	hud.add_child(vig)
+	hud.move_child(vig, 0)
+
+	# Golden Mediterranean Sunlit Dust Motes drifting across courtyard
+	var dust := CPUParticles3D.new()
+	dust.position = Vector3(-1.5, 2.2, 0.5)
+	dust.amount = 36
+	dust.lifetime = 5.5
+	dust.preprocess = 2.5
+	dust.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	dust.emission_box_extents = Vector3(8.5, 2.4, 5.5)
+	dust.direction = Vector3(0.4, 0.12, 0.2)
+	dust.spread = 45.0
+	dust.gravity = Vector3(0.0, 0.02, 0.0)
+	dust.initial_velocity_min = 0.12
+	dust.initial_velocity_max = 0.28
+	var d_mesh := SphereMesh.new()
+	d_mesh.radius = 0.022
+	d_mesh.height = 0.044
+	var d_mat := StandardMaterial3D.new()
+	d_mat.albedo_color = Color(1.0, 0.92, 0.68, 0.55)
+	d_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	d_mat.emission_enabled = true
+	d_mat.emission = Color(1.0, 0.88, 0.55)
+	d_mat.emission_energy_multiplier = 1.6
+	d_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	d_mesh.material = d_mat
+	dust.mesh = d_mesh
+	add_child(dust)
 
 	# Luxury Bronze-Bordered Top Resource Pill
 	var top_panel := PanelContainer.new()
