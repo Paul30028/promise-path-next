@@ -10,6 +10,11 @@ var move_speed: float = 4.2
 var dragging: bool = false
 var drag_distance: float = 0.0
 var last_pointer_pos: Vector2 = Vector2.ZERO
+var water_count: int = 12
+var harmony_score: int = 75
+var pending_action: String = ""
+var status_note: String = "点击地面移动亚伯兰，或使用下方情境指令"
+var status_label: Label = null
 
 
 static func get_terrain_height(x: float, z: float) -> float:
@@ -37,8 +42,8 @@ static func get_terrain_height(x: float, z: float) -> float:
 
 
 func _ready() -> void:
-	# Hide old low-poly tent & spring placeholders in favor of PBR camp centerpiece
-	for old_name in ["MainTent", "SpringBasin"]:
+	# Hide old low-poly tent, spring & 3-ball cartoon olive tree placeholders
+	for old_name in ["MainTent", "SpringBasin", "OliveTree1", "OliveTree2"]:
 		var old_n := get_node_or_null(old_name)
 		if old_n is Node3D:
 			old_n.visible = false
@@ -46,7 +51,9 @@ func _ready() -> void:
 	_build_pbr_terrain()
 	_build_patriarch_camp_architecture()
 	_build_spring_basin()
+	_build_olive_groves()
 	_build_set_dressing_multimesh()
+	_build_mobile_hud()
 	_snap_scene_props_to_terrain()
 	target_pos = abram.global_position
 
@@ -129,8 +136,8 @@ func _build_pbr_terrain() -> void:
 	mat.set_shader_parameter("grass_normal", load("res://assets/textures/terrain_grass_normal.png"))
 	mat.set_shader_parameter("dirt_albedo", load("res://assets/textures/terrain_dirt_albedo.png"))
 	mat.set_shader_parameter("dirt_normal", load("res://assets/textures/terrain_dirt_normal.png"))
-	mat.set_shader_parameter("rock_albedo", load("res://assets/textures/terrain_rock_albedo.png"))
-	mat.set_shader_parameter("rock_normal", load("res://assets/textures/terrain_rock_normal.png"))
+	mat.set_shader_parameter("rock_albedo", load("res://assets/textures/rock_boulder_albedo.png"))
+	mat.set_shader_parameter("rock_normal", load("res://assets/textures/rock_boulder_normal.png"))
 	mat.set_shader_parameter("uv_scale", 0.24)
 
 	var terrain_mesh: MeshInstance3D = $GroundBody/GroundMesh
@@ -160,9 +167,9 @@ func _build_patriarch_camp_architecture() -> void:
 	tap_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 
 	var rock_mat := StandardMaterial3D.new()
-	rock_mat.albedo_texture = load("res://assets/textures/terrain_rock_albedo.png")
+	rock_mat.albedo_texture = load("res://assets/textures/rock_boulder_albedo.png")
 	rock_mat.normal_enabled = true
-	rock_mat.normal_texture = load("res://assets/textures/terrain_rock_normal.png")
+	rock_mat.normal_texture = load("res://assets/textures/rock_boulder_normal.png")
 	rock_mat.roughness = 0.92
 
 	# 1. Main Patriarch Pavilion Tent at (-3.6, y, -0.6)
@@ -247,11 +254,12 @@ func _build_patriarch_camp_architecture() -> void:
 	root.add_child(heal_root)
 
 	var linen_mat := StandardMaterial3D.new()
-	linen_mat.albedo_color = Color(0.92, 0.87, 0.76)
-	linen_mat.roughness = 0.9
+	linen_mat.albedo_texture = load("res://assets/textures/linen_canopy_albedo.png")
+	linen_mat.albedo_color = Color(0.86, 0.82, 0.72)
+	linen_mat.roughness = 0.92
 	var olive_cloth := StandardMaterial3D.new()
-	olive_cloth.albedo_color = Color(0.36, 0.44, 0.24)
-	olive_cloth.roughness = 0.9
+	olive_cloth.albedo_color = Color(0.32, 0.40, 0.22)
+	olive_cloth.roughness = 0.92
 
 	for p in [Vector2(-1.05, -0.85), Vector2(1.05, -0.85), Vector2(-1.05, 0.85), Vector2(1.05, 0.85)]:
 		var post := MeshInstance3D.new()
@@ -308,11 +316,135 @@ func _build_spring_basin() -> void:
 	add_child(water)
 
 
+func _build_olive_groves() -> void:
+	var root := Node3D.new()
+	root.name = "OliveGroves"
+	add_child(root)
+
+	var bark_mat := StandardMaterial3D.new()
+	bark_mat.albedo_color = Color(0.36, 0.25, 0.16)
+	bark_mat.roughness = 0.94
+
+	var leaf_mat := StandardMaterial3D.new()
+	leaf_mat.albedo_color = Color(0.34, 0.42, 0.25) # muted Mediterranean silver-olive
+	leaf_mat.roughness = 0.90
+
+	var leaf_mat_hi := StandardMaterial3D.new()
+	leaf_mat_hi.albedo_color = Color(0.45, 0.51, 0.30)
+	leaf_mat_hi.roughness = 0.90
+
+	var tree_spots: Array[Vector3] = [
+		Vector3(-8.4, 0.0, -3.4),
+		Vector3(-11.2, 0.0, 2.8),
+		Vector3(6.2, 0.0, -4.4),
+		Vector3(8.5, 0.0, -1.8),
+		Vector3(-6.2, 0.0, 5.2),
+	]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 407
+	for spot in tree_spots:
+		var ty: float = get_terrain_height(spot.x, spot.z)
+		var tree := Node3D.new()
+		tree.position = Vector3(spot.x, ty, spot.z)
+		var scale_f: float = rng.randf_range(0.88, 1.18)
+		tree.scale = Vector3(scale_f, scale_f, scale_f)
+		root.add_child(tree)
+
+		# Gnarled lower trunk + forked upper branches
+		var trunk := MeshInstance3D.new()
+		var tcyl := CylinderMesh.new()
+		tcyl.top_radius = 0.14
+		tcyl.bottom_radius = 0.24
+		tcyl.height = 1.45
+		tcyl.radial_segments = 7
+		trunk.mesh = tcyl
+		trunk.material_override = bark_mat
+		trunk.position = Vector3(0.0, 0.72, 0.0)
+		trunk.rotation_degrees = Vector3(rng.randf_range(-6.0, 6.0), 0.0, rng.randf_range(-8.0, 8.0))
+		tree.add_child(trunk)
+
+		# 6 irregular layered olive foliage clusters
+		var offsets: Array[Vector3] = [
+			Vector3(0.0, 1.72, 0.0),
+			Vector3(-0.62, 1.52, 0.28),
+			Vector3(0.64, 1.56, -0.22),
+			Vector3(0.18, 1.58, 0.58),
+			Vector3(-0.28, 1.50, -0.54),
+			Vector3(0.32, 1.92, 0.12),
+		]
+		for j in range(offsets.size()):
+			var cl := MeshInstance3D.new()
+			var sm := SphereMesh.new()
+			sm.radius = rng.randf_range(0.55, 0.78)
+			sm.height = sm.radius * 1.15
+			sm.radial_segments = 8
+			sm.rings = 5
+			cl.mesh = sm
+			cl.material_override = leaf_mat_hi if j % 2 == 0 else leaf_mat
+			cl.position = offsets[j]
+			tree.add_child(cl)
+
+
+func _build_mobile_hud() -> void:
+	var hud: CanvasLayer = $HudLayer
+	var bar := HBoxContainer.new()
+	bar.anchor_left = 0.5
+	bar.anchor_right = 0.5
+	bar.anchor_top = 1.0
+	bar.anchor_bottom = 1.0
+	bar.offset_left = -280.0
+	bar.offset_right = 280.0
+	bar.offset_top = -68.0
+	bar.offset_bottom = -14.0
+	bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	bar.add_theme_constant_override("separation", 10)
+	hud.add_child(bar)
+
+	var actions: Array[Array] = [
+		["取水 · 西谷清泉", "water"],
+		["筑坛求告 · 创13:4", "pray"],
+		["归营 · 主帐", "camp"],
+	]
+	for act in actions:
+		var btn := Button.new()
+		btn.text = act[0]
+		btn.custom_minimum_size = Vector2(168, 48)
+		var action_key: String = act[1]
+		btn.pressed.connect(func() -> void: _trigger_action(action_key))
+		bar.add_child(btn)
+
+	status_label = Label.new()
+	status_label.offset_left = 16.0
+	status_label.offset_top = 42.0
+	status_label.offset_right = 820.0
+	status_label.offset_bottom = 76.0
+	status_label.add_theme_color_override("font_color", Color(0.98, 0.94, 0.82))
+	status_label.add_theme_color_override("font_outline_color", Color(0.12, 0.08, 0.04))
+	status_label.add_theme_constant_override("outline_size", 4)
+	status_label.text = status_note
+	hud.add_child(status_label)
+
+
+func _trigger_action(action_key: String) -> void:
+	pending_action = action_key
+	if action_key == "water":
+		target_pos = Vector3(-6.8, get_terrain_height(-6.8, -0.5), -0.5)
+		status_note = "亚伯兰正前往西谷清泉取水..."
+	elif action_key == "pray":
+		target_pos = Vector3(1.0, get_terrain_height(1.0, -5.6), -5.6)
+		status_note = "亚伯兰正登北坡前往十二石立约祭坛求告..."
+	else:
+		target_pos = Vector3(-2.5, get_terrain_height(-2.5, 1.8), 1.8)
+		status_note = "亚伯兰正返回主营大帐..."
+	if status_label != null:
+		status_label.text = status_note
+
+
 func _build_set_dressing_multimesh() -> void:
 	var rock_mat := StandardMaterial3D.new()
-	rock_mat.albedo_texture = load("res://assets/textures/terrain_rock_albedo.png")
+	rock_mat.albedo_texture = load("res://assets/textures/rock_boulder_albedo.png")
 	rock_mat.normal_enabled = true
-	rock_mat.normal_texture = load("res://assets/textures/terrain_rock_normal.png")
+	rock_mat.normal_texture = load("res://assets/textures/rock_boulder_normal.png")
 	rock_mat.roughness = 0.93
 
 	var rock_mm := MultiMesh.new()
@@ -463,7 +595,19 @@ func _process(delta: float) -> void:
 		abram.global_position += step
 		abram.global_position.y = get_terrain_height(abram.global_position.x, abram.global_position.z)
 		abram.look_at(abram.global_position + to_target.normalized(), Vector3.UP)
+	elif pending_action != "":
+		if pending_action == "water":
+			water_count += 5
+			status_note = "已从西谷清泉取水 +5（当前饮水：%d）" % water_count
+		elif pending_action == "pray":
+			harmony_score = mini(100, harmony_score + 15)
+			status_note = "【创 13:4】亚伯兰在坛前求告耶和华的名，全营和睦升至 %d%%" % harmony_score
+		else:
+			status_note = "亚伯兰已回到主营大帐"
+		pending_action = ""
+		if status_label != null:
+			status_label.text = status_note
 
 	var draw_calls := Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
 	var mem_mb := Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0
-	metrics_label.text = "Godot 4.7 PBR Camp Pilot | Draw Calls: %d | Static Mem: %.1f MB" % [int(draw_calls), mem_mb]
+	metrics_label.text = "饮水: %d  |  和睦: %d%%  |  Draw Calls: %d  |  内存: %.1f MB" % [water_count, harmony_score, int(draw_calls), mem_mb]

@@ -160,9 +160,52 @@ def make_tekhelet_tapestry():
     alb.save(os.path.join(OUT, "tapestry_tekhelet_albedo.png"))
 
 
+def make_boulder_stone():
+    rng = random.Random(505)
+    size = 512
+    alb = Image.new("RGB", (size, size), (168, 152, 126))
+    hgt = Image.new("L", (size, size), 128)
+    ad = ImageDraw.Draw(alb)
+    hd = ImageDraw.Draw(hgt)
+    # Organic weathered limestone patches & cracks (no rectangular brick lines!)
+    for _ in range(520):
+        x, y = rng.randrange(size), rng.randrange(size)
+        rx, ry = rng.randint(12, 44), rng.randint(8, 32)
+        v = rng.randint(-24, 24)
+        ad.ellipse((x - rx, y - ry, x + rx, y + ry), fill=(168 + v, 152 + v, 126 + int(v * 0.85)))
+        hd.ellipse((x - rx, y - ry, x + rx, y + ry), fill=max(10, min(245, 128 + v * 3)))
+    for _ in range(90):
+        x0, y0 = rng.randrange(size), rng.randrange(size)
+        x1, y1 = x0 + rng.randint(-55, 55), y0 + rng.randint(-28, 28)
+        ad.line((x0, y0, x1, y1), fill=(108, 95, 76), width=2)
+        hd.line((x0, y0, x1, y1), fill=42, width=3)
+    alb = alb.filter(ImageFilter.GaussianBlur(0.8))
+    hgt = hgt.filter(ImageFilter.GaussianBlur(1.5))
+    alb.save(os.path.join(OUT, "rock_boulder_albedo.png"))
+    height_to_normal(hgt, 2.8).save(os.path.join(OUT, "rock_boulder_normal.png"))
+
+
+def make_linen_canopy():
+    rng = random.Random(606)
+    size = 256
+    alb = Image.new("RGB", (size, size), (206, 192, 158))
+    ad = ImageDraw.Draw(alb)
+    for y in range(0, size, 4):
+        v = rng.randint(-8, 8)
+        c = (198 + v, 184 + v, 148 + v)
+        if y % 64 < 6:
+            c = (108, 126, 72) # olive woven stripe
+        ad.line((0, y, size, y), fill=c, width=3)
+    for x in range(0, size, 6):
+        ad.line((x, 0, x, size), fill=(182, 168, 134), width=1)
+    alb.save(os.path.join(OUT, "linen_canopy_albedo.png"))
+
+
 make_grass()
 make_dirt()
 make_rock()
+make_boulder_stone()
+make_linen_canopy()
 make_goathair_tent()
 make_tekhelet_tapestry()
 print("PBR_TEXTURES_OK:", sorted(os.listdir(OUT)))
