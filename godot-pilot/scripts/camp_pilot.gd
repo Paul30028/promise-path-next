@@ -985,8 +985,8 @@ func _build_patriarch_camp_architecture() -> void:
 	aflame.mesh = flame_card_mesh
 	aflame.material_override = flame_shader_mat
 	aflame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	aflame.position = Vector3(1.0, ay + 0.72, -4.9)
-	aflame.scale = Vector3(1.15, 1.15, 1.15)
+	aflame.position = Vector3(1.0, ay + 0.36, -4.9)
+	aflame.scale = Vector3(1.10, 1.10, 1.10)
 	root.add_child(aflame)
 
 	var smoke_shader_mat := ShaderMaterial.new()
@@ -995,7 +995,7 @@ func _build_patriarch_camp_architecture() -> void:
 	plume.mesh = _make_crossed_card_mesh(1.15, 2.85, false)
 	plume.material_override = smoke_shader_mat
 	plume.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	plume.position = Vector3(1.0, ay + 1.22, -4.9)
+	plume.position = Vector3(1.0, ay + 0.72, -4.9)
 	root.add_child(plume)
 	smoke_nodes.append(plume)
 
@@ -1019,14 +1019,14 @@ func _build_spring_waterfall() -> void:
 
 	var fall := MeshInstance3D.new()
 	var fquad := QuadMesh.new()
-	fquad.size = Vector2(0.72, 1.25)
+	fquad.size = Vector2(0.66, 0.84)
 	fall.mesh = fquad
 	var fmat := ShaderMaterial.new()
 	fmat.shader = load("res://shaders/waterfall_stream.gdshader")
 	fall.material_override = fmat
 	fall.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	fall.position = Vector3(sx - 0.58, sy + 0.44, sz - 1.18)
-	fall.rotation_degrees = Vector3(-22.0, 28.0, 0.0)
+	fall.position = Vector3(sx - 0.58, sy + 0.18, sz - 1.16)
+	fall.rotation_degrees = Vector3(-24.0, 28.0, 0.0)
 	add_child(fall)
 
 	# Dark Wet Limestone Boulders framing the waterfall spout
@@ -1037,10 +1037,11 @@ func _build_spring_waterfall() -> void:
 	wet_rock_mat.albedo_color = Color(0.68, 0.62, 0.50)
 	wet_rock_mat.roughness = 0.42
 	var wet_mesh := _make_sculpted_rock_mesh(33)
+	# Deeply plunge wet boulders INTO the pond bed & cliff base (ZERO hovering above water!)
 	for wr in [
-		[Vector3(sx - 1.25, sy + 0.42, sz - 1.45), Vector3(1.15, 1.1, 1.05)],
-		[Vector3(sx + 0.05, sy + 0.35, sz - 1.55), Vector3(1.05, 0.95, 0.95)],
-		[Vector3(sx - 0.65, sy + 0.85, sz - 1.85), Vector3(1.35, 0.85, 1.15)],
+		[Vector3(sx - 1.25, sy - 0.08, sz - 1.40), Vector3(1.25, 1.75, 1.15)],
+		[Vector3(sx + 0.05, sy - 0.12, sz - 1.50), Vector3(1.15, 1.60, 1.05)],
+		[Vector3(sx - 0.65, sy + 0.18, sz - 1.80), Vector3(1.45, 1.85, 1.25)],
 	]:
 		var bld := MeshInstance3D.new()
 		bld.mesh = wet_mesh
@@ -1665,10 +1666,10 @@ func _build_set_dressing_multimesh() -> void:
 			[cliff1, Vector3(1.0, 0.0, -5.2), 2.38, Vector3(0.0, 20.0, 0.0), 1.02, Vector3(1.12, 0.84, 1.02)],
 			[bld1, Vector3(-1.6, 0.0, -4.4), 1.78, Vector3(0.0, 55.0, 0.0), 0.72, Vector3(1.15, 0.88, 1.05)],
 			[cliff2, Vector3(3.6, 0.0, -4.4), 2.28, Vector3(0.0, -65.0, 0.0), 0.96, Vector3(1.02, 0.84, 0.96)],
-			# Western Spring Grotto Cliff Outcrops
-			[cliff1, Vector3(-8.4, 0.0, -2.5), 2.08, Vector3(0.0, 55.0, 0.0), 0.76, Vector3(0.92, 0.90, 0.90)],
-			[bld1, Vector3(-9.5, 0.0, -0.6), 1.48, Vector3(0.0, 110.0, 0.0), 0.56, Vector3.ONE],
-			[bld2, Vector3(-6.4, 0.0, -2.6), 1.38, Vector3(0.0, -30.0, 0.0), 0.52, Vector3.ONE],
+			# Western Spring Grotto Cliff Outcrops (deeply sunk into spring basin — zero floating!)
+			[cliff1, Vector3(-8.4, 0.0, -2.5), 2.15, Vector3(0.0, 55.0, 0.0), 1.05, Vector3(0.95, 0.95, 0.95)],
+			[bld1, Vector3(-9.5, 0.0, -0.6), 1.55, Vector3(0.0, 110.0, 0.0), 0.82, Vector3.ONE],
+			[bld2, Vector3(-6.4, 0.0, -2.6), 1.45, Vector3(0.0, -30.0, 0.0), 0.78, Vector3.ONE],
 		]:
 			var pos_v: Vector3 = cl[1]
 			var inst: Node3D = GlbAssetLoader.load_scene_asset(cl[0], cl[2], cl[3], cl[4], cl[5], limestone_tint)
@@ -1759,14 +1760,15 @@ func _build_set_dressing_multimesh() -> void:
 						var sy: float = get_terrain_height(sx, sz) - st_aabb.position.y * sf * 0.72 + 0.18 - float(s) * 0.09
 						st_tfs.append(Transform3D(rot, Vector3(sx, sy, sz)))
 
-			# 12-Stone Covenant Altar Ring on North Hill Summit (rooted firmly into summit rock)
+			# 12-Stone Covenant Altar Ring on North Hill Summit (deeply embedded into summit rock — ZERO floating!)
 			for i in range(12):
 				var ang: float = float(i) / 12.0 * TAU
-				var rx: float = 1.0 + cos(ang) * 1.10
-				var rz: float = -4.9 + sin(ang) * 1.10
-				var sf: float = rng_r.randf_range(0.56, 0.70) / maxf(st_aabb.size.y, 0.001)
-				var rot := Basis().rotated(Vector3.UP, ang).scaled(Vector3(sf, sf, sf))
-				var ry: float = get_terrain_height(rx, rz) - st_aabb.position.y * sf + 0.16
+				var rx: float = 1.0 + cos(ang) * 0.92
+				var rz: float = -4.9 + sin(ang) * 0.92
+				var sf: float = rng_r.randf_range(0.56, 0.68) / maxf(st_aabb.size.y, 0.001)
+				var rot := Basis().rotated(Vector3.UP, ang).scaled(Vector3(sf, sf * 1.15, sf))
+				var min_ay: float = minf(get_terrain_height(rx, rz), get_terrain_height(rx + cos(ang) * 0.35, rz + sin(ang) * 0.35))
+				var ry: float = min_ay - st_aabb.position.y * sf * 1.15 - 0.28
 				st_tfs.append(Transform3D(rot, Vector3(rx, ry, rz)))
 
 			var wall_mm_cc0 := MultiMesh.new()
