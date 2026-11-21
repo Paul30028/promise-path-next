@@ -583,15 +583,15 @@ func _build_patriarch_camp_architecture() -> void:
 	flame_shader_mat.shader = load("res://shaders/campfire_flame.gdshader")
 	var flame_card_mesh := _make_crossed_card_mesh(0.62, 0.82, false)
 
-	# 1. Main Patriarch Pavilion Tent at (-3.5, y, -0.5)
-	var cx: float = -3.5
+	# 1. Main Patriarch Pavilion Tent at (-3.65, y, -0.5)
+	var cx: float = -3.65
 	var cz: float = -0.5
 	var cy: float = get_terrain_height(cx, cz)
 	var tent_root := Node3D.new()
 	tent_root.position = Vector3(cx, cy, cz)
 	root.add_child(tent_root)
 
-	var tent_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/BLD_MainTent_trellis.glb", 2.75, Vector3(0.0, -18.0, 0.0), 0.04, 0.78)
+	var tent_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/BLD_MainTent_cloth.glb", 2.68, Vector3(0.0, 0.0, 0.0), 0.04, 0.88, Color(1.04, 1.02, 1.00))
 	if tent_glb != null:
 		active_glb_slots += 1
 		tent_root.add_child(tent_glb)
@@ -724,28 +724,34 @@ func _build_patriarch_camp_architecture() -> void:
 			_add_contact_shadow(jar_n, 0.36, 0.40, 0.02)
 			tent_root.add_child(jar_n)
 
-	# Stone Hearth + Crossed Logs + Shader Flame
-	var hearth := MeshInstance3D.new()
-	var hcyl := CylinderMesh.new()
-	hcyl.top_radius = 0.65
-	hcyl.bottom_radius = 0.74
-	hcyl.height = 0.24
-	hearth.mesh = hcyl
-	hearth.material_override = rock_mat
-	hearth.position = Vector3(-0.35, 0.12, 2.05)
-	tent_root.add_child(hearth)
+	# Real Photoscanned CC0 Stone Campfire Hearth (Poly Haven stone_fire_pit) + Shader Flame!
+	var hearth_cc0: Node3D = GlbAssetLoader.load_scene_asset("res://assets/cc0_models/stone_fire_pit/stone_fire_pit_1k.gltf", 0.46, Vector3(0.0, 22.0, 0.0), 0.06, Vector3(1.15, 1.0, 1.15), Color(1.18, 1.10, 0.96))
+	if hearth_cc0 != null:
+		active_glb_slots += 1
+		hearth_cc0.position = Vector3(-0.35, 0.0, 2.05)
+		tent_root.add_child(hearth_cc0)
+	else:
+		var hearth := MeshInstance3D.new()
+		var hcyl := CylinderMesh.new()
+		hcyl.top_radius = 0.65
+		hcyl.bottom_radius = 0.74
+		hcyl.height = 0.24
+		hearth.mesh = hcyl
+		hearth.material_override = rock_mat
+		hearth.position = Vector3(-0.35, 0.12, 2.05)
+		tent_root.add_child(hearth)
 
-	for ang_deg in [25.0, -35.0, 85.0]:
-		var log_m := MeshInstance3D.new()
-		var lc := CylinderMesh.new()
-		lc.top_radius = 0.05
-		lc.bottom_radius = 0.06
-		lc.height = 0.72
-		log_m.mesh = lc
-		log_m.material_override = wood_mat
-		log_m.rotation_degrees = Vector3(78.0, ang_deg, 0.0)
-		log_m.position = Vector3(-0.35, 0.28, 2.05)
-		tent_root.add_child(log_m)
+		for ang_deg in [25.0, -35.0, 85.0]:
+			var log_m := MeshInstance3D.new()
+			var lc := CylinderMesh.new()
+			lc.top_radius = 0.05
+			lc.bottom_radius = 0.06
+			lc.height = 0.72
+			log_m.mesh = lc
+			log_m.material_override = wood_mat
+			log_m.rotation_degrees = Vector3(78.0, ang_deg, 0.0)
+			log_m.position = Vector3(-0.35, 0.28, 2.05)
+			tent_root.add_child(log_m)
 
 	var hflame := MeshInstance3D.new()
 	hflame.mesh = flame_card_mesh
@@ -785,18 +791,27 @@ func _build_patriarch_camp_architecture() -> void:
 	embers.mesh = em_mesh
 	tent_root.add_child(embers)
 
-	# 2. Herbal Healing Linen Canopy at (0.9, y, -0.2)
-	var hx: float = 0.9
+	# 2. Herbal Healing Linen Canopy at (1.15, y, -0.2)
+	var hx: float = 1.15
 	var hz: float = -0.2
 	var hy: float = get_terrain_height(hx, hz)
 	var heal_root := Node3D.new()
 	heal_root.position = Vector3(hx, hy, hz)
 	root.add_child(heal_root)
 
-	var heal_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/BLD_HealingCanopy.glb", 2.15, Vector3(0.0, -12.0, 0.0), 0.04, 0.78)
+	var heal_glb: Node3D = GlbAssetLoader.load_glb_instance("res://assets/models/BLD_HealingCanopy_cloth.glb", 2.15, Vector3(0.0, 0.0, 0.0), 0.04, 0.90, Color(1.04, 1.00, 0.92))
 	if heal_glb != null:
 		active_glb_slots += 1
 		heal_root.add_child(heal_glb)
+		# Place real CC0 handcrafted wooden apothecary table & ceramic vase inside!
+		var tbl_cc0: Node3D = GlbAssetLoader.load_scene_asset("res://assets/cc0_models/WoodenTable_02/WoodenTable_02_1k.gltf", 0.68, Vector3(0.0, 0.0, 0.0), 0.02, Vector3(0.92, 1.0, 0.85))
+		if tbl_cc0 != null:
+			tbl_cc0.position = Vector3(0.12, 0.0, 0.25)
+			heal_root.add_child(tbl_cc0)
+		var vase_cc0: Node3D = GlbAssetLoader.load_scene_asset("res://assets/cc0_models/antique_ceramic_vase_01/antique_ceramic_vase_01_1k.gltf", 0.42, Vector3(0.0, 35.0, 0.0), 0.02)
+		if vase_cc0 != null:
+			vase_cc0.position = Vector3(-0.62, 0.0, 0.48)
+			heal_root.add_child(vase_cc0)
 	else:
 		var linen_mat := StandardMaterial3D.new()
 		linen_mat.albedo_texture = load("res://assets/textures/linen_canopy_albedo.png")
@@ -916,8 +931,8 @@ func _build_patriarch_camp_architecture() -> void:
 	aflame.mesh = flame_card_mesh
 	aflame.material_override = flame_shader_mat
 	aflame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	aflame.position = Vector3(1.0, ay + 0.28, -4.9)
-	aflame.scale = Vector3(1.05, 1.05, 1.05)
+	aflame.position = Vector3(1.0, ay + 0.72, -4.9)
+	aflame.scale = Vector3(1.15, 1.15, 1.15)
 	root.add_child(aflame)
 
 	var smoke_shader_mat := ShaderMaterial.new()
@@ -926,7 +941,7 @@ func _build_patriarch_camp_architecture() -> void:
 	plume.mesh = _make_crossed_card_mesh(1.15, 2.85, false)
 	plume.material_override = smoke_shader_mat
 	plume.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	plume.position = Vector3(1.0, ay + 0.82, -4.9)
+	plume.position = Vector3(1.0, ay + 1.22, -4.9)
 	root.add_child(plume)
 	smoke_nodes.append(plume)
 
@@ -1313,7 +1328,47 @@ func _build_olive_groves() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 407
 
-	# TRUE Mediterranean Umbrella Olive Tree Commercial GLB (ALL 13 trees in 1 Draw Call!)
+	# REAL Photoscanned Airy Branched Mediterranean Trees & Shrubs (Poly Haven CC0 — ZERO broccoli blobs!)
+	if ResourceLoader.exists("res://assets/cc0_models/island_tree_01/island_tree_01_1k.gltf"):
+		var trees_root := Node3D.new()
+		trees_root.name = "PhotoscannedOliveGrovesCC0"
+		add_child(trees_root)
+		var tree_paths: Array[String] = [
+			"res://assets/cc0_models/island_tree_01/island_tree_01_1k.gltf",
+			"res://assets/cc0_models/island_tree_02/island_tree_02_1k.gltf",
+		]
+		var tree_tint := Color(0.92, 0.98, 0.76)
+		for i in range(tree_spots.size()):
+			var spot: Vector3 = tree_spots[i]
+			var tpath: String = tree_paths[i % tree_paths.size()]
+			var target_h: float = rng.randf_range(3.6, 4.8)
+			var yaw_d: float = rng.randf_range(0.0, 360.0)
+			var t_inst: Node3D = GlbAssetLoader.load_scene_asset(tpath, target_h, Vector3(0.0, yaw_d, 0.0), 0.18, Vector3(1.12, 0.92, 1.12), tree_tint)
+			if t_inst != null:
+				t_inst.position = Vector3(spot.x, get_terrain_height(spot.x, spot.z), spot.z)
+				trees_root.add_child(t_inst)
+		# Real Photoscanned Mediterranean Shrubs tucked organically along boulders, water bank & walls!
+		var shrub_paths: Array[String] = [
+			"res://assets/cc0_models/shrub_01/shrub_01_1k.gltf",
+			"res://assets/cc0_models/shrub_02/shrub_02_1k.gltf",
+		]
+		var shrub_spots: Array[Vector2] = [
+			Vector2(-6.4, 0.6), Vector2(-5.8, -2.6), Vector2(-4.9, 3.1), Vector2(2.8, 2.5),
+			Vector2(3.7, 1.0), Vector2(3.8, -1.9), Vector2(-0.9, -3.4), Vector2(3.1, -3.7),
+			Vector2(-5.5, -3.5), Vector2(5.4, 2.2), Vector2(-7.8, 3.6), Vector2(-3.2, 4.4),
+			Vector2(6.8, -0.5), Vector2(7.4, 2.2),
+		]
+		for si in range(shrub_spots.size()):
+			var bs: Vector2 = shrub_spots[si]
+			var spath: String = shrub_paths[si % shrub_paths.size()]
+			var sh_inst: Node3D = GlbAssetLoader.load_scene_asset(spath, rng.randf_range(0.55, 0.95), Vector3(0.0, rng.randf_range(0.0, 360.0), 0.0), 0.06, Vector3.ONE, Color(0.90, 0.96, 0.72))
+			if sh_inst != null:
+				sh_inst.position = Vector3(bs.x, get_terrain_height(bs.x, bs.y), bs.y)
+				trees_root.add_child(sh_inst)
+		active_glb_slots += 1
+		return
+
+	# Fallback: Local RTX 5060 Olive Tree GLB
 	if FileAccess.file_exists("res://assets/models/ENV_OliveTree.glb"):
 		var tdata: Dictionary = GlbAssetLoader.extract_first_mesh_data("res://assets/models/ENV_OliveTree.glb", 0.90, Color(1.06, 1.08, 1.00))
 		if not tdata.is_empty():
@@ -1477,7 +1532,92 @@ func _build_grass_meadow_multimesh() -> void:
 
 
 func _build_set_dressing_multimesh() -> void:
-	# Warm sun-kissed sandy Canaanite limestone (NO cold concrete gray, NO golden popcorn!)
+	# 100% REAL PHOTOSCANNED CC0 GEOLOGICAL LIMESTONE CLIFFS, BOULDERS & FIELDSTONES (ZERO procedural polyhedra!)
+	if ResourceLoader.exists("res://assets/cc0_models/namaqualand_cliff_01/namaqualand_cliff_01_1k.gltf"):
+		var rocks_root := Node3D.new()
+		rocks_root.name = "PhotoscannedLimestoneCC0"
+		add_child(rocks_root)
+		var rng_r := RandomNumberGenerator.new()
+		rng_r.seed = 777
+		var limestone_tint := Color(1.16, 1.08, 0.92)
+
+		var cliff1 := "res://assets/cc0_models/namaqualand_cliff_01/namaqualand_cliff_01_1k.gltf"
+		var cliff2 := "res://assets/cc0_models/namaqualand_cliff_02/namaqualand_cliff_02_1k.gltf"
+		var bld1 := "res://assets/cc0_models/namaqualand_boulders_01/namaqualand_boulders_01_1k.gltf"
+		var bld2 := "res://assets/cc0_models/namaqualand_boulder_02/namaqualand_boulder_02_1k.gltf"
+		var stones := "res://assets/cc0_models/namaqualand_stones_01/namaqualand_stones_01_1k.gltf"
+
+		# 1. Monumental North-Central Altar Rocky Massif (real geological cliff scans!)
+		for cl in [
+			[cliff1, Vector3(1.0, 0.0, -5.2), 2.25, Vector3(0.0, 20.0, 0.0), 0.85, Vector3(1.12, 0.82, 1.02)],
+			[bld1, Vector3(-1.6, 0.0, -4.4), 1.65, Vector3(0.0, 55.0, 0.0), 0.48, Vector3(1.15, 0.88, 1.05)],
+			[cliff2, Vector3(3.6, 0.0, -4.4), 2.15, Vector3(0.0, -65.0, 0.0), 0.78, Vector3(1.02, 0.82, 0.96)],
+			# Western Spring Grotto Cliff Outcrops
+			[cliff1, Vector3(-8.4, 0.0, -2.5), 1.95, Vector3(0.0, 55.0, 0.0), 0.55, Vector3(0.92, 0.90, 0.90)],
+			[bld1, Vector3(-9.5, 0.0, -0.6), 1.35, Vector3(0.0, 110.0, 0.0), 0.35, Vector3.ONE],
+			[bld2, Vector3(-6.4, 0.0, -2.6), 1.25, Vector3(0.0, -30.0, 0.0), 0.32, Vector3.ONE],
+		]:
+			var pos_v: Vector3 = cl[1]
+			var inst: Node3D = GlbAssetLoader.load_scene_asset(cl[0], cl[2], cl[3], cl[4], cl[5], limestone_tint)
+			if inst != null:
+				inst.position = Vector3(pos_v.x, get_terrain_height(pos_v.x, pos_v.z), pos_v.z)
+				rocks_root.add_child(inst)
+
+		# 2. 12-Stone Covenant Altar Ring on North Hill Summit (real photoscanned weathered boulders!)
+		for i in range(12):
+			var ang: float = float(i) / 12.0 * TAU
+			var rx: float = 1.0 + cos(ang) * 1.12
+			var rz: float = -4.9 + sin(ang) * 1.12
+			var st_inst: Node3D = GlbAssetLoader.load_scene_asset(bld2, rng_r.randf_range(0.52, 0.68), Vector3(0.0, rad_to_deg(ang) + rng_r.randf_range(-25, 25), 0.0), 0.14, Vector3.ONE, Color(1.22, 1.14, 0.98))
+			if st_inst != null:
+				st_inst.position = Vector3(rx, get_terrain_height(rx, rz), rz)
+				rocks_root.add_child(st_inst)
+
+		# 3. Hand-Laid Irregular Courtyard Retaining Wall & Steps (real photoscanned stone clusters, staggered & half-buried!)
+		for i in range(24):
+			var ang: float = float(i) / 24.0 * TAU
+			var rx: float = -1.75 + cos(ang) * 4.55
+			var rz: float = 0.25 + sin(ang) * 2.65
+			if rz > 2.15 and rx > -2.35 and rx < -0.35:
+				continue
+			var src_p: String = stones if (i % 2 == 0) else bld2
+			var w_inst: Node3D = GlbAssetLoader.load_scene_asset(src_p, rng_r.randf_range(0.62, 0.82), Vector3(0.0, rad_to_deg(ang) + 90.0 + rng_r.randf_range(-18, 18), 0.0), 0.18, Vector3(1.15, 0.82, 0.92), limestone_tint)
+			if w_inst != null:
+				w_inst.position = Vector3(rx, get_terrain_height(rx, rz), rz)
+				rocks_root.add_child(w_inst)
+
+		# 3-Tier Worn Courtyard Entry Steps (half-buried photoscanned flat boulders)
+		for s in range(3):
+			var sz: float = 2.65 + float(s) * 0.44
+			for b in range(3):
+				var sx: float = -1.92 + float(b) * 0.58 + (0.08 if s % 2 == 1 else 0.0)
+				var step_n: Node3D = GlbAssetLoader.load_scene_asset(bld2, 0.36, Vector3(0.0, rng_r.randf_range(0, 360), 0.0), 0.14, Vector3(1.35, 0.65, 1.15), Color(1.20, 1.12, 0.96))
+				if step_n != null:
+					step_n.position = Vector3(sx, get_terrain_height(sx, sz) + 0.10 - float(s) * 0.06, sz)
+					rocks_root.add_child(step_n)
+
+		# 4. Curated Natural Hillside Boulder Clusters (grounded, half-buried, NOT random uniform scatter!)
+		for hb in [
+			[bld1, Vector3(4.2, 0.0, 2.2), 1.05, 35.0],
+			[bld2, Vector3(5.0, 0.0, 1.6), 0.72, 140.0],
+			[bld1, Vector3(-6.8, 0.0, 4.2), 0.95, -55.0],
+			[stones, Vector3(-5.8, 0.0, 4.6), 0.68, 80.0],
+			[bld2, Vector3(7.2, 0.0, -1.6), 1.10, 15.0],
+			[stones, Vector3(-9.8, 0.0, -5.8), 0.85, 20.0],
+			[stones, Vector3(-5.8, 0.0, -6.4), 0.88, 12.0],
+			[stones, Vector3(6.2, 0.0, -5.6), 0.88, -18.0],
+			[stones, Vector3(9.6, 0.0, -6.2), 0.85, -24.0],
+		]:
+			var hp: Vector3 = hb[1]
+			var bi: Node3D = GlbAssetLoader.load_scene_asset(hb[0], hb[2], Vector3(0.0, hb[3], 0.0), 0.22, Vector3.ONE, limestone_tint)
+			if bi != null:
+				bi.position = Vector3(hp.x, get_terrain_height(hp.x, hp.z), hp.z)
+				rocks_root.add_child(bi)
+
+		active_glb_slots += 1
+		return
+
+	# Fallback procedural rocks only if CC0 scans are absent
 	var cliff_mat := StandardMaterial3D.new()
 	cliff_mat.albedo_texture = load("res://assets/textures/linen_canopy_albedo.png")
 	cliff_mat.normal_enabled = true

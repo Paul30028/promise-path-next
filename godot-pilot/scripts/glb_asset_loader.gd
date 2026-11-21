@@ -171,3 +171,56 @@ static func extract_first_mesh_data(res_path: String, roughness_min: float = 0.8
 			stack.append(child)
 	node.free()
 	return {}
+
+
+static func load_scene_asset(
+	res_path: String,
+	target_height: float,
+	rot_deg: Vector3 = Vector3.ZERO,
+	y_sink: float = 0.0,
+	scale_mult: Vector3 = Vector3.ONE,
+	albedo_tint: Color = Color.WHITE
+) -> Node3D:
+	# Loads natively imported Godot .gltf/.glb PackedScene preserving full CC0 PBR (Albedo+Normal+Roughness+AO)!
+	if not ResourceLoader.exists(res_path):
+		return null
+	var packed: Resource = ResourceLoader.load(res_path)
+	if packed == null or not (packed is PackedScene):
+		return null
+	var inst: Node = (packed as PackedScene).instantiate()
+	if inst == null or not (inst is Node3D):
+		return null
+	var root_n := inst as Node3D
+
+	if albedo_tint != Color.WHITE:
+		var stack: Array[Node] = [root_n]
+		while not stack.is_empty():
+			var cur: Node = stack.pop_back()
+			if cur is MeshInstance3D:
+				var mi := cur as MeshInstance3D
+				if mi.mesh != null:
+					for s in range(mi.mesh.get_surface_count()):
+						var mat: Material = mi.get_active_material(s)
+						if mat is StandardMaterial3D:
+							var sm := (mat as StandardMaterial3D).duplicate() as StandardMaterial3D
+							sm.albedo_color = sm.albedo_color * albedo_tint
+							mi.set_surface_override_material(s, sm)
+			for ch in cur.get_children():
+				stack.append(ch)
+
+	var aabb: AABB = _compute_local_aabb(root_n)
+	var wrapper := Node3D.new()
+	wrapper.name = res_path.get_file().get_basename()
+	if aabb.size.y > 0.0001:
+		var sf: float = target_height / aabb.size.y
+		root_n.scale = Vector3(sf * scale_mult.x, sf * scale_mult.y, sf * scale_mult.z)
+		var cx: float = aabb.position.x + aabb.size.x * 0.5
+		var cz: float = aabb.position.z + aabb.size.z * 0.5
+		root_n.position = Vector3(-cx * sf * scale_mult.x, -aabb.position.y * sf * scale_mult.y - y_sink, -cz * sf * scale_mult.z)
+
+	var pivot := Node3D.new()
+	pivot.name = "Pivot"
+	pivot.rotation_degrees = rot_deg
+	pivot.add_child(root_n)
+	wrapper.add_child(pivot)
+	return wrapper
