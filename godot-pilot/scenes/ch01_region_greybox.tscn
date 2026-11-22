@@ -1,0 +1,53 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/ch01_region_greybox.gd" id="1_script"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat_gb"]
+sky_top_color = Color(0.24, 0.48, 0.80, 1)
+sky_horizon_color = Color(0.88, 0.82, 0.68, 1)
+ground_bottom_color = Color(0.26, 0.22, 0.16, 1)
+ground_horizon_color = Color(0.72, 0.64, 0.48, 1)
+
+[sub_resource type="Sky" id="Sky_gb"]
+sky_material = SubResource("SkyMat_gb")
+
+[sub_resource type="Environment" id="Env_gb"]
+background_mode = 2
+sky = SubResource("Sky_gb")
+ambient_light_source = 3
+ambient_light_sky_contribution = 0.85
+ambient_light_energy = 0.42
+tonemap_mode = 3
+tonemap_exposure = 0.96
+ssao_enabled = true
+ssao_radius = 1.4
+ssao_intensity = 1.35
+fog_enabled = true
+fog_light_color = Color(0.86, 0.83, 0.72, 1)
+fog_density = 0.00045
+
+[node name="Ch01RegionGreybox" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_gb")
+
+[node name="SunLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.788, -0.454, 0.416, 0, 0.675, 0.738, -0.616, -0.581, 0.532, 24, 36, 22)
+light_color = Color(1, 0.90, 0.72, 1)
+light_energy = 1.28
+shadow_enabled = true
+shadow_bias = 0.03
+directional_shadow_mode = 1
+directional_shadow_max_distance = 140.0
+
+[node name="CameraRig" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 2.0, 2.0)
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+transform = Transform3D(1, 0, 0, 0, 0.743, 0.669, 0, -0.669, 0.743, 0, 68.0, 78.0)
+current = true
+fov = 40.0
+far = 280.0
+
+[node name="HudLayer" type="CanvasLayer" parent="."]
