@@ -1,6 +1,6 @@
 # 《应许之路》(Path of Promise) — 三层圣经脉络史诗地图系统设计规范
 
-> **状态**：已通过 Codex 首席系统策划与世界观架构师复核定型  
+> **状态**：设计规范已复核；Phase 1 章节数据已落盘并完成字段对齐，运行时与 Phase 2 灰盒按文末口径另行验收  
 > **核心原则**：按《圣经·旧约》真实地理与救赎历史脉络构建地图系统；严格区分「经文正典锚点（Canon Anchor）」与「策略玩法改编（Adaptation）」；所有关卡、区域、事件与存档均采用数据驱动（Zero Hardcoding）。
 
 ---
@@ -11,7 +11,7 @@
 | :--- | :--- | :--- | :--- |
 | **宏观层 (Macro)** | **圣经地理战役画卷 (Overworld)** | 承载救赎历史纵深、多代主角迁徙路线、年代演变与全 12 章入口 | **可缩放古代近东—迦南地形画卷 + 动态迁徙路线节点**。不追求全境可行走，以地中海、幼发拉底河、约旦河谷、死海、尼罗河三角洲、红海、西乃山脉与远景城邦剪影呈现史诗尺度；同一地点随年代（列祖→出埃及→士师→王国）动态切换视觉状态；非军事章节采用「未抵达 / 未听闻」遮罩，战争迷雾仅用于军事章节。 |
 | **中观层 (Meso)** | **章节战区大地图 (Chapter Region)** | 承载单章地理探索、牧区/水源调度、补给线、高地防守与多幕剧情推进 | 以第一章为例采用 **`128×96` 逻辑网格**（仅作逻辑尺度，非全图同屏渲染承诺）。通过**分块加载（Chunk Streaming）、近区精细模拟、远区简算**控制手机端 Draw Calls 与帧时间；先灰盒验证步行节奏与手机发热，再按块铺装精模。 |
-| **微观层 (Micro)** | **营地经营与事件演出 (Camp Micro)** | 承载近景建造、亚伯兰/撒莱骨骼动画交互、对话抉择与祭坛献祭演出 | 无缝复用已验收的 **Godot 4.7.2 `v25` 实机管线**（12 套 CC0/MIT 手工精雕 3D 资产 + 14 骨骼 `AnimationTree` 状态机）。 |
+| **微观层 (Micro)** | **营地经营与事件演出 (Camp Micro)** | 承载近景建造、亚伯兰/撒莱骨骼动画交互、对话抉择与祭坛献祭演出 | 设计沿用现有 **Godot 4.7.2 `v25` 实机管线**（12 套 CC0/MIT 手工精雕 3D 资产 + 14 骨骼 `AnimationTree` 状态机）。 |
 
 ---
 
@@ -60,51 +60,66 @@
 
 ## 4. 数据驱动 Schema 规范（`Campaign → Chapter → Region → Event`）
 
-所有地图与剧情均存储于 `godot-pilot/data/campaign.json` 与 `godot-pilot/data/chapters/ch01_bethel.json`，与渲染和状态机严格解耦：
+Phase 1 当前章节数据的唯一对齐基准为 `godot-pilot/data/ch01_bethel.json`，文件根对象就是 Chapter，并非 Campaign 包装对象。`campaign.json`、`data/chapters/` 目录及 Campaign → Chapter → Region → Event 分层均为后续扩展设计，不代表已落地接口；接入时须显式迁移，不能直接替换现有章节结构。
+
+### 4.1 Phase 1 实际字段契约
+
+| 层级 | 实际字段与约定 |
+| :--- | :--- |
+| 章节根对象 | `id: "ch01_bethel"`、`saveSchemaVersion: 1`、`initialState`、`ui`、`completion`、`events` |
+| 初始状态 | `initialState.water = 12`、`harmony = 75`、`pressure = 35`；压力字段名为 `pressure`，不能使用 `carryingPressure` |
+| UI | `eventButtonZh`、`canonZh`、`adaptationZh`、`hudZh`、`actionHintZh`、`actions`、`closeZh`、`continueZh`、`completedZh`；`actions` 的键为 `water` / `pray` / `camp` |
+| 事件 | `id`、`act`、`titleZh`、`speakerZh`、`canonRef`、`isAdaptation`、可选 `requiredAction`、`bodyZh`、`choices` |
+| 抉择 | `id`、`labelZh`、`resultZh`、`deltaWater`、`deltaHarmony`、`deltaPressure`、`nextEventId`、`isAdaptation`；增减量直接位于抉择对象，不使用 `consequences` 嵌套对象 |
+| 终章文案 | `completion.titleZh`、`canonRef`、`bodyZh`、`previewZh`；第二章仅为预告，不等于第二章已可玩 |
+
+`requiredAction` 是动作标识，须对应 `ui.actions` 的键；Act 1 为 `water`，Act 2 为 `pray`，Act 5 为 `camp`，Act 3/4 不含此字段。动作完成才可进行该事件抉择，是接入验收要求；JSON 本身不证明运行时门控已实现。抉择的三个 delta 分别作用于 `water` / `harmony` / `pressure`，具体边界裁剪与动作自身的数值效果须以运行时实现核验，不能从本文件推定。
+
+事件推进链固定如下；共 5 个事件、11 个抉择，末幕的 `nextEventId: ""` 为终章标记，应进入 `completion`，不能作为有效事件 ID 查找：
+
+`act1_return_bethel → act2_restore_altar → act3_herdsmen_strife → act4_canaan_caravan → act5_parting_promise → completion`
+
+以下为直接摘自已落盘 JSON 的事件样例（不引入设计占位字段）：
 
 ```json
 {
-  "saveSchemaVersion": 1,
-  "campaignId": "path-of-promise-ot",
-  "chapters": [
+  "id": "act3_herdsmen_strife",
+  "act": 3,
+  "titleZh": "富足成压 · 牧人争水",
+  "speakerZh": "两家牧人",
+  "canonRef": "创 13:5–7",
+  "isAdaptation": true,
+  "bodyZh": "罗得也有牛群、羊群和帐棚。两家的财物甚多，那地容不下他们同居，牧人之间起了争执。不是罗得存心作恶；水草承载已到极限。以下轮牧安排为改编，只能缓和摩擦，不能消除土地的限制。",
+  "choices": [
     {
-      "id": "ch01_bethel",
-      "chapterNumber": 1,
-      "era": "Patriarchs (c. 2090 BC)",
-      "protagonist": "abram",
-      "canonRef": "Genesis 13:1-18",
-      "overworldPos": [0.46, 0.44],
-      "fogMode": "unvisited",
-      "logicalGrid": [128, 96],
-      "regions": [
-        {
-          "id": "reg_bethel_camp",
-          "nameZh": "伯特利与艾之间 · 主营高脊",
-          "center": [-1.6, 0.2],
-          "chunkRadius": 18,
-          "simulationTier": "near"
-        }
-      ],
-      "events": [
-        {
-          "id": "evt_ch01_herdsmen_strife",
-          "act": 3,
-          "canonRef": "Genesis 13:7",
-          "isAdaptation": false,
-          "prerequisites": ["evt_ch01_altar_restored"],
-          "choices": [
-            {
-              "id": "choice_share_well",
-              "labelZh": "开放西谷活水井与罗得牧人轮流饮羊",
-              "consequences": { "water": -20, "harmony": 15, "carryingPressure": 10 }
-            }
-          ]
-        }
-      ]
+      "id": "rotate",
+      "labelZh": "克制争辩，安排轮流饮羊",
+      "resultZh": "牧人暂按次序取水，争执缓和，草场压力仍在。",
+      "deltaWater": -2,
+      "deltaHarmony": 8,
+      "deltaPressure": 15,
+      "nextEventId": "act4_canaan_caravan",
+      "isAdaptation": true
+    },
+    {
+      "id": "protect",
+      "labelZh": "先护送幼弱畜群到水边",
+      "resultZh": "弱小牲畜得到照料，两家仍需商议长远出路。",
+      "deltaWater": -3,
+      "deltaHarmony": 6,
+      "deltaPressure": 18,
+      "nextEventId": "act4_canaan_caravan",
+      "isAdaptation": true
     }
   ]
 }
 ```
+
+### 4.2 后续地图扩展边界
+
+`era`、`protagonist`、`overworldPos`、`fogMode`、`logicalGrid`、`regions`、`center`、`chunkRadius`、`simulationTier`、`prerequisites` 尚未出现在当前章节 JSON 中，只属于 Phase 2/3 待设计扩展。章节地理入口 `bethel-ai` 是设计映射名，当前数据主键仍为 `ch01_bethel`，不得混用。`saveSchemaVersion` 已有值不等于存档迁移系统已完成。
+
+正典与改编采用事件、抉择两级标记：Act 1–4 的事件均为 `isAdaptation: true`，Act 5 事件为 `false`，全部 11 个抉择均为 `true`；不得因事件锚定经文就把其原创抉择视作经文记载。
 
 ---
 
@@ -113,3 +128,15 @@
 - **Phase 1（剧情与状态机闭环）**：保留现有 `v25` 营地场景与 12 套 CC0 资产、亚伯兰/撒莱骨骼动画，接入 `ch01_bethel.json` 数据驱动章节状态机、NPC 对话与抉择面板，在现有营地内完整跑通「修井安营 → 重修旧坛 → 牧人争水 → 谦让分地 → 领受应许 → 启程幔利」五幕闭环。
 - **Phase 2（`128×96` 七区扩容与手机端实测）**：先搭建七区灰盒地形、共享道路折线与分块加载（Chunk Streaming），在 Android 真机 APK 上实测步行节奏、Draw Calls 与帧时间后再铺装精模。
 - **Phase 3（宏观战役画卷与跨章系统）**：接入全 12 章《圣经应许之路》可缩放 Overworld 画卷、迁徙路线推进动画、年代/主角切换与版本化存档迁移。
+
+---
+
+## 6. Codex 签收记录（含 Phase 1 已落地状态与 Phase 2 灰盒启动验收口径）
+
+- **签收日期**：2026-11-22。范围仅为本规范与 `godot-pilot/data/ch01_bethel.json` 的静态对照；本次未执行 Godot、APK 或真机测试。
+- **Phase 1 已落地状态**：章节 JSON 已具备版本号、三项初始状态、UI 文案、五幕 11 个抉择、三处动作要求、完整后继链及幔利终章文案；字段按第 4 节签收。现有营地、动画、资源许可与运行闭环不因本次文档审阅获得新的实测背书。
+- **Phase 1 运行验收口径**：从初始状态进入五幕；逐项核对动作未完成时的拦截及完成后的放行；11 个抉择均校验三个 delta、结果文案及后继；末幕两个分支均进入幔利终章与第二章预告。保留“先分离、后应许、再南迁筑坛”的次序，不以资源阈值兑换应许。
+- **Phase 2 灰盒启动输入**：保留上述 Phase 1 契约与回归路径；为 `128×96` 逻辑网格、七区边界、出生点、交互点、共享道路折线与分块参数提供可审阅的数据方案，新增字段及坐标单位须明确，不默认现有 JSON 已支持地图扩展。
+- **Phase 2 灰盒验收**：七区可辨识且道路连通，伯特利在西、艾在东、约旦平原向东；角色能抵达全部必需交互点，跨块无跌落、卡死或交互丢失；加载/卸载不重复触发事件或重置章节状态；五幕与终章仍可走通。远西剪影与极东观景可采用边界视景，不要求全景可行走。
+- **Android 验收证据**：提交设备型号、系统版本、APK/构建版本、固定路线与测试时长，记录各区步行耗时、峰值 Draw Calls、平均及 P95 帧时间、内存峰值和温升/降频表现。目标机型与性能预算须在测试前确认；未确认预算或缺少实测记录不得宣称手机性能达标。
+- **签收结论**：通过 Phase 1 数据与规范对齐签收，可据此启动 Phase 2 灰盒；Phase 1 运行验收与 Phase 2 灰盒/真机验收均待提交上述证据，不能将启动资格写作交付完成。
