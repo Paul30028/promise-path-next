@@ -1,5 +1,14 @@
 extends Node3D
 
+const ChapterStoryManager = preload("res://scripts/chapter_story_manager.gd")
+
+var chapter_story = ChapterStoryManager.new()
+var story_panel: PanelContainer
+var story_content: VBoxContainer
+var chapter_label: Label
+var story_result: String = ""
+var prayer_story_pending: bool = false
+
 const GlbAssetLoader = preload("res://scripts/glb_asset_loader.gd")
 
 @onready var camera_rig: Node3D = $CameraRig
@@ -325,7 +334,10 @@ func _ready() -> void:
 	_build_olive_groves()
 	_build_grass_meadow_multimesh()
 	_build_set_dressing_multimesh()
+	var chapter_loaded: bool = chapter_story.load_chapter("res://data/ch01_bethel.json")
 	_build_mobile_hud()
+	if chapter_loaded:
+		_build_chapter_hud()
 	_optimize_small_shadow_casters()
 	if abram_actor != null:
 		target_pos = abram_actor.global_position
@@ -2118,8 +2130,8 @@ func _build_mobile_hud() -> void:
 	bar.anchor_right = 0.5
 	bar.anchor_top = 1.0
 	bar.anchor_bottom = 1.0
-	bar.offset_left = -290.0
-	bar.offset_right = 290.0
+	bar.offset_left = -390.0
+	bar.offset_right = 390.0
 	bar.offset_top = -66.0
 	bar.offset_bottom = -14.0
 	bar.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -2140,6 +2152,7 @@ func _build_mobile_hud() -> void:
 		["取水 · 西谷清泉", "water"],
 		["筑坛求告 · 创13:4", "pray"],
 		["归营 · 主帐", "camp"],
+		[chapter_story.get_presentation().ui.get("eventButtonZh", ""), "story"],
 	]
 	for act in actions:
 		var btn := Button.new()
@@ -2166,6 +2179,10 @@ func _build_mobile_hud() -> void:
 
 
 func _trigger_action(action_key: String) -> void:
+	if action_key == "story":
+		if story_panel != null:
+			story_panel.visible = not story_panel.visible
+		return
 	pending_action = action_key
 	if action_key == "water":
 		target_pos = Vector3(-5.8, get_terrain_height(-5.8, -0.8), -0.8)
@@ -2208,6 +2225,7 @@ func _order_move_from_screen(screen_pos: Vector2) -> void:
 		var p: Vector3 = hit["position"]
 		var tx: float = clamp(p.x, -26.0, 26.0)
 		var tz: float = clamp(p.z, -18.0, 18.0)
+		pending_action = ""
 		target_pos = Vector3(tx, get_terrain_height(tx, tz), tz)
 
 
@@ -2241,17 +2259,124 @@ func _process(delta: float) -> void:
 				status_note = "【创 13:4】亚伯兰在坛前求告耶和华的名，全营和睦升至 %d%%" % harmony_score
 			else:
 				status_note = "亚伯兰已回到主营大帐"
+			chapter_story.apply_camp_delta(5 if pending_action == "water" else 0, 15 if pending_action == "pray" else 0)
+			if pending_action == "pray":
+				prayer_story_pending = true
+			else:
+				_story_action_finished(pending_action)
 			pending_action = ""
 			if status_label != null:
 				status_label.text = status_note
 		elif abram_pray_timer > 0.0:
 			abram_pray_timer = maxf(0.0, abram_pray_timer - delta)
 			desired_state = &"Pray"
+			if abram_pray_timer <= 0.0 and prayer_story_pending:
+				prayer_story_pending = false
+				_story_action_finished("pray")
 
 		if abram_playback != null and desired_state != abram_anim_state:
 			abram_playback.travel(desired_state)
 			abram_anim_state = desired_state
 
+	var story_state: Dictionary = chapter_story.get_snapshot()
+	if not story_state.is_empty():
+		water_count = int(story_state.water)
+		harmony_score = int(story_state.harmony)
 	var draw_calls := Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
 	var mem_mb := Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0
 	metrics_label.text = "饮水: %d  |  和睦: %d%%  |  GLB资产: %d  |  Draw Calls: %d  |  内存: %.1f MB" % [water_count, harmony_score, active_glb_slots, int(draw_calls), mem_mb]
+
+
+func _build_chapter_hud() -> void:
+	chapter_label = Label.new()
+	chapter_label.position = Vector2(18, 88)
+	chapter_label.add_theme_color_override("font_color", Color(1.0, 0.87, 0.59))
+	chapter_label.add_theme_constant_override("outline_size", 4)
+	$HudLayer.add_child(chapter_label)
+	story_panel = PanelContainer.new()
+	story_panel.name = "ChapterStoryPanel"
+	# Right margin leaves the central camp and actors visible. Scroll supports short viewports.
+	story_panel.anchor_left = 1.0
+	story_panel.anchor_right = 1.0
+	story_panel.anchor_bottom = 1.0
+	story_panel.offset_left = -360
+	story_panel.offset_right = -14
+	story_panel.offset_top = 118
+	story_panel.offset_bottom = -86
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.10, 0.075, 0.045, 0.96)
+	style.border_color = Color(0.72, 0.51, 0.25)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(8)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
+	story_panel.add_theme_stylebox_override("panel", style)
+	$HudLayer.add_child(story_panel)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	story_panel.add_child(scroll)
+	story_content = VBoxContainer.new()
+	story_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	story_content.add_theme_constant_override("separation", 10)
+	scroll.add_child(story_content)
+	_refresh_story()
+
+func _story_text(value: String) -> void:
+	var label := Label.new()
+	label.text = value
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.add_theme_color_override("font_color", Color(0.97, 0.91, 0.77))
+	story_content.add_child(label)
+
+func _story_button(value: String, callback: Callable, disabled: bool = false) -> void:
+	var button := Button.new()
+	button.text = value
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	button.custom_minimum_size.y = 48
+	button.disabled = disabled
+	button.pressed.connect(callback)
+	story_content.add_child(button)
+
+func _refresh_story() -> void:
+	for child in story_content.get_children():
+		story_content.remove_child(child)
+		child.queue_free()
+	var presentation: Dictionary = chapter_story.get_presentation()
+	var ui: Dictionary = presentation.ui
+	var state: Dictionary = chapter_story.get_snapshot()
+	var event: Dictionary = chapter_story.get_current_event()
+	chapter_label.text = ui.hudZh % [int(event.get("act", 5)), int(state.pressure)]
+	if not story_result.is_empty():
+		_story_text(story_result)
+	if chapter_story.is_completed():
+		var ending: Dictionary = presentation.completion
+		_story_text(ending.titleZh)
+		_story_text(ending.canonRef)
+		_story_text(ending.bodyZh)
+		_story_text(ending.previewZh)
+	elif not event.is_empty():
+		_story_text(event.titleZh + " · " + event.speakerZh)
+		_story_text((ui.adaptationZh if event.isAdaptation else ui.canonZh) + "\n" + event.canonRef)
+		_story_text(event.bodyZh)
+		var blocked: bool = event.has("requiredAction") and not state.actionReady
+		if blocked:
+			_story_text(ui.actionHintZh % ui.actions[event.requiredAction])
+		for choice in event.choices:
+			var choice_id: String = choice.id
+			_story_button(choice.labelZh, func() -> void: _choose_story(choice_id), blocked)
+	_story_button(ui.closeZh, func() -> void: story_panel.hide())
+
+func _choose_story(choice_id: String) -> void:
+	var result: Dictionary = chapter_story.choose(choice_id)
+	if result.get("ok", false):
+		story_result = result.resultZh
+		_refresh_story()
+		story_panel.show()
+
+func _story_action_finished(action: String) -> void:
+	if chapter_story.complete_action(action):
+		_refresh_story()
+		story_panel.show()

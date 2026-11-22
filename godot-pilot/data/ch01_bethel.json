@@ -1,0 +1,200 @@
+{
+  "id": "ch01_bethel",
+  "saveSchemaVersion": 1,
+  "initialState": {
+    "water": 12,
+    "harmony": 75,
+    "pressure": 35
+  },
+  "ui": {
+    "eventButtonZh": "📜 章节事件",
+    "canonZh": "正典锚点 · 含改编抉择",
+    "adaptationZh": "玩法改编 · 经文锚点见出处",
+    "hudZh": "第 %d / 5 幕  |  草场承载压力：%d",
+    "actionHintZh": "请先完成：%s",
+    "actions": {
+      "water": "西谷取水",
+      "pray": "坛前求告",
+      "camp": "归营整备，启程南迁"
+    },
+    "closeZh": "收起",
+    "continueZh": "继续",
+    "completedZh": "第一章已完成"
+  },
+  "completion": {
+    "titleZh": "第一章终 · 幔利橡树下",
+    "canonRef": "创 13:18",
+    "bodyZh": "亚伯兰搬了帐棚，来到希伯仑幔利的橡树那里居住，在那里为耶和华筑了一座坛。\n从富足中的克制，到向亲族谦让，旅程在应许与敬拜中收束。",
+    "previewZh": "已解锁第二章预告：创14 · 亲族遇险，亚伯兰将踏上救援之路。"
+  },
+  "events": [
+    {
+      "id": "act1_return_bethel",
+      "act": 1,
+      "titleZh": "归回伯特利 · 修井安营",
+      "speakerZh": "撒莱",
+      "canonRef": "创 13:1–3",
+      "isAdaptation": true,
+      "bodyZh": "我们带着财物、牲畜与罗得从埃及上南地，回到伯特利在西、艾在东的旧营地。先修缮旧井、安顿帐棚，再取水照顾众人。修井与本段对话为玩法改编。",
+      "requiredAction": "water",
+      "choices": [
+        {
+          "id": "share",
+          "labelZh": "先为家人与幼畜分水",
+          "resultZh": "众人依次饮水，营地渐渐安定。",
+          "deltaWater": -2,
+          "deltaHarmony": 4,
+          "deltaPressure": 5,
+          "nextEventId": "act2_restore_altar",
+          "isAdaptation": true
+        },
+        {
+          "id": "store",
+          "labelZh": "整备储水器皿再分水",
+          "resultZh": "储水有序，众人预备重新安营。",
+          "deltaWater": 1,
+          "deltaHarmony": 2,
+          "deltaPressure": 5,
+          "nextEventId": "act2_restore_altar",
+          "isAdaptation": true
+        }
+      ]
+    },
+    {
+      "id": "act2_restore_altar",
+      "act": 2,
+      "titleZh": "重修旧坛 · 求告主名",
+      "speakerZh": "亚伯兰",
+      "canonRef": "创 13:4",
+      "isAdaptation": true,
+      "bodyZh": "这里是起初筑坛的地方。我们清理坛基，回到坛前求告耶和华的名。清理旧坛及对话为玩法改编；求告的经文锚点见创13:4。",
+      "requiredAction": "pray",
+      "choices": [
+        {
+          "id": "together",
+          "labelZh": "邀家人一同安静求告",
+          "resultZh": "家人安静聚集；亚伯兰求告耶和华的名。",
+          "deltaWater": 0,
+          "deltaHarmony": 6,
+          "deltaPressure": 4,
+          "nextEventId": "act3_herdsmen_strife",
+          "isAdaptation": true
+        },
+        {
+          "id": "prepare",
+          "labelZh": "先安排牧人照料羊群，再求告",
+          "resultZh": "羊群有人看顾，众人安静等候。",
+          "deltaWater": 0,
+          "deltaHarmony": 4,
+          "deltaPressure": 3,
+          "nextEventId": "act3_herdsmen_strife",
+          "isAdaptation": true
+        }
+      ]
+    },
+    {
+      "id": "act3_herdsmen_strife",
+      "act": 3,
+      "titleZh": "富足成压 · 牧人争水",
+      "speakerZh": "两家牧人",
+      "canonRef": "创 13:5–7",
+      "isAdaptation": true,
+      "bodyZh": "罗得也有牛群、羊群和帐棚。两家的财物甚多，那地容不下他们同居，牧人之间起了争执。不是罗得存心作恶；水草承载已到极限。以下轮牧安排为改编，只能缓和摩擦，不能消除土地的限制。",
+      "choices": [
+        {
+          "id": "rotate",
+          "labelZh": "克制争辩，安排轮流饮羊",
+          "resultZh": "牧人暂按次序取水，争执缓和，草场压力仍在。",
+          "deltaWater": -2,
+          "deltaHarmony": 8,
+          "deltaPressure": 15,
+          "nextEventId": "act4_canaan_caravan",
+          "isAdaptation": true
+        },
+        {
+          "id": "protect",
+          "labelZh": "先护送幼弱畜群到水边",
+          "resultZh": "弱小牲畜得到照料，两家仍需商议长远出路。",
+          "deltaWater": -3,
+          "deltaHarmony": 6,
+          "deltaPressure": 18,
+          "nextEventId": "act4_canaan_caravan",
+          "isAdaptation": true
+        }
+      ]
+    },
+    {
+      "id": "act4_canaan_caravan",
+      "act": 4,
+      "titleZh": "艾城驿道 · 迦南商队",
+      "speakerZh": "商队领队",
+      "canonRef": "创 13:7（当地居民背景；商队为原创）",
+      "isAdaptation": true,
+      "bodyZh": "驿道商队愿以器物换取淡水。经文提及迦南人与比利洗人住在那地；商队、交易及本段对话均为原创支线，不是经文记载。",
+      "choices": [
+        {
+          "id": "trade",
+          "labelZh": "公平换取储水器皿",
+          "resultZh": "商队按约取水，营地获得储水器皿。",
+          "deltaWater": -2,
+          "deltaHarmony": 3,
+          "deltaPressure": 2,
+          "nextEventId": "act5_parting_promise",
+          "isAdaptation": true
+        },
+        {
+          "id": "give",
+          "labelZh": "赠少量水，结下善意",
+          "resultZh": "旅人感谢相助，营地仍保留基本饮水。",
+          "deltaWater": -3,
+          "deltaHarmony": 5,
+          "deltaPressure": 2,
+          "nextEventId": "act5_parting_promise",
+          "isAdaptation": true
+        },
+        {
+          "id": "decline",
+          "labelZh": "婉拒交易，保留饮水",
+          "resultZh": "商队理解营地的困难，继续沿驿道前行。",
+          "deltaWater": 0,
+          "deltaHarmony": 0,
+          "deltaPressure": 3,
+          "nextEventId": "act5_parting_promise",
+          "isAdaptation": true
+        }
+      ]
+    },
+    {
+      "id": "act5_parting_promise",
+      "act": 5,
+      "titleZh": "谦让分地 · 应许与幔利",
+      "speakerZh": "亚伯兰",
+      "canonRef": "创 13:8–18",
+      "isAdaptation": false,
+      "bodyZh": "亚伯兰对罗得说：我们不可相争，因为我们是骨肉。遍地不都在你眼前吗？请你先选。罗得举目看见滋润的约旦全平原，便选择那里，向东迁移；亚伯兰住在迦南地。罗得离别以后，耶和华才吩咐亚伯兰向东西南北观看，应许将这地赐给他和他的后裔。应许出于恩典，不以数值或任务兑换。如今收拾帐棚，迁往希伯仑幔利橡树，在那里为耶和华筑坛。以下送别安排为玩法改编。",
+      "requiredAction": "camp",
+      "choices": [
+        {
+          "id": "water_gift",
+          "labelZh": "赠水送别，南迁幔利橡树筑坛",
+          "resultZh": "罗得向东离去。亚伯兰在分离后领受应许，迁到希伯仑幔利橡树，为耶和华筑坛（创13:18）。",
+          "deltaWater": -3,
+          "deltaHarmony": 8,
+          "deltaPressure": -35,
+          "nextEventId": "",
+          "isAdaptation": true
+        },
+        {
+          "id": "escort",
+          "labelZh": "安排送行，南迁幔利橡树筑坛",
+          "resultZh": "两家平和分离。亚伯兰领受四望之应许，迁到希伯仑幔利橡树，为耶和华筑坛（创13:18）。",
+          "deltaWater": -1,
+          "deltaHarmony": 6,
+          "deltaPressure": -35,
+          "nextEventId": "",
+          "isAdaptation": true
+        }
+      ]
+    }
+  ]
+}
