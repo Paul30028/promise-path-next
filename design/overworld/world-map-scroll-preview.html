@@ -479,8 +479,32 @@ function renderNodes() {
   });
 }
 
+const NODE_PLATES = {
+  'noah-ark': '../season-01-art-pack/00_prologue_noah_ark_final.png',
+  'b01-babel': '../season-01-art-pack/B01_babel_shem_final.png',
+  'p01-ur': '../season-01-art-pack/P01_leave_ur_haran_final.png',
+  'b02-egypt': '../season-01-art-pack/B02_egypt_return_final.png',
+  'bethel-ai': '../level-01/level01-128x96-7zone-final.png',
+  'dan-rescue': '../season-01-art-pack/02_dan_night_rescue_final.png',
+  'mamre-stars': '../season-01-art-pack/03_mamre_stars_covenant_final.png',
+  'b03-moriah': '../season-01-art-pack/B03_isaac_moriah_final.png',
+  'beersheba-well': '../season-01-art-pack/04_beersheba_well_final.png',
+  'b04-jacob': '../season-01-art-pack/B04_jacob_bethel_ladder_final.png',
+  'peniel-ford': '../season-01-art-pack/05_peniel_jabbok_ford_final.png',
+  'b05-joseph': '../season-01-art-pack/B05_joseph_goshen_egypt_final.png',
+  'red-sea': '../season-01-art-pack/06_red_sea_crossing_final.png',
+  'sinai-tabernacle': '../season-01-art-pack/07_sinai_tabernacle_final.png',
+  'b06-wilderness': '../season-01-art-pack/B06_nebo_joshua_handoff_final.png',
+  'jordan-crossing': '../season-01-art-pack/08_jordan_twelve_stones_final.png',
+  'jericho-walls': '../season-01-art-pack/09_jericho_walls_ai_final.png',
+  'gideon-300': '../season-01-art-pack/10_gideon_300_night_final.png',
+  'b07-kingdom-rise': '../season-01-art-pack/B07_samuel_david_rise_final.png',
+  'mount-zion': '../season-01-art-pack/11_mount_zion_david_final.png',
+};
+
 function renderDossier() {
   const n = NODES.find(x => x.id === selectedId) || NODES[2];
+  const plateSrc = NODE_PLATES[n.id] || '';
   const typeBadge = n.kind === 'prologue'
     ? '<span class="badge pro">可玩交互画卷序章</span>'
     : n.kind === 'bridge'
@@ -495,6 +519,7 @@ function renderDossier() {
   dossier.innerHTML = `
     <div class="dossier-era"><span>${n.eraZh}</span>${typeBadge}</div>
     <h2>${n.code} · ${n.titleZh}</h2>
+    ${plateSrc ? `<img src="${plateSrc}" alt="${n.titleZh}" style="width:100%;border-radius:10px;border:1px solid rgba(218,178,102,0.5);display:block;" />` : ''}
     <div class="dossier-meta">
       <div><div class="meta-lbl">核心人物</div><div class="meta-val">${n.protagonist}</div></div>
       <div><div class="meta-lbl">经文依据</div><div class="meta-val">${n.ref}</div></div>
