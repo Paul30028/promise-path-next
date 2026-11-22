@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>应许之路 · 圣经脉络古代近东—迦南史诗战役画卷（交互原型）</title>
+  <style>
+    :root {
+      --bg-ink: #17120c;
+      --panel-bg: rgba(24, 18, 12, 0.90);
+      --panel-border: rgba(208, 169, 98, 0.62);
+      --gold: #e7c273;
+      --gold-soft: #c7a25a;
+      --tekhelet: #3b6ea5;
+      --pomegranate: #b84b39;
+      --cream: #f5ebd6;
+      --muted: #b9aa8f;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #14100b;
+      color: var(--cream);
+      font-family: "Noto Serif SC", "Songti SC", "Microsoft YaHei", Georgia, serif;
+      user-select: none;
+    }
+    #app { position: relative; width: 100%; height: 100%; overflow: hidden; }
+    #viewport {
+      width: 100%; height: 100%;
+      cursor: grab;
+      background: radial-gradient(circle at 50% 45%, #2b2116 0%, #140f0a 100%);
+    }
+    #viewport.dragging { cursor: grabbing; }
+    svg#mapSvg { width: 100%; height: 100%; display: block; }
+
+    /* Top Header */
+    .top-bar {
+      position: absolute; top: 14px; left: 16px; right: 16px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      pointer-events: none; z-index: 20;
+    }
+    .brand-card {
+      pointer-events: auto;
+      background: var(--panel-bg);
+      border: 1.5px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 10px 16px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(8px);
+    }
+    .brand-title { font-size: 18px; font-weight: 700; color: var(--gold); letter-spacing: 1.5px; }
+    .brand-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .era-bar {
+      pointer-events: auto;
+      display: flex; flex-wrap: wrap; gap: 6px;
+      background: var(--panel-bg);
+      border: 1.5px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 6px 8px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(8px);
+    }
+    .era-btn {
+      background: rgba(255, 240, 210, 0.06);
+      color: var(--cream);
+      border: 1px solid rgba(208, 169, 98, 0.28);
+      border-radius: 8px;
+      padding: 6px 11px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      font-family: inherit;
+    }
+    .era-btn:hover { border-color: var(--gold); background: rgba(231, 194, 115, 0.16); }
+    .era-btn.active {
+      background: linear-gradient(180deg, rgba(231, 194, 115, 0.34), rgba(168, 124, 52, 0.32));
+      border-color: var(--gold);
+      color: #fff8e8;
+      font-weight: 700;
+    }
+
+    /* Right Chapter Dossier Panel */
+    .dossier {
+      position: absolute; top: 82px; right: 16px; bottom: 72px; width: 340px;
+      background: var(--panel-bg);
+      border: 1.5px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 16px 18px;
+      overflow-y: auto;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(10px);
+      z-index: 20;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .dossier-era {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--gold); letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px;
+      border: 1px solid rgba(231, 194, 115, 0.45); background: rgba(231, 194, 115, 0.12);
+    }
+    .badge.mil { border-color: rgba(184, 75, 57, 0.7); background: rgba(184, 75, 57, 0.22); color: #ffb9ad; }
+    .badge.unv { border-color: rgba(59, 110, 165, 0.7); background: rgba(59, 110, 165, 0.22); color: #b8d8ff; }
+    .dossier h2 { font-size: 20px; color: #fff6e2; line-height: 1.3; }
+    .dossier-meta {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+      padding: 10px; border-radius: 10px;
+      background: rgba(255, 244, 222, 0.04);
+      border: 1px solid rgba(208, 169, 98, 0.2);
+      font-size: 12px;
+    }
+    .meta-lbl { color: var(--muted); font-size: 11px; }
+    .meta-val { color: var(--cream); font-weight: 600; margin-top: 2px; }
+    .sec-title {
+      font-size: 12px; color: var(--gold); font-weight: 700; letter-spacing: 0.6px;
+      border-bottom: 1px solid rgba(208, 169, 98, 0.22); padding-bottom: 4px;
+    }
+    .dossier p { font-size: 13px; line-height: 1.62; color: #e8dcc4; }
+    .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill {
+      font-size: 11px; padding: 3px 8px; border-radius: 6px;
+      background: rgba(255, 245, 225, 0.06); border: 1px solid rgba(208, 169, 98, 0.25);
+      color: var(--cream);
+    }
+    .cta-btn {
+      margin-top: 4px; width: 100%; padding: 10px 14px; border-radius: 10px;
+      border: 1.5px solid var(--gold);
+      background: linear-gradient(180deg, rgba(214, 168, 86, 0.35), rgba(145, 102, 38, 0.42));
+      color: #fff8e8; font-size: 13px; font-weight: 700; cursor: pointer;
+      font-family: inherit; transition: all 0.18s ease;
+    }
+    .cta-btn:hover { background: linear-gradient(180deg, rgba(231, 194, 115, 0.48), rgba(170, 120, 44, 0.55)); }
+
+    /* Bottom Controls & Legend */
+    .bottom-bar {
+      position: absolute; left: 16px; right: 16px; bottom: 14px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      pointer-events: none; z-index: 20;
+    }
+    .ctrl-group {
+      pointer-events: auto;
+      display: flex; align-items: center; gap: 8px;
+      background: var(--panel-bg);
+      border: 1.5px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 6px 10px;
+      backdrop-filter: blur(8px);
+    }
+    .ctrl-btn {
+      background: rgba(255, 242, 214, 0.08);
+      color: var(--cream);
+      border: 1px solid rgba(208, 169, 98, 0.36);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px; cursor: pointer; font-family: inherit;
+    }
+    .ctrl-btn:hover { border-color: var(--gold); background: rgba(231, 194, 115, 0.22); }
+    .ctrl-btn.primary { border-color: var(--gold); background: rgba(214, 168, 86, 0.28); font-weight: 700; }
+    .zoom-readout { font-size: 12px; color: var(--gold); min-width: 46px; text-align: center; }
+    .legend {
+      pointer-events: auto;
+      display: flex; align-items: center; gap: 14px;
+      background: var(--panel-bg);
+      border: 1.5px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 7px 14px; font-size: 12px; color: var(--muted);
+      backdrop-filter: blur(8px);
+    }
+    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+
+    /* SVG Interactive Node Styling */
+    .chapter-node { cursor: pointer; transition: transform 0.2s ease; }
+    .chapter-node:hover .node-ring { stroke: #fff4d2; stroke-width: 3; }
+    .node-label-bg { fill: rgba(22, 16, 10, 0.82); stroke: rgba(218, 179, 104, 0.65); stroke-width: 1; }
+    .node-label { fill: #f8eed9; font-size: 11px; font-weight: 600; pointer-events: none; }
+    .node-ref { fill: #d7b778; font-size: 9px; pointer-events: none; }
+    .trail-active {
+      stroke-dasharray: 8 6;
+      animation: trailFlow 18s linear infinite;
+    }
+    @keyframes trailFlow {
+      from { stroke-dashoffset: 280; }
+      to { stroke-dashoffset: 0; }
+    }
+    .pulse-ring {
+      transform-box: fill-box; transform-origin: center;
+      animation: pulse 2.4s ease-out infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 0.85; }
+      100% { transform: scale(2.15); opacity: 0; }
+    }
+
+    @media (max-width: 900px) {
+      .dossier { width: 280px; }
+      .legend { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="top-bar">
+    <div class="brand-card">
+      <div class="brand-title">应许之路 · 圣经脉络史诗战役画卷</div>
+      <div class="brand-sub">Path of Promise · 宏观层可缩放古代近东—迦南地理画卷（滚轮缩放 / 拖拽平移 / 点击石碑）</div>
+    </div>
+    <div class="era-bar" id="eraBar"></div>
+  </div>
+
+  <div id="viewport">
+    <svg id="mapSvg" viewBox="0 0 1600 960" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <!-- Warm Mediterranean Parchment & Relief Gradients -->
+        <radialGradient id="parchmentGrad" cx="50%" cy="46%" r="65%">
+          <stop offset="0%" stop-color="#e8d6b0" />
+          <stop offset="55%" stop-color="#d2b889" />
+          <stop offset="100%" stop-color="#9e8259" />
+        </radialGradient>
+        <linearGradient id="seaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#224c63" />
+          <stop offset="55%" stop-color="#2e6478" />
+          <stop offset="100%" stop-color="#1d3f52" />
+        </linearGradient>
+        <linearGradient id="fertileGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#879e5e" stop-opacity="0.72" />
+          <stop offset="100%" stop-color="#6b8248" stop-opacity="0.52" />
+        </linearGradient>
+        <linearGradient id="highlandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#cdb486" />
+          <stop offset="100%" stop-color="#9c7e52" />
+        </linearGradient>
+        <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter id="paperGrain">
+          <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="n" />
+          <feColorMatrix type="matrix" values="0 0 0 0 0.25  0 0 0 0 0.18  0 0 0 0 0.08  0 0 0 0.07 0" />
+        </filter>
+      </defs>
+
+      <!-- Transformable World Group -->
+      <g id="worldGroup">
+        <!-- Base Landmass -->
+        <rect x="-400" y="-250" width="2400" height="1460" fill="url(#parchmentGrad)" />
+
+        <!-- Mediterranean Sea (West) -->
+        <path d="M -400,-250 L 580,-250 C 565,-80 570,120 555,260 C 540,390 520,520 470,615 C 400,675 270,695 160,675 L -400,670 Z"
+              fill="url(#seaGrad)" stroke="#bfa67a" stroke-width="4" />
+        <!-- Sea Wave Flourish Lines -->
+        <g stroke="#5ea0b6" stroke-opacity="0.22" fill="none" stroke-width="1.5">
+          <path d="M 100,180 Q 160,165 220,180 T 340,180" />
+          <path d="M 180,320 Q 250,305 320,320 T 460,320" />
+          <path d="M 80,470 Q 150,455 220,470 T 360,470" />
+          <path d="M 240,560 Q 300,548 360,560" />
+        </g>
+
+        <!-- Red Sea (Gulf of Suez & Gulf of Aqaba, South) -->
+        <path d="M 355,745 L 430,835 L 480,960 L 425,960 L 380,855 L 330,775 Z" fill="url(#seaGrad)" stroke="#bfa67a" stroke-width="2.5" />
+        <path d="M 555,735 L 518,845 L 495,960 L 545,960 L 568,855 L 592,750 Z" fill="url(#seaGrad)" stroke="#bfa67a" stroke-width="2.5" />
+
+        <!-- Nile Delta & River (Egypt, Southwest) -->
+        <path d="M 190,675 C 235,695 270,730 278,790 L 265,960 L 220,960 L 236,785 C 215,730 175,698 145,675 Z"
+              fill="url(#fertileGrad)" />
+        <path d="M 245,960 C 250,860 258,780 246,728 M 246,728 C 218,700 198,686 178,674 M 246,728 C 266,704 290,688 315,674"
+              fill="none" stroke="#36728c" stroke-width="5" stroke-linecap="round" />
+
+        <!-- Fertile Crescent & Euphrates / Tigris (Northeast Mesopotamia) -->
+        <path d="M 1180,90 C 1270,130 1370,220 1480,330 C 1545,395 1620,460 1720,520 L 1660,565 C 1540,490 1440,400 1330,295 C 1225,195 1120,140 1005,125 Z"
+              fill="url(#fertileGrad)" opacity="0.58" />
+        <path d="M 1030,90 C 1140,125 1235,190 1335,285 C 1435,380 1530,455 1665,540"
+              fill="none" stroke="#3e7891" stroke-width="4.5" stroke-linecap="round" />
+        <path d="M 1165,70 C 1275,115 1375,185 1475,275 C 1555,345 1625,425 1705,505"
+              fill="none" stroke="#3e7891" stroke-width="3.5" stroke-linecap="round" opacity="0.82" />
+
+        <!-- Canaan Fertile Highlands & Jordan Rift Valley -->
+        <path d="M 555,255 C 625,245 710,275 740,340 C 765,420 745,530 690,605 C 620,645 535,645 485,600 C 525,515 545,390 555,255 Z"
+              fill="url(#fertileGrad)" />
+
+        <!-- Sea of Galilee, Jordan River, Dead Sea -->
+        <ellipse cx="690" cy="340" rx="14" ry="22" fill="#2c677d" stroke="#bda479" stroke-width="1.5" />
+        <path d="M 690,362 C 686,405 696,445 688,495" fill="none" stroke="#2c677d" stroke-width="4.5" stroke-linecap="round" />
+        <path d="M 676,496 C 698,492 706,522 700,562 C 694,590 676,592 672,568 C 668,538 666,506 676,496 Z"
+              fill="#1d495e" stroke="#bda479" stroke-width="1.8" />
+        <!-- Jabbok River tributary -->
+        <path d="M 691,425 C 728,422 762,412 795,426" fill="none" stroke="#3a758b" stroke-width="2.6" stroke-linecap="round" />
+
+        <!-- Relief Mountain Ranges (Ararat, Lebanon, Judean Hills, Gilead, Sinai) -->
+        <g fill="url(#highlandGrad)" stroke="#7a5e39" stroke-width="1.2" opacity="0.85">
+          <!-- Ararat (Far North) -->
+          <polygon points="1040,42 1082,-12 1124,42" />
+          <polygon points="1095,48 1138,4 1178,48" />
+          <polygon points="1068,5 1082,-12 1096,5" fill="#f7f2e7" stroke="none" opacity="0.85" />
+          <!-- Lebanon / Hermon -->
+          <polygon points="645,258 678,208 712,258" />
+          <polygon points="692,265 724,220 755,265" />
+          <!-- Judean Hill Country -->
+          <polygon points="582,455 605,424 628,455" opacity="0.55" />
+          <polygon points="595,515 620,482 645,515" opacity="0.55" />
+          <polygon points="570,568 595,538 620,568" opacity="0.55" />
+          <!-- Mount Sinai Granite Peaks -->
+          <polygon points="435,845 478,772 522,845" />
+          <polygon points="478,855 516,796 552,855" />
+          <polygon points="410,852 444,804 475,852" />
+        </g>
+
+        <!-- Regional Geographic Watermarks (Subtle Cartographic Labels) -->
+        <g fill="#5b4528" fill-opacity="0.58" font-style="italic" letter-spacing="4" pointer-events="none">
+          <text x="260" y="390" font-size="22" fill="#b7dce8" fill-opacity="0.45">大 海（地中海）</text>
+          <text x="1220" y="210" font-size="18">美索不达米亚 · 幼发拉底河</text>
+          <text x="160" y="810" font-size="18">埃 及 地</text>
+          <text x="530" y="695" font-size="16">南 地（内盖夫）</text>
+          <text x="745" y="545" font-size="14">约 旦 平 原</text>
+          <text x="442" y="882" font-size="15">西 乃 半 岛</text>
+        </g>
+
+        <!-- Chapter 1 Expanded 128x96 Sub-Region Overlay (Toggled when inspecting Ch.1) -->
+        <g id="ch1TacticalOverlay" opacity="0" pointer-events="none" style="transition: opacity 0.35s ease;">
+          <rect x="520" y="392" width="225" height="145" rx="14" fill="rgba(26, 20, 13, 0.72)" stroke="#e7c273" stroke-width="2" stroke-dasharray="6 4" />
+          <text x="534" y="412" fill="#e7c273" font-size="10.5" font-weight="700">第一章 128×96 七区纵深（创 13:3 西伯特利—东艾城—远望约旦）</text>
+          <g font-size="8.5" fill="#f5ebd6">
+            <circle cx="552" cy="456" r="5" fill="#7da6c7" /><text x="538" y="472">伯特利山城</text>
+            <circle cx="585" cy="434" r="5" fill="#46a3ad" /><text x="568" y="427">西谷清泉</text>
+            <circle cx="614" cy="462" r="6" fill="#e7c273" /><text x="598" y="479">主营与旧坛</text>
+            <circle cx="655" cy="446" r="5" fill="#c98c53" /><text x="642" y="438">艾城隘口/商道</text>
+            <circle cx="678" cy="426" r="4.5" fill="#b84b39" /><text x="668" y="420">狼谷失羊</text>
+            <circle cx="658" cy="498" r="5.5" fill="#8fb865" /><text x="638" y="514">罗得营地/牧场</text>
+            <circle cx="712" cy="474" r="5.5" fill="#f5d98e" /><text x="690" y="490">东望约旦崖</text>
+          </g>
+        </g>
+
+        <!-- Covenant Migration Trails -->
+        <g id="trailsLayer" fill="none" stroke-linecap="round" stroke-linejoin="round"></g>
+
+        <!-- Unvisited / Military Fog Layer -->
+        <g id="fogLayer" pointer-events="none"></g>
+
+        <!-- Chapter Stone Nodes Layer -->
+        <g id="nodesLayer"></g>
+
+        <!-- Subtle Parchment Texture Overlay -->
+        <rect x="-400" y="-250" width="2400" height="1460" filter="url(#paperGrain)" pointer-events="none" />
+      </g>
+    </svg>
+  </div>
+
+  <!-- Right Chapter Dossier -->
+  <aside class="dossier" id="dossier"></aside>
+
+  <!-- Bottom Controls & Legend -->
+  <div class="bottom-bar">
+    <div class="ctrl-group">
+      <button class="ctrl-btn" id="btnZoomOut">－ 缩小</button>
+      <span class="zoom-readout" id="zoomReadout">100%</span>
+      <button class="ctrl-btn" id="btnZoomIn">＋ 放大</button>
+      <button class="ctrl-btn" id="btnReset">重置全景</button>
+      <button class="ctrl-btn primary" id="btnTour">▶ 沿应许之路巡礼</button>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:#e7c273"></i>当前已实装切片（第 1 章）</span>
+      <span><i class="dot" style="background:#6ea6d6"></i>未抵达 / 未听闻（非军事）</span>
+      <span><i class="dot" style="background:#d96652"></i>军事战争迷雾章节</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const ERAS = [
+  { id: 'all', label: '全部 12 章脉络' },
+  { id: 'primeval', label: '上古立约 · 挪亚' },
+  { id: 'patriarchs', label: '列祖时期 · 亚伯兰/雅各' },
+  { id: 'exodus', label: '出埃及与西乃 · 摩西' },
+  { id: 'conquest', label: '进迦南与士师 · 约书亚/基甸' },
+  { id: 'kingdom', label: '联合王国 · 大卫' },
+];
+
+const CHAPTERS = [
+  {
+    index: 0, id: 'noah-ark', eraId: 'primeval', eraZh: '序章 · 上古立约',
+    protagonist: '挪亚', titleZh: '诺亚方舟与彩虹之约', ref: '创 6–9',
+    locationZh: '亚拉腊山麓', x: 1095, y: 58, fogMode: 'unvisited', status: 'prologue',
+    summary: '洪水退去、方舟停在亚拉腊山上，挪亚筑坛献祭，立下永不再以洪水毁灭全地的彩虹之约，开启救赎历史序幕。',
+    canonAnchor: '创 8:20–9:17 筑坛献祭与彩虹之约。',
+    adaptations: ['方舟木料整备与活物安置', '灾后祭坛重建引导'],
+    evolution: '上古人类重启的地理起点，俯瞰两河流域源头。'
+  },
+  {
+    index: 1, id: 'bethel-ai', eraId: 'patriarchs', eraZh: '第一章 · 列祖时期',
+    protagonist: '亚伯兰 / 撒莱', titleZh: '伯特利与艾城筑坛', ref: '创 13:1–18',
+    locationZh: '伯特利（西）与艾城（东）之间', x: 616, y: 462, fogMode: 'unvisited', status: 'current',
+    summary: '亚伯兰携撒莱与罗得自埃及北返伯特利与艾之间；因牛羊日增地容不下，牧人相争，亚伯兰以长辈之尊谦让罗得先选约旦平原，分离后领受东西南北之应许，随后南迁希伯仑幔利橡树筑坛。',
+    canonAnchor: '创 13:3–18 伯特利在西、艾在东；牧人相争（不将罗得写成反派）；先谦让分离后领受应许；南迁幔利筑坛。',
+    adaptations: ['西谷枯井引水渠修缮', '轮牧排班与弱畜护送', '艾城驿道迦南商队抉择', '东北狼谷护群支线'],
+    evolution: '列祖时期为山脊牧营与旧坛；进迦南时期艾城成为军事攻防要塞。'
+  },
+  {
+    index: 2, id: 'dan-rescue', eraId: 'patriarchs', eraZh: '第二章 · 列祖时期',
+    protagonist: '亚伯兰（318 壮丁）', titleZh: '但地夜袭救罗得', ref: '创 14:1–24',
+    locationZh: '但地 → 大马色北何把', x: 695, y: 266, fogMode: 'military', status: 'locked',
+    summary: '四王联盟掳走罗得全家，亚伯兰率家中生养的 318 名精练壮丁昼夜兼程追至但地，分队夜袭解救罗得，归途受撒冷王麦基洗德祝福。',
+    canonAnchor: '创 14:14–20 318 人分队夜袭解救罗得、麦基洗德献饼酒祝福。',
+    adaptations: ['多路夜行潜行侦察', '粮草轻骑补给线调度'],
+    evolution: '迦南北境水源重镇，扼守通往大马色的峡谷咽喉。'
+  },
+  {
+    index: 3, id: 'mamre-stars', eraId: 'patriarchs', eraZh: '第三章 · 列祖时期',
+    protagonist: '亚伯兰', titleZh: '幔利橡树与星辰之约', ref: '创 15:1–21',
+    locationZh: '希伯仑 · 幔利橡树', x: 604, y: 545, fogMode: 'unvisited', status: 'locked',
+    summary: '定居希伯仑幔利橡树下，黑夜仰望满天星辰领受后裔如星的应许，并在冒烟的炉与烧着的火把经过肉块之间立下坚固之约。',
+    canonAnchor: '创 15:5–18 仰望众星、因信称义、劈开祭牲立约。',
+    adaptations: ['橡树大营长期建设', '夜间驱赶鸷鸟守护祭物'],
+    evolution: '从亚伯兰幔利橡树营地，演变至王国时期大卫最初作王七年半的希伯仑。'
+  },
+  {
+    index: 4, id: 'beersheba-well', eraId: 'patriarchs', eraZh: '第四章 · 列祖时期',
+    protagonist: '亚伯拉罕 / 以撒', titleZh: '别是巴水井与起誓', ref: '创 21 / 26',
+    locationZh: '南地 · 别是巴', x: 562, y: 618, fogMode: 'unvisited', status: 'locked',
+    summary: '在干旱的南地边缘挖掘活水井、面对非利士人争井仍以和平忍让立约，栽种垂丝柳树，确立“盟誓之井”别是巴。',
+    canonAnchor: '创 21:22–34 七只母羊羔作证、与亚比米勒起誓立约。',
+    adaptations: ['地下水脉勘探与蓄水工程', '商路和平外交谈判'],
+    evolution: '迦南最南端边界地标（“从但到别是巴”）。'
+  },
+  {
+    index: 5, id: 'peniel-ford', eraId: 'patriarchs', eraZh: '第五章 · 列祖时期',
+    protagonist: '雅各', titleZh: '雅博渡口与改名以色列', ref: '创 32:22–32',
+    locationZh: '约旦河东 · 雅博渡口', x: 752, y: 422, fogMode: 'unvisited', status: 'locked',
+    summary: '雅各携家眷牛羊返乡面对以扫前夕，夜送全家过雅博渡口，独自彻夜摔跤至黎明，蒙赐新名“以色列”，次日兄弟相拥和解。',
+    canonAnchor: '创 32:24–30 雅博渡口夜战摔跤、改名以色列、以礼化解宿怨。',
+    adaptations: ['分队渡河与赠礼梯队编组', '黎明营地守望事件'],
+    evolution: '连接基列山地与约旦河谷的险峻峡谷渡口。'
+  },
+  {
+    index: 6, id: 'red-sea', eraId: 'exodus', eraZh: '第六章 · 出埃及',
+    protagonist: '摩西', titleZh: '红海分水与逾越节', ref: '出 12–15',
+    locationZh: '比哈希录 · 红海渡口', x: 378, y: 766, fogMode: 'military', status: 'locked',
+    summary: '以色列会众出离埃及，前有红海、后有法老战车追兵；云柱火柱隔开营盘，摩西伸杖东风吹开海底干地，全族平安渡海。',
+    canonAnchor: '出 14:13–31 云柱火柱护卫、红海分开、走干地过海。',
+    adaptations: ['大迁徙纵队护送与秩序维持', '时间窗内抢渡海底通道'],
+    evolution: '从埃及奴役之地迈向旷野试炼的历史转折点。'
+  },
+  {
+    index: 7, id: 'sinai-tabernacle', eraId: 'exodus', eraZh: '第七章 · 西乃立约',
+    protagonist: '摩西 / 亚伦', titleZh: '西乃山与会幕圣工', ref: '出 19–40',
+    locationZh: '西乃半岛 · 西乃山麓', x: 482, y: 816, fogMode: 'unvisited', status: 'locked',
+    summary: '安营于西乃山前，领受十诫律法与会幕蓝图，统筹十二支派巧匠按山上的样式建造会幕与约柜，云彩充满帐幕。',
+    canonAnchor: '出 25–40 领受律法、按样式建造会幕、荣光充满。',
+    adaptations: ['十二支派营盘规划与物资统筹', '比撒列工艺链协作'],
+    evolution: '以色列由家族部落正式成为立约民族的圣山营地。'
+  },
+  {
+    index: 8, id: 'jordan-crossing', eraId: 'conquest', eraZh: '第八章 · 进迦南',
+    protagonist: '约书亚', titleZh: '约旦河十二石立碑', ref: '书 3–4',
+    locationZh: '约旦河渡口 · 吉甲', x: 690, y: 472, fogMode: 'military', status: 'locked',
+    summary: '收割季节约旦河水涨过两岸，抬约柜的祭司脚一入水，上游水流立起成垒，十二支派各取河中一石在吉甲立为纪念。',
+    canonAnchor: '书 3:14–4:24 约柜前导、河水断流、吉甲立十二石碑。',
+    adaptations: ['渡河队列调度与前沿侦察', '吉甲前哨大营构筑'],
+    evolution: '从创 13 遥望的约旦河谷，成为正式踏入应许之地的渡口。'
+  },
+  {
+    index: 9, id: 'jericho-walls', eraId: 'conquest', eraZh: '第九章 · 攻取应许地',
+    protagonist: '约书亚', titleZh: '耶利哥城与艾城', ref: '书 6–8',
+    locationZh: '耶利哥 → 艾城', x: 658, y: 478, fogMode: 'military', status: 'locked',
+    summary: '绕城七日吹角呼喊攻克耶利哥，随后总结初战教训，在艾城西侧设伏兵、正面诱敌，重夺山地门户。',
+    canonAnchor: '书 6 & 8 耶利哥城墙倒塌、艾城西侧伏兵战术。',
+    adaptations: ['城防侦察与七日绕城士气管理', '艾城山地伏击阵位部署'],
+    evolution: '与第一章亚伯兰扎营的伯特利—艾城高地形成跨越数百年的地理呼应。'
+  },
+  {
+    index: 10, id: 'gideon-300', eraId: 'conquest', eraZh: '第十章 · 士师时期',
+    protagonist: '基甸', titleZh: '基甸三百勇士夜战', ref: '士 7:1–25',
+    locationZh: '哈律泉 · 摩利冈谷', x: 660, y: 368, fogMode: 'military', status: 'locked',
+    summary: '面对米甸联军压境，基甸在哈律泉筛选三百勇士，三队分携角、空瓶与火把于二更换班时夜袭敌营，以少胜多。',
+    canonAnchor: '士 7:4–22 哈律泉筛选三百人、瓶内藏火把三路吹角夜袭。',
+    adaptations: ['夜间潜行路径与视野规避', '三队同步吹角破瓶时机把握'],
+    evolution: '北境耶斯列平原咽喉，历代兵家必争谷地。'
+  },
+  {
+    index: 11, id: 'mount-zion', eraId: 'kingdom', eraZh: '第十一章 · 联合王国',
+    protagonist: '大卫', titleZh: '锡安大卫之城', ref: '撒下 5–7',
+    locationZh: '耶路撒冷 · 锡安山', x: 618, y: 504, fogMode: 'military', status: 'locked',
+    summary: '大卫在希伯仑受膏为全以色列王，经水道奇袭攻取锡安保障，欢呼迎约柜入城，领受大卫之约，应许之路臻于高峰。',
+    canonAnchor: '撒下 5–7 建都锡安、迎约柜入城、领受永恒国度之约。',
+    adaptations: ['山城水道奇袭路线', '圣城营建与迎约柜庆典筹备'],
+    evolution: '从创 14 撒冷古镇，成长为联合王国的圣城锡安。'
+  },
+];
+
+// Historical migration route polylines (connecting chapters + Ur/Haran/Shechem waypoints)
+const TRAILS = [
+  { id: 'trail_patriarchs', eraId: 'patriarchs', color: '#e7c273', pts: [[1480,380],[1210,165],[860,185],[640,395],[616,462],[695,266],[604,545],[562,618],[752,422]] },
+  { id: 'trail_exodus', eraId: 'exodus', color: '#e69b4e', pts: [[260,720],[378,766],[482,816],[562,618]] },
+  { id: 'trail_conquest', eraId: 'conquest', color: '#d96652', pts: [[735,478],[690,472],[658,478],[616,462],[660,368]] },
+  { id: 'trail_kingdom', eraId: 'kingdom', color: '#9cc2f0', pts: [[604,545],[618,504]] },
+];
+
+// State
+let activeEra = 'all';
+let selectedId = 'bethel-ai';
+let showCh1Detail = false;
+let scale = 1.0;
+let tx = 0, ty = 0;
+let isDragging = false, dragStart = { x: 0, y: 0 };
+let tourTimer = null;
+
+const svg = document.getElementById('mapSvg');
+const worldGroup = document.getElementById('worldGroup');
+const trailsLayer = document.getElementById('trailsLayer');
+const fogLayer = document.getElementById('fogLayer');
+const nodesLayer = document.getElementById('nodesLayer');
+const ch1Overlay = document.getElementById('ch1TacticalOverlay');
+const dossier = document.getElementById('dossier');
+const eraBar = document.getElementById('eraBar');
+const zoomReadout = document.getElementById('zoomReadout');
+
+function applyTransform(smooth = false) {
+  worldGroup.style.transition = smooth ? 'transform 0.65s cubic-bezier(0.22, 1, 0.36, 1)' : 'none';
+  worldGroup.setAttribute('transform', `translate(${tx.toFixed(1)}, ${ty.toFixed(1)}) scale(${scale.toFixed(3)})`);
+  zoomReadout.textContent = `${Math.round(scale * 100)}%`;
+}
+
+function focusOn(wx, wy, targetScale = 1.85) {
+  scale = Math.max(0.75, Math.min(3.2, targetScale));
+  tx = 720 - wx * scale; // slightly left of center so right dossier doesn't cover node
+  ty = 480 - wy * scale;
+  applyTransform(true);
+}
+
+function renderEraButtons() {
+  eraBar.innerHTML = '';
+  ERAS.forEach(e => {
+    const btn = document.createElement('button');
+    btn.className = 'era-btn' + (e.id === activeEra ? ' active' : '');
+    btn.textContent = e.label;
+    btn.onclick = () => {
+      stopTour();
+      activeEra = e.id;
+      showCh1Detail = false;
+      renderAll();
+      const first = CHAPTERS.find(c => activeEra === 'all' || c.eraId === activeEra);
+      if (first) {
+        selectedId = first.id;
+        renderDossier();
+        if (activeEra === 'all') {
+          scale = 1.0; tx = 0; ty = 0; applyTransform(true);
+        } else {
+          focusOn(first.x, first.y, 1.55);
+        }
+      }
+    };
+    eraBar.appendChild(btn);
+  });
+}
+
+function renderTrailsAndFog() {
+  trailsLayer.innerHTML = '';
+  // Subtle historical Ur & Haran origin markers
+  const origins = [
+    { x: 1480, y: 380, label: '吾珥（创 11:31）' },
+    { x: 1210, y: 165, label: '哈兰（创 12:4）' },
+    { x: 640, y: 395, label: '示剑（创 12:6）' },
+  ];
+  origins.forEach(o => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('opacity', activeEra === 'all' || activeEra === 'patriarchs' ? '0.88' : '0.25');
+    g.innerHTML = `
+      <circle cx="${o.x}" cy="${o.y}" r="4.5" fill="#e7c273" stroke="#2a1d10" stroke-width="1.5" />
+      <text x="${o.x + 8}" y="${o.y + 4}" fill="#4d3518" font-size="10.5" font-weight="700">${o.label}</text>
+    `;
+    trailsLayer.appendChild(g);
+  });
+
+  TRAILS.forEach(t => {
+    const active = activeEra === 'all' || activeEra === t.eraId;
+    const d = 'M ' + t.pts.map(p => `${p[0]},${p[1]}`).join(' L ');
+    const base = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    base.setAttribute('d', d);
+    base.setAttribute('stroke', t.color);
+    base.setAttribute('stroke-width', active ? '3.2' : '1.6');
+    base.setAttribute('stroke-opacity', active ? '0.86' : '0.22');
+    if (active) base.setAttribute('class', 'trail-active');
+    trailsLayer.appendChild(base);
+  });
+
+  // Fog visualization for non-selected / locked military vs unvisited regions
+  fogLayer.innerHTML = '';
+  CHAPTERS.forEach(c => {
+    if (c.status === 'current' || c.status === 'prologue') return;
+    if (activeEra !== 'all' && c.eraId !== activeEra) return;
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', c.x);
+    circle.setAttribute('cy', c.y);
+    circle.setAttribute('r', c.fogMode === 'military' ? '30' : '26');
+    circle.setAttribute('fill', c.fogMode === 'military' ? 'rgba(92, 28, 22, 0.20)' : 'rgba(28, 52, 78, 0.16)');
+    circle.setAttribute('stroke', c.fogMode === 'military' ? 'rgba(217, 102, 82, 0.45)' : 'rgba(110, 166, 214, 0.38)');
+    circle.setAttribute('stroke-dasharray', '4 4');
+    fogLayer.appendChild(circle);
+  });
+}
+
+function renderNodes() {
+  nodesLayer.innerHTML = '';
+  CHAPTERS.forEach(c => {
+    const visible = activeEra === 'all' || c.eraId === activeEra;
+    const isSel = c.id === selectedId;
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'chapter-node');
+    g.setAttribute('opacity', visible ? '1' : '0.22');
+
+    const fillCol = c.status === 'current' ? '#f0c869'
+      : c.fogMode === 'military' ? '#d96652' : '#6ea6d6';
+
+    const labelW = Math.max(88, c.titleZh.length * 11 + 16);
+    const lx = c.x + 14;
+    const ly = c.y - 14;
+
+    g.innerHTML = `
+      ${c.status === 'current' || isSel ? `<circle class="pulse-ring" cx="${c.x}" cy="${c.y}" r="11" fill="none" stroke="${fillCol}" stroke-width="2" />` : ''}
+      <circle class="node-ring" cx="${c.x}" cy="${c.y}" r="${isSel ? 11 : 8.5}" fill="#1d150e" stroke="${isSel ? '#fff4d2' : fillCol}" stroke-width="${isSel ? 3 : 2.2}" filter="url(#softGlow)" />
+      <circle cx="${c.x}" cy="${c.y}" r="${isSel ? 5.5 : 4.2}" fill="${fillCol}" />
+      <text x="${c.x}" y="${c.y + 3}" text-anchor="middle" fill="#18120c" font-size="8.5" font-weight="800" pointer-events="none">${c.index === 0 ? '序' : c.index}</text>
+      <g transform="translate(${lx}, ${ly})" opacity="${isSel || visible ? 0.96 : 0.35}">
+        <rect class="node-label-bg" x="0" y="0" width="${labelW}" height="28" rx="6" />
+        <text class="node-label" x="7" y="13">${c.titleZh}</text>
+        <text class="node-ref" x="7" y="23">${c.ref} · ${c.protagonist}</text>
+      </g>
+    `;
+    g.onclick = (ev) => {
+      ev.stopPropagation();
+      stopTour();
+      selectedId = c.id;
+      showCh1Detail = false;
+      renderAll();
+      focusOn(c.x, c.y, Math.max(scale, 1.65));
+    };
+    nodesLayer.appendChild(g);
+  });
+
+  ch1Overlay.setAttribute('opacity', showCh1Detail ? '1' : '0');
+}
+
+function renderDossier() {
+  const c = CHAPTERS.find(x => x.id === selectedId) || CHAPTERS[1];
+  const fogBadge = c.fogMode === 'military'
+    ? '<span class="badge mil">军事战争迷雾</span>'
+    : '<span class="badge unv">未抵达 / 未听闻</span>';
+
+  dossier.innerHTML = `
+    <div class="dossier-era">
+      <span>${c.eraZh}</span>
+      ${fogBadge}
+    </div>
+    <h2>${c.titleZh}</h2>
+    <div class="dossier-meta">
+      <div><div class="meta-lbl">核心主角</div><div class="meta-val">${c.protagonist}</div></div>
+      <div><div class="meta-lbl">经文依据</div><div class="meta-val">${c.ref}</div></div>
+      <div><div class="meta-lbl">地理锚点</div><div class="meta-val">${c.locationZh}</div></div>
+      <div><div class="meta-lbl">当前状态</div><div class="meta-val">${c.status === 'current' ? 'Godot 4.7 v25 已实装' : c.status === 'prologue' ? '序章规划' : '后续章节待解锁'}</div></div>
+    </div>
+    <div class="sec-title">章节脉络</div>
+    <p>${c.summary}</p>
+    <div class="sec-title">经文正典锚点（Canon Anchor · 不可篡改）</div>
+    <p>${c.canonAnchor}</p>
+    <div class="sec-title">原创策略玩法（Adaptation）</div>
+    <div class="tag-row">${c.adaptations.map(a => `<span class="pill">${a}</span>`).join('')}</div>
+    <div class="sec-title">同地点的时代演变</div>
+    <p>${c.evolution}</p>
+    ${c.id === 'bethel-ai' ? `<button class="cta-btn" id="btnToggleCh1">${showCh1Detail ? '收起第一章 128×96 七区纵深图' : '🔍 展开第一章 128×96 七区纵深图'}</button>` : ''}
+  `;
+
+  const btnCh1 = document.getElementById('btnToggleCh1');
+  if (btnCh1) {
+    btnCh1.onclick = () => {
+      showCh1Detail = !showCh1Detail;
+      ch1Overlay.setAttribute('opacity', showCh1Detail ? '1' : '0');
+      focusOn(632, 464, showCh1Detail ? 2.55 : 1.65);
+      renderDossier();
+    };
+  }
+}
+
+function renderAll() {
+  renderEraButtons();
+  renderTrailsAndFog();
+  renderNodes();
+  renderDossier();
+}
+
+// Pan & Zoom interactions
+const viewport = document.getElementById('viewport');
+viewport.addEventListener('mousedown', (e) => {
+  stopTour();
+  isDragging = true;
+  viewport.classList.add('dragging');
+  dragStart = { x: e.clientX - tx, y: e.clientY - ty };
+});
+window.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  tx = e.clientX - dragStart.x;
+  ty = e.clientY - dragStart.y;
+  applyTransform(false);
+});
+window.addEventListener('mouseup', () => {
+  isDragging = false;
+  viewport.classList.remove('dragging');
+});
+viewport.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  stopTour();
+  const factor = e.deltaY < 0 ? 1.14 : 0.88;
+  const newScale = Math.max(0.75, Math.min(3.2, scale * factor));
+  const rect = svg.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (1600 / rect.width);
+  const my = (e.clientY - rect.top) * (960 / rect.height);
+  tx = mx - (mx - tx) * (newScale / scale);
+  ty = my - (my - ty) * (newScale / scale);
+  scale = newScale;
+  applyTransform(false);
+}, { passive: false });
+
+document.getElementById('btnZoomIn').onclick = () => { stopTour(); scale = Math.min(3.2, scale * 1.25); applyTransform(true); };
+document.getElementById('btnZoomOut').onclick = () => { stopTour(); scale = Math.max(0.75, scale * 0.80); applyTransform(true); };
+document.getElementById('btnReset').onclick = () => {
+  stopTour(); activeEra = 'all'; showCh1Detail = false;
+  scale = 1.0; tx = 0; ty = 0;
+  renderAll(); applyTransform(true);
+};
+
+function stopTour() {
+  if (tourTimer) { clearInterval(tourTimer); tourTimer = null; }
+  document.getElementById('btnTour').textContent = '▶ 沿应许之路巡礼';
+}
+
+document.getElementById('btnTour').onclick = () => {
+  if (tourTimer) { stopTour(); return; }
+  activeEra = 'all'; showCh1Detail = false;
+  let step = 0;
+  document.getElementById('btnTour').textContent = '⏹ 停止巡礼';
+  const visit = () => {
+    const c = CHAPTERS[step % CHAPTERS.length];
+    selectedId = c.id;
+    renderAll();
+    focusOn(c.x, c.y, 1.85);
+    step++;
+  };
+  visit();
+  tourTimer = setInterval(visit, 2600);
+};
+
+renderAll();
+applyTransform(false);
+</script>
+</body>
+</html>
