@@ -14,6 +14,19 @@ var selected_region_id: String = "reg_camp_altar_ridge"
 var hud_label: Label = null
 var dragging: bool = false
 var last_mouse: Vector2 = Vector2.ZERO
+var abram: CharacterBody3D
+var route: Array[Vector3] = []
+var graph_points: Array[Vector2] = []
+var graph := AStar2D.new()
+var walk_elapsed: float = 0.0
+var walking: bool = false
+var near_chunks: int = 0
+var test_mode: bool = false
+var test_destinations: Array[int] = []
+var test_steps: int = 0
+var test_air_frames: int = 0
+var test_max_air: int = 0
+var test_peak_dc: int = 0
 var target_cam_pos: Vector3 = Vector3(2.0, 2.0, 2.0)
 
 
@@ -23,7 +36,12 @@ func _ready() -> void:
 	_build_jordan_valley_backdrop()
 	_build_shared_roads()
 	_build_seven_region_chunks()
+	_build_abram()
 	_build_greybox_hud()
+	test_mode = "--walk-test" in OS.get_cmdline_user_args()
+	if test_mode:
+		for i in range(graph_points.size()):
+			test_destinations.append(i)
 	_update_chunk_streaming()
 
 
@@ -58,15 +76,18 @@ func get_height(x: float, z: float) -> float:
 	if x > 54.0:
 		var drop: float = clampf((x - 54.0) / 10.0, 0.0, 1.0)
 		h = lerpf(h, -2.4, drop * drop * (3.0 - 2.0 * drop))
-	h += sin(x * 0.09) * cos(z * 0.11) * 0.25
+	# Flat central terrace with a readable, smooth 4m shoulder.
+	var ridge_d := Vector2(x + 6.0, z - 2.0).length()
+	if ridge_d < 18.0:
+		h = lerpf(h, 2.8, 1.0 - smoothstep(14.0, 18.0, ridge_d))
 	return h
 
 
 func _build_128x96_terrain() -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var nx: int = 80
-	var nz: int = 60
+	var nx: int = 128
+	var nz: int = 96
 	var w: float = 128.0
 	var d: float = 96.0
 	var verts: Array[Vector3] = []
@@ -116,6 +137,7 @@ func _build_128x96_terrain() -> void:
 	mat.roughness = 0.94
 	mesh_inst.material_override = mat
 	add_child(mesh_inst)
+	_add_collision(mesh_inst)
 
 
 func _build_jordan_valley_backdrop() -> void:
@@ -132,31 +154,75 @@ func _build_jordan_valley_backdrop() -> void:
 	add_child(river)
 
 
+# Interpolate the same 1m triangles used by terrain rendering and physics.
+func _ground(x: float, z: float) -> float:
+	var ix := floorf(x)
+	var iz := floorf(z)
+	var u := x - ix
+	var v := z - iz
+	var a := get_height(ix, iz)
+	var b := get_height(ix + 1.0, iz)
+	var c := get_height(ix, iz + 1.0)
+	var d := get_height(ix + 1.0, iz + 1.0)
+	if u + v <= 1.0:
+		return a + (b - a) * u + (c - a) * v
+	return d + (c - d) * (1.0 - u) + (b - d) * (1.0 - v)
+
+
+func _add_collision(instance: MeshInstance3D) -> void:
+	var body := StaticBody3D.new()
+	body.name = "GroundCollision"
+	var shape := CollisionShape3D.new()
+	var concave := ConcavePolygonShape3D.new()
+	concave.set_faces(instance.mesh.get_faces())
+	shape.shape = concave
+	body.add_child(shape)
+	instance.add_child(body)
+
+
+func _road_id(p: Vector2) -> int:
+	var id := graph_points.find(p)
+	if id < 0:
+		id = graph_points.size()
+		graph_points.append(p)
+		graph.add_point(id, p)
+	return id
+
+
 func _build_shared_roads() -> void:
-	# Shared polyline road ribbons (same polylines will drive pathfinding & speed boost!)
-	var rmat := StandardMaterial3D.new()
-	rmat.albedo_color = Color(0.74, 0.60, 0.40)
-	rmat.roughness = 0.96
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for poly in roads:
 		for i in range(poly.size() - 1):
 			var a := Vector2(float(poly[i][0]), float(poly[i][1]))
 			var b := Vector2(float(poly[i + 1][0]), float(poly[i + 1][1]))
-			var seg_len: float = a.distance_to(b)
-			var steps: int = maxi(2, int(ceil(seg_len / 3.5)))
+			graph.connect_points(_road_id(a), _road_id(b))
+			var side := Vector2(-(b - a).y, (b - a).x).normalized() * 0.925
+			var steps := maxi(2, int(ceil(a.distance_to(b) / 0.25)))
 			for s in range(steps):
-				var t0: float = float(s) / float(steps)
-				var t1: float = float(s + 1) / float(steps)
-				var p0: Vector2 = a.lerp(b, t0)
-				var p1: Vector2 = a.lerp(b, t1)
-				var mid: Vector2 = (p0 + p1) * 0.5
-				var strip := MeshInstance3D.new()
-				var bm := BoxMesh.new()
-				bm.size = Vector3(1.85, 0.10, p0.distance_to(p1) + 0.35)
-				strip.mesh = bm
-				strip.material_override = rmat
-				strip.position = Vector3(mid.x, get_height(mid.x, mid.y) + 0.06, mid.y)
-				strip.rotation.y = atan2(p1.x - p0.x, p1.y - p0.y)
-				add_child(strip)
+				var p := a.lerp(b, float(s) / steps)
+				var q := a.lerp(b, float(s + 1) / steps)
+				# Shared cross sections, no raised boxes or gaps at segment ends.
+				for point in [p - side, q - side, p + side, p + side, q - side, q + side]:
+					st.add_vertex(Vector3(point.x, _ground(point.x, point.y) + 0.025, point.y))
+	# Filled junction fans join every branch into the same surface.
+	for center in graph_points:
+		for k in range(20):
+			var a := center + Vector2.from_angle(float(k) / 20.0 * TAU) * 0.925
+			var b := center + Vector2.from_angle(float(k + 1) / 20.0 * TAU) * 0.925
+			for p in [center, a, b]:
+				st.add_vertex(Vector3(p.x, _ground(p.x, p.y) + 0.026, p.y))
+
+	st.generate_normals()
+	var ribbon := MeshInstance3D.new()
+	ribbon.name = "SharedRoadNetwork"
+	ribbon.mesh = st.commit()
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.74, 0.60, 0.40)
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.roughness = 0.96
+	ribbon.material_override = mat
+	add_child(ribbon)
 
 
 func _add_box(parent: Node3D, pos: Vector3, sz: Vector3, col: Color, rot_y_deg: float = 0.0) -> void:
@@ -203,6 +269,9 @@ func _build_seven_region_chunks() -> void:
 		chunk.position = Vector3(cx, cy, cz)
 		add_child(chunk)
 		chunk_nodes[rid] = chunk
+		var details := Node3D.new()
+		details.name = "NearDetails"
+		chunk.add_child(details)
 
 		# Ground zone ring disc
 		var ring := MeshInstance3D.new()
@@ -216,55 +285,73 @@ func _build_seven_region_chunks() -> void:
 		rmat.albedo_color = col.darkened(0.18)
 		rmat.roughness = 0.92
 		ring.material_override = rmat
-		chunk.add_child(ring)
+		ring.free()
 
 		# Distinct greybox landmark silhouettes per zone
 		var lm: String = str(reg["landmark"])
 		match lm:
 			"citadel_west":
-				_add_box(chunk, Vector3(0, 1.4, 0), Vector3(8.5, 2.8, 7.5), Color(0.80, 0.74, 0.62))
-				_add_box(chunk, Vector3(-3.8, 2.2, -3.2), Vector3(2.2, 4.4, 2.2), Color(0.74, 0.68, 0.56))
-				_add_box(chunk, Vector3(3.8, 2.0, 3.0), Vector3(2.0, 4.0, 2.0), Color(0.74, 0.68, 0.56))
+				_add_box(details, Vector3(0, 1.4, 0), Vector3(8.5, 2.8, 7.5), Color(0.80, 0.74, 0.62))
+				_add_box(details, Vector3(-3.8, 2.2, -3.2), Vector3(2.2, 4.4, 2.2), Color(0.74, 0.68, 0.56))
+				_add_box(details, Vector3(3.8, 2.0, 3.0), Vector3(2.0, 4.0, 2.0), Color(0.74, 0.68, 0.56))
 			"spring_well":
-				_add_cyl(chunk, Vector3(0, 0.08, 0), 4.6, 0.16, Color(0.16, 0.54, 0.58))
-				_add_cyl(chunk, Vector3(3.6, 0.65, 2.2), 1.1, 1.3, Color(0.68, 0.62, 0.52))
-				_add_box(chunk, Vector3(-4.2, 1.6, -2.5), Vector3(3.6, 3.2, 4.8), Color(0.72, 0.66, 0.55), 18.0)
+				_add_cyl(details, Vector3(0, 0.08, 0), 4.6, 0.16, Color(0.16, 0.54, 0.58))
+				_add_cyl(details, Vector3(3.6, 0.65, 2.2), 1.1, 1.3, Color(0.68, 0.62, 0.52))
+				_add_box(details, Vector3(-4.2, 1.6, -2.5), Vector3(3.6, 3.2, 4.8), Color(0.72, 0.66, 0.55), 18.0)
 			"main_camp_altar":
 				# Main Tent + Healing Canopy + Dry-stone perimeter + North Low 12-Stone Altar!
-				_add_box(chunk, Vector3(-2.2, 1.3, 0.8), Vector3(5.0, 2.4, 3.4), Color(0.28, 0.18, 0.10))
-				_add_box(chunk, Vector3(2.4, 1.1, 0.8), Vector3(3.2, 2.0, 2.6), Color(0.84, 0.80, 0.68))
-				# Low unhewn 12-stone altar north of camp (z = -9.5)
+				_add_box(details, Vector3(-2.2, 1.3, 0.8), Vector3(5.0, 2.4, 3.4), Color(0.28, 0.18, 0.10))
+				_add_box(details, Vector3(2.4, 1.1, 0.8), Vector3(3.2, 2.0, 2.6), Color(0.84, 0.80, 0.68))
+				# Irregular unhewn stone ring, each stone 0.35–0.52m high.
 				for k in range(12):
-					var a: float = float(k) / 12.0 * TAU
-					_add_cyl(chunk, Vector3(cos(a) * 1.8, 0.45, -9.5 + sin(a) * 1.8), 0.42, 0.75, Color(0.76, 0.71, 0.60))
-				_add_cyl(chunk, Vector3(0.0, 0.9, -9.5), 0.55, 1.5, Color(1.0, 0.58, 0.16))
+					var angle: float = float(k) / 12.0 * TAU + sin(k * 2.7) * 0.08
+					var height: float = 0.35 + float(k % 5) / 4.0 * 0.17
+					var radius: float = 1.65 + sin(k * 1.9) * 0.18
+					var px: float = cos(angle) * radius
+					var pz: float = -9.5 + sin(angle) * radius
+					_add_box(details, Vector3(px, _ground(cx + px, cz + pz) - cy + height * 0.5, pz), Vector3(0.55 + float(k % 3) * 0.12, height, 0.48 + float(k % 4) * 0.08), Color(0.76, 0.71, 0.60), k * 37.0)
+
 			"ai_pass_caravan":
-				_add_box(chunk, Vector3(2.5, 1.5, -2.5), Vector3(6.8, 3.0, 4.8), Color(0.78, 0.70, 0.56), -14.0)
-				_add_box(chunk, Vector3(-2.8, 2.6, 2.4), Vector3(1.6, 5.2, 1.6), Color(0.48, 0.34, 0.20)) # Watchtower
-				_add_cyl(chunk, Vector3(-4.8, 0.9, 1.6), 0.9, 1.8, Color(0.70, 0.65, 0.54)) # Boundary cairn
+				_add_box(details, Vector3(2.5, 1.5, -2.5), Vector3(6.8, 3.0, 4.8), Color(0.78, 0.70, 0.56), -14.0)
+				_add_box(details, Vector3(-2.8, 2.6, 2.4), Vector3(1.6, 5.2, 1.6), Color(0.48, 0.34, 0.20)) # Watchtower
+				_add_cyl(details, Vector3(-4.8, 0.9, 1.6), 0.9, 1.8, Color(0.70, 0.65, 0.54)) # Boundary cairn
 			"wolf_den":
-				_add_box(chunk, Vector3(0, 1.8, -1.8), Vector3(7.2, 3.6, 4.5), Color(0.46, 0.40, 0.36), 12.0)
-				_add_box(chunk, Vector3(0, 1.0, 0.6), Vector3(2.8, 2.0, 1.2), Color(0.10, 0.08, 0.08))
+				_add_box(details, Vector3(0, 1.8, -1.8), Vector3(7.2, 3.6, 4.5), Color(0.46, 0.40, 0.36), 12.0)
+				_add_box(details, Vector3(0, 1.0, 0.6), Vector3(2.8, 2.0, 1.2), Color(0.10, 0.08, 0.08))
 			"lot_camp":
-				_add_box(chunk, Vector3(-2.0, 1.1, 0.0), Vector3(4.0, 2.1, 3.0), Color(0.70, 0.48, 0.24), 15.0)
-				_add_box(chunk, Vector3(2.8, 1.0, 1.8), Vector3(3.4, 1.9, 2.6), Color(0.66, 0.44, 0.22), -12.0)
-				for s in range(6):
-					var sa: float = float(s) / 6.0 * TAU
-					_add_cyl(chunk, Vector3(cos(sa) * 5.2, 0.45, sin(sa) * 4.2), 0.55, 0.75, Color(0.94, 0.92, 0.86))
+				# Council tent faces the fire; west/east entrances leave a clear through route.
+				_add_box(details, Vector3(0, 1.35, 5.6), Vector3(6.4, 2.7, 3.4), Color(0.70, 0.48, 0.24))
+				_add_box(details, Vector3(5.4, 0.95, 4.8), Vector3(2.8, 1.9, 2.6), Color(0.66, 0.44, 0.22), -12.0)
+				_add_cyl(details, Vector3(0, 0.15, 0), 0.7, 0.3, Color(0.30, 0.23, 0.17))
+				_add_cyl(details, Vector3(0, 0.35, 0), 0.28, 0.4, Color(1.0, 0.52, 0.12))
+				for s in range(8):
+					var sa: float = float(s) / 8.0 * TAU + PI / 8.0
+					_add_box(details, Vector3(cos(sa) * 2.8, 0.22, sin(sa) * 2.8), Vector3(1.1, 0.44, 0.55), Color(0.57, 0.43, 0.27), -rad_to_deg(sa))
+				# Two conversation groups beside, rather than across, the approach.
+				for s in range(4):
+					_add_cyl(details, Vector3(-4.3 + float(s % 2) * 1.1, 0.65, 2.2 + float(s / 2) * 1.2), 0.25, 1.3, Color(0.79, 0.74, 0.62))
+
 			"jordan_overlook":
-				_add_box(chunk, Vector3(-1.0, 1.2, 0.0), Vector3(5.8, 2.4, 6.4), Color(0.84, 0.78, 0.62))
-				_add_cyl(chunk, Vector3(1.6, 1.4, 0.0), 0.75, 2.8, Color(0.96, 0.80, 0.32)) # Covenant overlook beacon
+				_add_box(details, Vector3(-1.0, 1.2, 0.0), Vector3(5.8, 2.4, 6.4), Color(0.84, 0.78, 0.62))
+				_add_cyl(details, Vector3(1.6, 1.4, 0.0), 0.75, 2.8, Color(0.96, 0.80, 0.32)) # Covenant overlook beacon
+
+		var landmark_mesh: MeshInstance3D = details.get_child(0).duplicate()
+		_merge_details(details)
+		var far_lod := Node3D.new()
+		far_lod.name = "FarSilhouette"
+		chunk.add_child(far_lod)
+		far_lod.add_child(landmark_mesh)
 
 		# Floating 3D Region Label
 		var lbl := Label3D.new()
 		lbl.text = "%s\n%s" % [str(reg["nameZh"]), str(reg["canonRef"])]
 		lbl.font_size = 56
-		lbl.pixel_size = 0.036
+		lbl.pixel_size = 0.025
 		lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		lbl.no_depth_test = true
 		lbl.modulate = Color(0.99, 0.95, 0.84)
 		lbl.outline_modulate = Color(0.10, 0.07, 0.04)
-		lbl.outline_size = 14
+		lbl.outline_size = 0
 		lbl.position = Vector3(0.0, 6.2, 0.0)
 		chunk.add_child(lbl)
 
@@ -309,7 +396,7 @@ func _build_greybox_hud() -> void:
 		var rc: Array = reg["center"]
 		btn.pressed.connect(func() -> void:
 			selected_region_id = rid
-			target_cam_pos = Vector3(float(rc[0]), 2.0, float(rc[1]))
+			_start_walk(Vector2(float(rc[0]), float(rc[1])))
 		)
 		bar.add_child(btn)
 
@@ -323,31 +410,32 @@ func _build_greybox_hud() -> void:
 
 
 func _update_chunk_streaming() -> void:
-	var near_count: int = 0
-	var cam_xz := Vector2(camera_rig.position.x, camera_rig.position.z)
+	near_chunks = 0
+	var focus := Vector2(abram.position.x, abram.position.z)
 	for reg in regions:
 		var rid: String = str(reg["id"])
 		var c: Array = reg["center"]
-		var d: float = cam_xz.distance_to(Vector2(float(c[0]), float(c[1])))
-		if d <= stream_radius:
-			near_count += 1
-	var camp_c := Vector2(-6.0, 2.0)
-	var sel_name := "中央高脊"
-	var eta_sec := 0.0
-	for reg in regions:
-		if str(reg["id"]) == selected_region_id:
-			sel_name = str(reg["nameZh"])
-			var rc: Array = reg["center"]
-			eta_sec = camp_c.distance_to(Vector2(float(rc[0]), float(rc[1]))) / maxf(walk_speed, 0.1)
-			break
+		var is_near := focus.distance_to(Vector2(float(c[0]), float(c[1]))) <= stream_radius
+		var chunk: Node3D = chunk_nodes[rid]
+		chunk.get_node("NearDetails").visible = is_near
+		chunk.get_node("FarSilhouette").visible = not is_near
+		if is_near:
+			near_chunks += 1
+	var dc := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+	test_peak_dc = maxi(test_peak_dc, dc)
 	if hud_label != null:
-		var dc := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
-		hud_label.text = "第一章 128×96 七区灰盒 | 近区模拟块: %d/7 | Draw Calls: %d | 当前聚焦: %s (主营步行约 %.1fs)" % [near_count, dc, sel_name, eta_sec]
+		hud_label.text = "第一章 128×96 | Draw Calls: %d | 近区块数: %d/7 | 亚伯兰步行: %.1fs | %s\n点击地面/区域按钮沿共享道路行走；拖动平移视角" % [dc, near_chunks, walk_elapsed, "行走中" if walking else "已抵达"]
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		dragging = event.pressed
+		if not event.pressed and event.position.distance_to(last_mouse) < 5.0:
+			var origin := camera.project_ray_origin(event.position)
+			var query := PhysicsRayQueryParameters3D.create(origin, origin + camera.project_ray_normal(event.position) * 400.0, 1)
+			var hit := get_world_3d().direct_space_state.intersect_ray(query)
+			if not hit.is_empty():
+				_start_walk(Vector2(hit.position.x, hit.position.z))
 		last_mouse = event.position
 	elif event is InputEventMouseMotion and dragging:
 		var d: Vector2 = event.position - last_mouse
@@ -359,3 +447,106 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	camera_rig.position = camera_rig.position.lerp(target_cam_pos, clampf(delta * 6.0, 0.0, 1.0))
 	_update_chunk_streaming()
+
+
+# Bake each chunk's detail props into one vertex-coloured surface.
+func _merge_details(details: Node3D) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for child in details.get_children():
+		if child is MeshInstance3D:
+			var col: Color = child.material_override.albedo_color
+			for vertex in child.mesh.get_faces():
+				st.set_color(col)
+				st.add_vertex(child.transform * vertex)
+			details.remove_child(child)
+			child.queue_free()
+	st.generate_normals()
+	var merged := MeshInstance3D.new()
+	merged.mesh = st.commit()
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.roughness = 0.94
+	merged.material_override = mat
+	details.add_child(merged)
+
+
+func _build_abram() -> void:
+	abram = CharacterBody3D.new()
+	abram.name = "AbramWalkValidator"
+	abram.collision_layer = 2
+	abram.collision_mask = 1
+	abram.floor_snap_length = 0.6
+	abram.floor_max_angle = deg_to_rad(48.0)
+	var shape := CollisionShape3D.new()
+	var capsule := CapsuleShape3D.new()
+	capsule.radius = 0.28
+	capsule.height = 1.7
+	shape.shape = capsule
+	shape.position.y = 0.85
+	abram.add_child(shape)
+	_add_cyl(abram, Vector3(0, 0.85, 0), 0.3, 1.7, Color(0.22, 0.12, 0.07))
+	_add_cyl(abram, Vector3(0, 1.85, 0), 0.22, 0.35, Color(0.96, 0.76, 0.45))
+	add_child(abram)
+	abram.position = Vector3(-6, _ground(-6, 2) + 0.03, 2)
+	var label := Label3D.new()
+	label.text = "亚伯兰 · 行走验收"
+	label.position.y = 2.7
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	abram.add_child(label)
+
+
+func _start_walk(destination: Vector2) -> void:
+	var current := Vector2(abram.position.x, abram.position.z)
+	# Finish the current edge at its next junction before accepting a new route.
+	var start_id := graph.get_closest_point(current)
+	if not route.is_empty():
+		start_id = graph.get_closest_point(Vector2(route[0].x, route[0].z))
+	var end_id := graph.get_closest_point(destination)
+	route.clear()
+	for p in graph.get_point_path(start_id, end_id):
+		route.append(Vector3(p.x, _ground(p.x, p.y), p.y))
+	walk_elapsed = 0.0
+	walking = true
+
+
+func _physics_process(delta: float) -> void:
+	if abram == null:
+		return
+	if test_mode and not walking:
+		if test_destinations.is_empty():
+			print("WALK_TEST: completed destinations=%d max_air_frames=%d peak_draw_calls=%d position=%s" % [graph_points.size(), test_max_air, test_peak_dc, abram.position])
+			get_tree().quit(0 if test_max_air < 5 and test_peak_dc < 80 else 1)
+			return
+		_start_walk(graph_points[test_destinations.pop_front()])
+	if walking:
+		walk_elapsed += delta
+		if route.is_empty():
+			walking = false
+			abram.velocity.x = 0.0
+			abram.velocity.z = 0.0
+		else:
+			var offset := route[0] - abram.position
+			offset.y = 0.0
+			if offset.length() < 0.12:
+				route.pop_front()
+			else:
+				var speed := minf(walk_speed, offset.length() / delta)
+				abram.velocity.x = offset.normalized().x * speed
+				abram.velocity.z = offset.normalized().z * speed
+	else:
+		abram.velocity.x = 0.0
+		abram.velocity.z = 0.0
+	abram.velocity.y -= 20.0 * delta
+	abram.move_and_slide()
+	if abram.is_on_floor():
+		test_air_frames = 0
+	else:
+		test_air_frames += 1
+		test_max_air = maxi(test_max_air, test_air_frames)
+	if test_mode:
+		test_steps += 1
+		if test_steps > 18000:
+			push_error("WALK_TEST stuck or timed out: %s" % abram.position)
+			get_tree().quit(1)
