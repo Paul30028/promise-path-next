@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "season": 1,
   "titleZh": "《应许之路》第一季全 20 节点圣经脉络定稿图资产清单与生图规范",
-  "styleBible": "Light-realistic Bronze Age miniature strategy diorama / sacred historical landscape (Age of Empires IV / The Settlers: New Allies / Northgard), warm Mediterranean golden morning/twilight light, 45-degree soft shadows. Pure Ancient Near East & Ancient Hebrew visual language ONLY. STRICTLY ZERO Islamic domes, minarets, crescent moons, scimitars, modern Bedouin keffiyeh/agal, text, UI, or watermarks.",
+  "styleBible": "STRICT GAME-MATCHED 45-DEGREE ISOMETRIC RTS DIORAMA (matching design/review-slice-01/camp-scene-mobile.png and P01_leave_ur_haran_game.png): elevated 45-degree strategy game camera, 3.5-4.5 head-tall light-realistic miniature characters, crisp readable terrain/roads/buildings (The Settlers: New Allies / Northgard), warm golden Mediterranean morning light with 45-degree soft shadows. NEVER eye-level photorealistic movie stills. Pure Bronze Age Ancient Near East & Ancient Hebrew ONLY. STRICTLY ZERO Islamic domes, minarets, crescent moons, scimitars, modern Bedouin keffiyeh/agal, text, UI, or watermarks.",
   "plates": [
     {
       "code": "MAP-00",
@@ -34,9 +34,9 @@
     {
       "code": "P01",
       "nodeType": "prologue",
-      "titleZh": "P01 · 出迦勒底的吾珥 → 哈兰再启程 → 示剑/伯特利初筑坛",
+      "titleZh": "P01 · 出迦勒底的吾珥 → 哈兰再启程 → 示剑/伯特利初筑坛（游戏实机画风定稿）",
       "canonRef": "创 11:31–12:9（参徒 7:2–4）",
-      "path": "design/season-01-art-pack/P01_leave_ur_haran.png",
+      "path": "design/season-01-art-pack/P01_leave_ur_haran_game.png",
       "status": "DONE",
       "prompt": "16:9 sweeping 45-degree strategy diorama of Abram, Sarai, Terah, and Lot departing the ancient Mesopotamian mud-brick walled city of Ur with its stepped ziggurat in the golden dawn mist behind them, leading flocks of sheep, pack donkeys, and rolled dark goat-hair tents along the fertile Euphrates river road toward the distant northwest hills of Haran and Canaan. Pure Bronze Age Hebrew/Mesopotamian clothing (cream linen, Tekhelet blue trim, zero keffiyeh/agal), zero text or UI."
     },
