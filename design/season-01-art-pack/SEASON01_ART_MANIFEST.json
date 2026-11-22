@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 2,
+  "season": 1,
+  "titleZh": "《应许之路》第一季全 20 节点圣经脉络定稿图资产清单与生图规范",
+  "styleBible": "Light-realistic Bronze Age miniature strategy diorama / sacred historical landscape (Age of Empires IV / The Settlers: New Allies / Northgard), warm Mediterranean golden morning/twilight light, 45-degree soft shadows. Pure Ancient Near East & Ancient Hebrew visual language ONLY. STRICTLY ZERO Islamic domes, minarets, crescent moons, scimitars, modern Bedouin keffiyeh/agal, text, UI, or watermarks.",
+  "plates": [
+    {
+      "code": "MAP-00",
+      "nodeType": "overworld",
+      "titleZh": "宏观层 · 古代近东至迦南史诗战役画卷",
+      "canonRef": "创 6 – 撒下 7",
+      "path": "design/overworld/world-map-scroll-final.png",
+      "status": "DONE",
+      "prompt": "Completed 16:9 3D relief parchment-and-terrain Ancient Near East–Canaan Overworld Map."
+    },
+    {
+      "code": "CH00",
+      "nodeType": "chapter",
+      "titleZh": "序章 · 诺亚方舟与彩虹之约",
+      "canonRef": "创 6–9",
+      "path": "design/season-01-art-pack/00_prologue_noah_ark.png",
+      "status": "DONE",
+      "prompt": "16:9 45-degree high isometric light-realistic miniature strategy diorama of Noah's massive timber-and-pitch Ark resting on the misty rocky slopes of Mount Ararat after the floodwaters recede; below on a sunlit stone terrace, Noah and his family gather around a low unhewn limestone altar with a rising wisp of smoke as a radiant rainbow arches across clearing storm clouds over newly sprouting olive branches. Pure ancient Near Eastern aesthetic, zero text or UI."
+    },
+    {
+      "code": "B01",
+      "nodeType": "bridge",
+      "titleZh": "B01 · 列国分散、巴别与闪的后裔",
+      "canonRef": "创 9:18–11:30",
+      "path": "design/season-01-art-pack/B01_babel_shem.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree illuminated historical relief panorama of the sunlit plain of Shinar along the winding Euphrates River, featuring an unfinished monumental mud-brick stepped Mesopotamian ziggurat tower surrounded by scaffolding and departing family caravans radiating outward along dusty roads toward the horizons. Warm golden parchment-and-terrain style, zero Islamic domes, zero text or UI."
+    },
+    {
+      "code": "P01",
+      "nodeType": "prologue",
+      "titleZh": "P01 · 出迦勒底的吾珥 → 哈兰再启程 → 示剑/伯特利初筑坛",
+      "canonRef": "创 11:31–12:9（参徒 7:2–4）",
+      "path": "design/season-01-art-pack/P01_leave_ur_haran.png",
+      "status": "DONE",
+      "prompt": "16:9 sweeping 45-degree strategy diorama of Abram, Sarai, Terah, and Lot departing the ancient Mesopotamian mud-brick walled city of Ur with its stepped ziggurat in the golden dawn mist behind them, leading flocks of sheep, pack donkeys, and rolled dark goat-hair tents along the fertile Euphrates river road toward the distant northwest hills of Haran and Canaan. Pure Bronze Age Hebrew/Mesopotamian clothing (cream linen, Tekhelet blue trim, zero keffiyeh/agal), zero text or UI."
+    },
+    {
+      "code": "B02",
+      "nodeType": "bridge",
+      "titleZh": "B02 · 饥荒下埃及与蒙保守北返",
+      "canonRef": "创 12:10–13:1",
+      "path": "design/season-01-art-pack/B02_egypt_return.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree historical strategy diorama showing Abram and Sarai's caravan of sheep, oxen, and woven linen packs departing the lush emerald Nile Delta (with distant Old/Middle Kingdom Egyptian sandstone temples and reed marshes) and ascending northward along the golden-ochre coastal road back toward the Judean hills of Canaan. Pure Bronze Age, zero text or UI."
+    },
+    {
+      "code": "CH01-CAMP",
+      "nodeType": "chapter_camp",
+      "titleZh": "第 1 章 · 伯特利主营切片定稿图",
+      "canonRef": "创 13:3–4",
+      "path": "design/review-slice-01/camp-scene-mobile.png",
+      "status": "DONE",
+      "prompt": "Approved camp slice reference."
+    },
+    {
+      "code": "CH01-MAP",
+      "nodeType": "chapter_region",
+      "titleZh": "第 1 章 · 伯特利与艾城 128×96 七区大地图定稿图",
+      "canonRef": "创 13:1–18",
+      "path": "design/level-01/level01-128x96-7zone-final.png",
+      "status": "DONE",
+      "prompt": "Completed 7-zone Bethel & Ai regional master map."
+    },
+    {
+      "code": "CH02",
+      "nodeType": "chapter",
+      "titleZh": "第 2 章 · 但地夜袭救罗得",
+      "canonRef": "创 14:1–24",
+      "path": "design/season-01-art-pack/02_dan_night_rescue.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree twilight-blue moonlit miniature strategy diorama of the wooded headwaters valley of Dan in northern Canaan; Abram's 318 trained Bronze Age spearmen and slingers split into two flanking columns moving quietly through cedar and oak ridges toward a torch-lit enemy encampment by the river, with a distant stone ridge representing the road to Hobah north of Damascus. Warm torchlight vs cool moonlight, zero text or UI."
+    },
+    {
+      "code": "CH03",
+      "nodeType": "chapter",
+      "titleZh": "第 3 章 · 幔利橡树与星辰之约",
+      "canonRef": "创 15:1–21",
+      "path": "design/season-01-art-pack/03_mamre_stars_covenant.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree nocturnal miniature strategy diorama of Abram's peaceful encampment beneath the grand ancient Oaks of Mamre near Hebron; beneath a vast deep-indigo starry Mediterranean night sky, Abram stands looking upward beside a sacred stone terrace where a glowing smoking firepot and blazing torch pass between halved covenant offerings. Reverent golden firelight, pure Bronze Age Hebrew tents, zero text or UI."
+    },
+    {
+      "code": "B03",
+      "nodeType": "bridge",
+      "titleZh": "B03 · 以撒出生与摩利亚山试验",
+      "canonRef": "创 21–22",
+      "path": "design/season-01-art-pack/B03_isaac_moriah.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree golden dawn strategy diorama of the quiet rocky limestone summit of Mount Moriah; a low unhewn stone altar with neatly stacked firewood stands at the crest while a ram is caught by its horns in a nearby Mediterranean thorn thicket, overlooking sunlit Judean valleys below. Reverent, solemn, zero text or UI."
+    },
+    {
+      "code": "CH04",
+      "nodeType": "chapter",
+      "titleZh": "第 4 章 · 别是巴水井与起誓",
+      "canonRef": "创 21:22–34 / 创 26:17–33",
+      "path": "design/season-01-art-pack/04_beersheba_well.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree sunlit strategy diorama of the arid golden Negev frontier oasis of Beersheba; a deep stone-lined water well with wooden pulley and watering troughs sits beside a newly planted grove of slender tamarisk trees, seven white ewe lambs grazing nearby, and two Bronze Age patriarch & Philistine council pavilions facing each other in peaceful oath-making. Zero Islamic domes, zero text or UI."
+    },
+    {
+      "code": "B04",
+      "nodeType": "bridge",
+      "titleZh": "B04 · 以撒承约与雅各离家",
+      "canonRef": "创 25–31",
+      "path": "design/season-01-art-pack/B04_jacob_bethel_ladder.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree twilight-to-dawn strategy diorama of a lonely rocky limestone ridge at Bethel; a single traveler's stone pillow and anointed standing memorial stone sit beside a small campfire as a subtle, radiant column of golden heavenly light ascends through the clouds above the Judean hills. Reverent and epic, zero text or UI."
+    },
+    {
+      "code": "CH05",
+      "nodeType": "chapter",
+      "titleZh": "第 5 章 · 雅博渡口与改名以色列",
+      "canonRef": "创 32:22–32",
+      "path": "design/season-01-art-pack/05_peniel_jabbok_ford.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree breaking-dawn strategy diorama of the dramatic rocky gorge and shallow river ford of the Jabbok River in Gilead; separated herds of sheep, goats, and family tents rest safely across the southern bank while warm golden sunrise breaks over the eastern canyon rim illuminating a quiet rocky clearing by the water. Zero text or UI."
+    },
+    {
+      "code": "B05",
+      "nodeType": "bridge",
+      "titleZh": "B05 · 约瑟下埃及、全家寄居与受奴役",
+      "canonRef": "创 37–50 / 出 1",
+      "path": "design/season-01-art-pack/B05_joseph_goshen_egypt.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree historical strategy diorama contrasting the lush emerald pastures and granary storehouses of the Nile Delta land of Goshen with monumental sunlit Egyptian mud-brick store-city walls and brickmaking kilns along the riverbanks. Pure Bronze Age Egyptian & Hebrew architecture, zero text or UI."
+    },
+    {
+      "code": "CH06",
+      "nodeType": "chapter",
+      "titleZh": "第 6 章 · 红海分水与逾越节",
+      "canonRef": "出 12–15",
+      "path": "design/season-01-art-pack/06_red_sea_crossing.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree epic strategy diorama of the Red Sea crossing at dawn: two towering, foaming turquoise walls of parted sea water frame a wide dry sandy seabed corridor along which long columns of ancient Hebrew families, wagons, and flocks march eastward toward the Sinai shore, while a luminous pillar of cloud and fire stands guard on the western beach holding back distant Bronze Age Egyptian chariots. Zero text or UI."
+    },
+    {
+      "code": "CH07",
+      "nodeType": "chapter",
+      "titleZh": "第 7 章 · 西乃山与会幕圣工",
+      "canonRef": "出 19–40",
+      "path": "design/season-01-art-pack/07_sinai_tabernacle.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree grand strategy diorama of the vast desert plain at the foot of towering rugged granite Mount Sinai (crowned with radiant golden-amber cloud and gentle lightning); in the center stands the newly completed rectangular white-linen courtyard of the Tabernacle with bronze altar, laver, and acacia-and-Tekhelet-blue Tent of Meeting, surrounded in orderly concentric formation by the twelve tribes' dark goat-hair tents. Zero text or UI."
+    },
+    {
+      "code": "B06",
+      "nodeType": "bridge",
+      "titleZh": "B06 · 旷野四十年与摩西交棒约书亚",
+      "canonRef": "民数记 – 申命记",
+      "path": "design/season-01-art-pack/B06_nebo_joshua_handoff.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree golden-hour strategy diorama from the high limestone crest of Mount Nebo on the plains of Moab; below stretches the sprawling Israelite encampment at Shittim, the shimmering Jordan River, and across the valley the palm-ringed walled Bronze Age city of Jericho and the sunlit green hills of Canaan. Zero text or UI."
+    },
+    {
+      "code": "CH08",
+      "nodeType": "chapter",
+      "titleZh": "第 8 章 · 约旦河十二石立碑",
+      "canonRef": "书 3–4",
+      "path": "design/season-01-art-pack/08_jordan_twelve_stones.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree sunlit strategy diorama of the swollen Jordan River miraculously held back upstream as a dry riverbed crossing opens; white-robed priests bearing the gilded Ark of the Covenant stand mid-riverbed while Israelite tribes cross toward the western bank at Gilgal where a low memorial circle of twelve river stones is being erected. Zero text or UI."
+    },
+    {
+      "code": "CH09",
+      "nodeType": "chapter",
+      "titleZh": "第 9 章 · 耶利哥城与艾城",
+      "canonRef": "书 6–8",
+      "path": "design/season-01-art-pack/09_jericho_walls_ai.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree epic strategy diorama of the ancient Bronze Age fortified mud-brick and limestone retaining walls of Jericho surrounded by date palm groves; an orderly procession of ancient Hebrew warriors and priests carrying ram's-horn shofars and the Ark encircles the city perimeter while dust rises from a dramatic breach in the outer rampart, with the rugged limestone hills toward Ai visible in the upper background. Zero text or UI."
+    },
+    {
+      "code": "CH10",
+      "nodeType": "chapter",
+      "titleZh": "第 10 章 · 基甸三百勇士夜战",
+      "canonRef": "士 2–7",
+      "path": "design/season-01-art-pack/10_gideon_300_night.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree dramatic nocturnal strategy diorama of the Valley of Jezreel below the Spring of Harod and Hill of Moreh; three small flanking bands of Hebrew warriors on the surrounding dark ridges hold blazing torches aloft beside shattered clay jars, illuminating a sprawling Midianite camel-and-tent encampment in the valley floor below. Crisp torchlight vs deep indigo night, zero text or UI."
+    },
+    {
+      "code": "B07",
+      "nodeType": "bridge",
+      "titleZh": "B07 · 士师尾声与王国兴起",
+      "canonRef": "撒上 1–31",
+      "path": "design/season-01-art-pack/B07_samuel_david_rise.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree warm afternoon strategy diorama of the terraced Judean hilltown of Bethlehem surrounded by golden barley fields, stone sheepfolds, and olive groves, connected by a sunlit ridge road to the hilltop sanctuary of Shiloh and the fortified limestone town of Hebron. Pure Iron Age I Ancient Israelite architecture, zero Islamic domes, zero text or UI."
+    },
+    {
+      "code": "CH11",
+      "nodeType": "chapter",
+      "titleZh": "第 11 章 · 锡安大卫之城（第一季终点）",
+      "canonRef": "撒下 5–7",
+      "path": "design/season-01-art-pack/11_mount_zion_david.png",
+      "status": "QUEUED",
+      "prompt": "16:9 45-degree triumphant golden-sunset strategy diorama of the newly fortified Iron Age I City of David atop Mount Zion in Jerusalem, framed by the Kidron Valley and Gihon Spring terraces; a joyous procession with harps, trumpets, and Tekhelet-and-gold banners escorts the Ark of the Covenant up the stepped stone citadel ramp into a grand cedar-and-linen royal pavilion, bathed in glorious Mediterranean sunset light. Pure Ancient Israelite stone & cedar architecture, ZERO Islamic domes or medieval castles, zero text or UI."
+    }
+  ]
+}
