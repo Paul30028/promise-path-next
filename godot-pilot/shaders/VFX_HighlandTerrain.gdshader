@@ -34,10 +34,19 @@ float fbm(vec2 p) {
 	float a = 0.5;
 	for (int i = 0; i < 4; i++) {
 		v += a * vnoise(p);
-		p *= 2.03;
+		p *= 2.07;
 		a *= 0.5;
 	}
 	return v;
+}
+
+// Dual-scale rotated anti-tiling sampler: completely eliminates repetitive grid/mud-crack tiling!
+vec3 sample_notile(sampler2D tex, vec2 uv, float scale1, float scale2) {
+	vec2 r_uv = vec2(uv.x * 0.78 - uv.y * 0.62, uv.x * 0.62 + uv.y * 0.78);
+	vec3 a = texture(tex, uv * scale1).rgb;
+	vec3 b = texture(tex, r_uv * scale2).rgb;
+	float m = fbm(uv * 0.045);
+	return mix(a, b, smoothstep(0.25, 0.75, m));
 }
 
 vec3 triplanar_sample(sampler2D tex, vec3 wp, vec3 wn, float scale) {
@@ -58,42 +67,43 @@ void fragment() {
 	vec3 wn = normalize(v_world_nrm);
 	float slope = 1.0 - clamp(wn.y, 0.0, 1.0);
 
-	// Macro + micro fBM noise for natural organic Mediterranean grass/earth/gravel patches
-	float macro_n = fbm(v_world_pos.xz * 0.055);
-	float detail_n = fbm(v_world_pos.xz * 0.28);
+	float macro_n = fbm(v_world_pos.xz * 0.025);
+	float mid_n = fbm(v_world_pos.xz * 0.09);
+	float detail_n = fbm(v_world_pos.xz * 0.34);
 
-	// Triplanar rock & strata for steep cliff faces (zero UV stretching!)
-	vec3 rock_tex = triplanar_sample(rock_albedo, v_world_pos, wn, 0.14);
-	vec3 cliff_tex = triplanar_sample(boulder_albedo, v_world_pos, wn, 0.11);
-	float strata = 0.85 + 0.15 * sin(v_world_pos.y * 3.8 + macro_n * 3.2);
-	vec3 cliff_col = mix(rock_tex, cliff_tex, 0.5) * vec3(0.92, 0.86, 0.78) * strata;
+	// Rich deep warm Mediterranean earth & sandstone tones (calibrated for ACES + SDFGI raking sun!)
+	vec3 g_tex = sample_notile(grass_albedo, v_world_pos.xz, 0.11, 0.042) * vec3(0.56, 0.66, 0.42);
+	vec3 d_tex = sample_notile(dirt_albedo, v_world_pos.xz, 0.095, 0.036) * vec3(0.62, 0.52, 0.40);
+	vec3 gravel_tex = sample_notile(rock_albedo, v_world_pos.xz, 0.13, 0.055) * vec3(0.58, 0.52, 0.44);
 
-	// Real 2K grass & dirt PBR blending on gentle slopes
-	vec3 g_tex = texture(grass_albedo, v_world_pos.xz * 0.18).rgb * vec3(0.86, 0.92, 0.76);
-	vec3 d_tex = texture(dirt_albedo, v_world_pos.xz * 0.16).rgb * vec3(0.95, 0.88, 0.78);
-	float valley_lush = 1.0 - smoothstep(-28.0, -8.0, v_world_pos.x);
-	float forest_lush = smoothstep(10.0, 26.0, v_world_pos.x);
-	float grass_mask = smoothstep(0.26, 0.66, macro_n + valley_lush * 0.34 + forest_lush * 0.30) * (1.0 - smoothstep(0.14, 0.32, slope));
-	// Keep central shipyard clearing warmer compacted earth/gravel
-	float yard_clear = (1.0 - smoothstep(4.5, 13.5, length(v_world_pos.xz - vec2(1.0, 1.5))));
-	grass_mask *= (1.0 - yard_clear * 0.78);
+	// Triplanar stratified cliff limestone on steep slopes
+	vec3 rock_tex = triplanar_sample(rock_albedo, v_world_pos, wn, 0.09);
+	vec3 cliff_tex = triplanar_sample(boulder_albedo, v_world_pos, wn, 0.07);
+	float strata = 0.80 + 0.20 * sin(v_world_pos.y * 2.4 + macro_n * 4.0);
+	vec3 cliff_col = mix(rock_tex, cliff_tex, 0.5) * vec3(0.76, 0.68, 0.58) * strata;
 
-	vec3 flat_col = mix(d_tex, g_tex, grass_mask) * (0.88 + 0.24 * detail_n);
+	// Natural biome distribution: rocky dirt trail/yard around Ark, lush meadow grass across hills & valley
+	vec3 earth_mix = mix(d_tex, gravel_tex, smoothstep(0.30, 0.72, mid_n));
+	float yard_dist = length((v_world_pos.xz - vec2(0.0, 12.0)) * vec2(0.45, 1.0));
+	float yard_clear = 1.0 - smoothstep(10.0, 26.0, yard_dist);
+	float grass_mask = smoothstep(0.24, 0.66, macro_n + 0.18) * (1.0 - smoothstep(0.14, 0.32, slope));
+	grass_mask *= (1.0 - yard_clear * 0.68);
 
-	// Blend flat ground -> steep stratified limestone cliff
+	vec3 flat_col = mix(earth_mix, g_tex, grass_mask) * (0.84 + 0.32 * detail_n);
 	float cliff_mask = smoothstep(0.18, 0.42, slope);
 	vec3 final_albedo = mix(flat_col, cliff_col, cliff_mask);
 
-	// Wetness darkening & post-rain glossy sheen (Ararat / Flood!)
-	float puddle_n = smoothstep(0.56, 0.74, fbm(v_world_pos.xz * 0.22)) * (1.0 - cliff_mask);
-	float wet_amt = wetness * (0.45 + 0.55 * puddle_n);
-	final_albedo *= mix(1.0, 0.58, wet_amt);
+	// Wet post-rain darkening & glossy puddle sheen
+	float puddle_n = smoothstep(0.52, 0.72, fbm(v_world_pos.xz * 0.14)) * (1.0 - cliff_mask);
+	float wet_amt = wetness * (0.42 + 0.58 * puddle_n);
+	final_albedo *= mix(1.0, 0.52, wet_amt);
 
 	ALBEDO = final_albedo;
-	ROUGHNESS = mix(mix(0.92, 0.82, cliff_mask), 0.14, wet_amt);
-	METALLIC = mix(0.0, 0.18, wet_amt * puddle_n);
+	ROUGHNESS = mix(mix(0.90, 0.80, cliff_mask), 0.12, wet_amt);
+	METALLIC = mix(0.0, 0.20, wet_amt * puddle_n);
 
-	vec3 n_samp = texture(rock_normal, v_world_pos.xz * 0.22).rgb;
-	NORMAL_MAP = n_samp;
-	NORMAL_MAP_DEPTH = mix(0.75, 0.18, wet_amt * puddle_n);
+	vec3 n1 = texture(rock_normal, v_world_pos.xz * 0.14).rgb;
+	vec3 n2 = texture(rock_normal, v_world_pos.xz * 0.045 + vec2(0.3, 0.7)).rgb;
+	NORMAL_MAP = normalize(mix(n1, n2, 0.45));
+	NORMAL_MAP_DEPTH = mix(0.85, 0.20, wet_amt * puddle_n);
 }

@@ -37,6 +37,7 @@ var noah_busy_clip: String = ""
 var interior_cutaway: bool = false
 var manual_cutaway_lock: bool = false
 var first_person_interior: bool = false
+var fp_exit_cooldown: float = 0.0
 var camera_free_mode: bool = false
 
 var hotspots: Array[Dictionary] = []  # {id, pos, label, done, node, ring}
@@ -219,30 +220,31 @@ func _spawn_cast_and_animals() -> void:
 		"CHR_Noah_Daughter_rigged.glb",
 	]
 	for i in range(fam_files.size()):
-		var h: float = 1.68 if i == 0 else (1.56 if i == 1 or i >= 5 else 1.62)
-		var actor: Node3D = world.spawn_asset(fam_files[i], h, world.grounded(0.0 + float(i) * 1.1, 5.5))
+		var h: float = 1.72 if i == 0 else (1.58 if i == 1 or i >= 5 else 1.65)
+		var actor: Node3D = world.spawn_asset(fam_files[i], h, world.grounded(0.0 + float(i) * 1.4, 21.0))
 		actor.name = "Family_%d" % i
 		family.append(actor)
 		family_ai_phase.append(float(i) * 1.37)
-		if i in [0, 4]:
-			_attach_hand_tool(actor, "WPN_Mallet.glb")
-		if i in [2, 3]:
-			_attach_carried_log(actor)
+		# Bug 3 FIX: Attach both mallet & carried log to ALL 7 workers + Noah so role switching always shows right props!
+		_attach_hand_tool(actor, "WPN_Mallet.glb")
+		if i > 0:
+			var lg: Node3D = _attach_carried_log(actor)
+			lg.hide()
 		_anim(actor, "Idle")
 
 	for i in range(2):
-		var hw: Node3D = world.spawn_asset("CHR_Noah_Son_rigged.glb", 1.58, world.grounded(13.0 + float(i) * 1.8, 1.5))
+		var hw: Node3D = world.spawn_asset("CHR_Noah_Son_rigged.glb", 1.62, world.grounded(18.0 + float(i) * 2.2, 16.0))
 		_attach_hand_tool(hw, "WPN_Mallet.glb")
 		hw.hide()
 		hired_workers.append(hw)
 
 	for i in range(4):
-		var v: Node3D = world.spawn_asset("CHR_Abram_rigged.glb" if i % 2 == 0 else "CHR_Noah_Son_rigged.glb", 1.58, world.grounded(-2.5 + float(i) * 1.9, 25.0))
+		var v: Node3D = world.spawn_asset("CHR_Abram_rigged.glb" if i % 2 == 0 else "CHR_Noah_Son_rigged.glb", 1.62, world.grounded(-5.0 + float(i) * 2.8, 42.0))
 		v.hide()
 		villagers.append(v)
 
 	for i in range(3):
-		var r: Node3D = world.spawn_asset("CHR_Noah_Son_rigged.glb", 1.62, world.grounded(-2.5 + float(i) * 2.3, 24.0))
+		var r: Node3D = world.spawn_asset("CHR_Noah_Son_rigged.glb", 1.65, world.grounded(-5.0 + float(i) * 3.2, 40.0))
 		_add_torch(r)
 		r.hide()
 		raiders.append(r)
@@ -252,26 +254,26 @@ func _spawn_cast_and_animals() -> void:
 	add_child(animal_root)
 	var species: Array[Dictionary] = [
 		{"file": "CC0_Sheep_Grab3D.glb", "h": 0.92}, {"file": "CC0_Sheep_Grab3D.glb", "h": 0.90},
-		{"file": "ANI_Ox.glb", "h": 1.38}, {"file": "ANI_Ox.glb", "h": 1.34},
+		{"file": "ANI_Ox.glb", "h": 1.42}, {"file": "ANI_Ox.glb", "h": 1.38},
 		{"file": "ANI_Goat.glb", "h": 0.96}, {"file": "ANI_Goat.glb", "h": 0.94},
-		{"file": "ANI_Donkey.glb", "h": 1.20}, {"file": "ANI_Donkey.glb", "h": 1.18},
+		{"file": "ANI_Donkey.glb", "h": 1.24}, {"file": "ANI_Donkey.glb", "h": 1.20},
 	]
 	for i in range(species.size()):
 		world.spawn_asset(str(species[i].file), float(species[i].h), Vector3.ZERO, animal_root)
 	animal_root.hide()
 
+	# Boarding path calibrated to 1:1 Biblical 102x17x10.2m Ark (+Z ramp Z=19.5 -> doorway Z=8.5 Y=0.65)
 	var ap: Vector3 = world.ark_anchor.position
-	var sc: float = world.ark_scale
 	boarding_path = [
-		world.grounded(3.2, 13.5),
-		world.grounded(2.0, 7.2),
-		ap + Vector3(0.0, 0.0, 6.4 * sc),
-		ap + Vector3(0.0, 1.98 * sc, 2.5 * sc),
-		ap + Vector3(0.0, 1.98 * sc, 1.6 * sc),
+		world.grounded(4.5, 29.0),
+		world.grounded(1.8, 20.5),
+		ap + Vector3(0.0, 0.0, 19.2),
+		ap + Vector3(0.0, 0.68, 8.6),
+		ap + Vector3(0.0, 0.68, 4.0),
 	]
 
 	for bf: String in ["ANI_Raven.glb", "ANI_Dove_Olive.glb"]:
-		var b: Node3D = world.spawn_asset(bf, 0.45, Vector3(0.0, 9.0, 0.0))
+		var b: Node3D = world.spawn_asset(bf, 0.72, Vector3(0.0, 16.0, 0.0))
 		b.hide()
 		birds.append(b)
 
@@ -513,20 +515,24 @@ func _assign_worker(station: String, delta_v: int) -> void:
 
 func _toggle_first_person() -> void:
 	first_person_interior = not first_person_interior
+	var ap: Vector3 = world.ark_anchor.position
 	if first_person_interior:
-		# Put Noah INSIDE the fully enclosed Ark looking down the central corridor!
+		# Put Noah INSIDE the towering 3.2m-tall Lower Deck corridor of the 102x17x10.2m Biblical Ark!
 		interior_cutaway = false
 		manual_cutaway_lock = false
-		var ap: Vector3 = world.ark_anchor.position
-		if absf(family[0].position.x - ap.x) > 9.5 or family[0].position.z > ap.z + 2.0:
-			family[0].position = ap + Vector3(-5.8, 0.55, 0.15)
+		if absf(family[0].position.x - ap.x) > 48.0 or family[0].position.z > ap.z + 8.0:
+			family[0].position = ap + Vector3(-16.0, 0.65, 0.0)
 		cam_ctrl.first_person_mode = true
-		cam_ctrl.fp_yaw = -PI * 0.46  # Look down the full length of the 3-deck Ark (+X)
-		cam_ctrl.fp_pitch = 0.04
-		cam_ctrl.fp_eye_pos = family[0].position + Vector3(0.0, 1.52, 0.0)
+		cam_ctrl.fp_yaw = -PI * 0.48
+		cam_ctrl.fp_pitch = 0.03
+		cam_ctrl.fp_eye_pos = family[0].position + Vector3(0.0, 1.68, 0.0)
 		family[0].hide()
 	else:
+		# Bug 2 FIX: Step Noah safely onto the exterior boarding ramp + set cooldown so [F] NEVER loops back in!
 		cam_ctrl.first_person_mode = false
+		fp_exit_cooldown = 1.6
+		if family[0].position.z < ap.z + 10.0:
+			family[0].position = world.grounded(0.0, 21.0)
 		family[0].show()
 	_apply_ark_visibility()
 	_sync_hotspot_labels()
@@ -566,6 +572,12 @@ func _enter_event(id: String) -> void:
 
 	var stage: int = int(current_event.get("arkStage", 0))
 	state.arkStage = stage
+	# Bug 4 FIX: Cleanly exit First-Person mode whenever advancing to a new act (unless launched with --first-person)
+	if first_person_interior and not (preview_mode and id == "noah_03_hull_decks"):
+		first_person_interior = false
+		cam_ctrl.first_person_mode = false
+		family[0].show()
+	fp_btn.text = "退出第一人称 [F]" if first_person_interior else "第一人称进舱 [F]"
 	match id:
 		"noah_01_revelation": ark_build_pct = 0.0
 		"noah_02_keel_mortise": ark_build_pct = maxf(ark_build_pct, 10.0)
@@ -600,28 +612,28 @@ func _enter_event(id: String) -> void:
 			world.apply_mood("revelation")
 			SoundManager.stop_ambience()
 			SoundManager.play_sfx("sfx_covenant_chime.wav", -6.0, 0.0)
-			flood_target = -10.5
+			flood_target = -15.0
 			for i in range(family.size()):
 				family[i].visible = (i == 0)
-			family[0].position = world.grounded(-1.0, 3.8)
-			family[0].look_at(world.grounded(1.5, -8.0), Vector3.UP)
+				_set_actor_props(family[i], false, false)
+			family[0].position = world.grounded(-2.0, 18.0)
+			family[0].look_at(world.grounded(2.0, -10.0), Vector3.UP)
 			_anim(family[0], "Pray")
-			# Low cinematic angle looking past kneeling Noah into the soft golden god-ray & distant valley!
-			cam_ctrl.pitch_override = -0.22
-			cam_ctrl.focus_on(family[0].position + Vector3(1.5, 2.0, -3.0), 11.5, -0.52, preview_mode)
-			_add_hotspot("accept_call", family[0].position + Vector3(0.0, 0.0, -1.8), "领受三百肘造舟天启", "Bless")
+			cam_ctrl.pitch_override = -0.20
+			cam_ctrl.focus_on(family[0].position + Vector3(2.0, 2.5, -5.0), 15.0, -0.52, preview_mode)
+			_add_hotspot("accept_call", family[0].position + Vector3(0.0, 0.0, -2.5), "领受三百肘造舟天启", "Bless")
 
 		"noah_02_keel_mortise":
 			world.apply_mood("build")
 			cam_ctrl.pitch_override = NAN
 			for m in family:
 				m.show()
-			family[0].position = world.grounded(-4.2, 3.8)
+			family[0].position = world.grounded(-10.0, 16.0)
 			_anim(family[0], "Idle")
-			cam_ctrl.focus_on(family[0].position + Vector3(3.0, 1.5, -2.0), 22.0, -0.45, preview_mode)
-			_add_hotspot("keel_west", world.grounded(-4.5, -1.2), "检查西段龙骨榫卯", "Hammer")
-			_add_hotspot("keel_east", world.grounded(5.5, -1.2), "敲紧东段肋骨木楔", "Hammer")
-			_add_hotspot("timber_check", world.grounded(-6.2, 3.6), "验收歌斐木料堆", "Idle")
+			cam_ctrl.focus_on(Vector3(0.0, 3.0, 6.0), 62.0, -0.42, preview_mode)
+			_add_hotspot("keel_west", world.grounded(-18.0, 9.5), "检查西段三百肘龙骨榫卯", "Hammer")
+			_add_hotspot("keel_east", world.grounded(18.0, 9.5), "敲紧东段肋骨木楔", "Hammer")
+			_add_hotspot("timber_check", world.grounded(-15.0, 17.5), "验收东坡歌斐木料堆", "Idle")
 
 		"noah_03_hull_decks":
 			world.apply_mood("build" if (interior_cutaway or first_person_interior) else "dusk_raid")
@@ -629,30 +641,28 @@ func _enter_event(id: String) -> void:
 			for m in family:
 				m.show()
 			if first_person_interior and preview_mode:
-				# TRUE ENCLOSED FIRST-PERSON NOAH INSIDE THE 3-DECK ARK!
+				# TRUE 1.68m EYE-LEVEL FIRST-PERSON NOAH INSIDE THE 3.2m-TALL BIBLICAL ARK CORRIDOR!
 				interior_cutaway = false
 				_apply_ark_visibility()
-				family[0].position = ap + Vector3(-6.2, 0.55, 0.25)
+				family[0].position = ap + Vector3(-18.0, 0.65, 0.0)
 				family[0].hide()
 				cam_ctrl.first_person_mode = true
-				cam_ctrl.fp_eye_pos = family[0].position + Vector3(0.0, 1.52, 0.0)
-				cam_ctrl.fp_yaw = -PI * 0.45
-				cam_ctrl.fp_pitch = 0.06
+				cam_ctrl.fp_eye_pos = family[0].position + Vector3(0.0, 1.68, 0.0)
+				cam_ctrl.fp_yaw = -PI * 0.48
+				cam_ctrl.fp_pitch = 0.03
 				cam_ctrl._apply_camera_transform()
 			elif interior_cutaway and preview_mode:
-				# Place Noah RIGHT INSIDE the 3-deck Ark on the Lower/Middle deck inspecting the stalls!
-				family[0].position = ap + Vector3(-1.5, 0.55, -0.2)
-				family[0].look_at(ap + Vector3(4.0, 0.55, -1.5), Vector3.UP)
+				family[0].position = ap + Vector3(-8.0, 0.65, 0.0)
+				family[0].look_at(ap + Vector3(12.0, 0.65, 0.0), Vector3.UP)
 				_anim(family[0], "Hammer")
-				cam_ctrl.pitch_override = -0.28
-				cam_ctrl.focus_on(ap + Vector3(0.0, 2.2, 0.0), 14.5, -0.28, true)
+				cam_ctrl.pitch_override = -0.32
+				cam_ctrl.focus_on(ap + Vector3(0.0, 4.5, 0.0), 48.0, -0.30, true)
 			else:
-				family[0].position = world.grounded(1.0, 4.2)
-				cam_ctrl.focus_on(family[0].position + Vector3(0.0, 1.5, -2.0), 22.0, -0.35, preview_mode)
-			# 3D Walk-Inside Inspection Stations INSIDE the Ark + Raider Defense outside!
-			_add_hotspot("inside_lower", ap + Vector3(-2.5, 0.55, -0.2), "检查下层龙骨榫卯与畜栏", "Hammer")
-			_add_hotspot("inside_mid", ap + Vector3(3.8, 1.90, -0.2), "沿木梯上中层检查分舱与透光带", "Hammer")
-			_add_hotspot("defend_yard", world.grounded(-3.5, 7.2), "筑木栅与三子护材对峙", "Bless")
+				family[0].position = world.grounded(0.0, 22.0)
+				cam_ctrl.focus_on(Vector3(0.0, 3.5, 12.0), 58.0, -0.38, preview_mode)
+			_add_hotspot("inside_lower", ap + Vector3(-8.0, 0.65, 0.0), "检查下层龙骨榫卯与大型畜栏", "Hammer")
+			_add_hotspot("inside_mid", ap + Vector3(15.5, 3.95, 0.0), "沿中央木梯上中层检查分舱隔间", "Hammer")
+			_add_hotspot("defend_yard", world.grounded(-8.0, 22.0), "筑木栅与三子护材对峙", "Bless")
 			_sync_hotspot_labels()
 
 		"noah_04_pitch_provisions":
@@ -660,54 +670,55 @@ func _enter_event(id: String) -> void:
 			cam_ctrl.pitch_override = NAN
 			for m in family:
 				m.show()
-			family[0].position = world.grounded(5.0, 3.6)
-			cam_ctrl.focus_on(family[0].position, 20.0, -0.42, preview_mode)
-			_add_hotspot("pitch_inside", ap + Vector3(-2.5, 0.55, -0.3), "入舱检查内壁松香防水缝", "BrushPitch")
-			_add_hotspot("pitch_outside", world.grounded(7.2, 2.8), "熬漆里外厚涂松香", "BrushPitch")
-			_add_hotspot("provisions_check", world.grounded(9.2, 3.2), "清点干湿分区粮草陶罐", "Idle")
+			family[0].position = world.grounded(10.0, 18.0)
+			# Cinematic low-angle scenic showcase framing the colossal 102m Biblical Ark, embedded cliffs & grass!
+			cam_ctrl.pitch_override = -0.24
+			cam_ctrl.focus_on(Vector3(-4.0, 4.5, 6.0), 56.0, -0.46, preview_mode)
+			_add_hotspot("pitch_inside", ap + Vector3(-10.0, 0.65, 0.0), "入舱检查内壁松香防水缝", "BrushPitch")
+			_add_hotspot("pitch_outside", world.grounded(11.5, 15.5), "熬漆里外厚涂松香", "BrushPitch")
+			_add_hotspot("provisions_check", world.grounded(15.0, 15.8), "清点干湿分区粮草陶罐", "Idle")
 
 		"noah_05_board_ark":
 			world.apply_mood("dusk_raid")
 			cam_ctrl.pitch_override = NAN
 			for m in family:
 				m.show()
-			family[0].position = world.grounded(-1.8, 5.2)
-			cam_ctrl.focus_on(Vector3(1.0, 1.8, 3.5), 22.0, -0.38, preview_mode)
-			_add_hotspot("seal_door", ap + Vector3(0.0, 0.55, 2.2), "引导众活物入舱并关上舱门", "Bless")
+			family[0].position = world.grounded(-4.0, 21.0)
+			cam_ctrl.focus_on(Vector3(0.0, 4.0, 12.0), 46.0, -0.36, preview_mode)
+			_add_hotspot("seal_door", ap + Vector3(0.0, 0.65, 12.0), "引导众活物入舱并关上舱门", "Bless")
 
 		"noah_06_flood_dove":
 			world.apply_mood("flood")
 			SoundManager.play_ambience("sfx_rain_loop.wav", -8.0)
 			SoundManager.play_sfx("sfx_thunder.wav", -4.0)
 			cam_ctrl.pitch_override = NAN
-			flood_target = 4.2
+			flood_target = 6.5
 			if preview_mode:
-				flood_level = 3.9
+				flood_level = 6.2
 				world.flood_water.position.y = flood_level
-				world.ark_anchor.position.y = flood_level - 0.45
+				world.ark_anchor.position.y = flood_level - 1.2
 			for m in family:
 				m.hide()
-			cam_ctrl.focus_on(Vector3(-1.0, 3.5, 2.0), 38.0, -0.52, preview_mode)
-			_add_hotspot("release_dove", ap + Vector3(0.0, 4.8, 0.0), "放出乌鸦与鸽子探看水退", "Bless")
+			cam_ctrl.focus_on(Vector3(0.0, 7.5, 6.0), 74.0, -0.48, preview_mode)
+			_add_hotspot("release_dove", ap + Vector3(0.0, 10.5, 0.0), "放出乌鸦与鸽子探看水退", "Bless")
 
 		"noah_07_exit_altar", "noah_08_rainbow_covenant":
 			world.apply_mood("ararat")
 			SoundManager.stop_ambience()
 			if id == "noah_08_rainbow_covenant":
 				SoundManager.play_sfx("sfx_covenant_chime.wav", -5.0, 0.0)
-			cam_ctrl.pitch_override = NAN
-			flood_target = -10.5
+			flood_target = -15.0
 			if preview_mode:
-				flood_level = -10.5
+				flood_level = -15.0
 				world.flood_water.position.y = flood_level
 				world.ark_anchor.position.y = world.ark_base_y
 			_stage_ararat_worship()
-			cam_ctrl.pitch_override = -0.24
-			cam_ctrl.focus_on(Vector3(-1.2, 2.4, 2.8), 28.0, -0.36, preview_mode)
+			cam_ctrl.pitch_override = -0.22
+			cam_ctrl.focus_on(Vector3(-2.0, 5.5, 10.0), 62.0, -0.34, preview_mode)
 			if id == "noah_07_exit_altar":
-				_add_hotspot("offer_altar", world.altar_group.position + Vector3(0.0, 0.0, -1.6), "一家八口筑坛献祭感恩", "Bless")
+				_add_hotspot("offer_altar", world.altar_group.position + Vector3(0.0, 0.0, -2.0), "一家八口筑坛献祭感恩", "Bless")
 			else:
-				_add_hotspot("to_overworld", world.altar_group.position + Vector3(0.0, 0.0, -1.6), "仰望彩虹永约 · 前往宏观画卷", "Bless")
+				_add_hotspot("to_overworld", world.altar_group.position + Vector3(0.0, 0.0, -2.0), "仰望彩虹永约 · 前往宏观画卷", "Bless")
 
 	_sync_hotspot_labels()
 	_refresh_whisper_hud()
@@ -724,14 +735,14 @@ func _set_actor_props(actor: Node3D, show_log: bool, show_tool: bool) -> void:
 
 func _stage_ararat_worship() -> void:
 	var slots: Array[Vector2] = [
-		Vector2(0.5, 4.6), Vector2(3.1, 5.8), Vector2(-2.2, 5.8), Vector2(-1.1, 4.8),
-		Vector2(2.0, 4.8), Vector2(-1.2, 8.0), Vector2(2.1, 8.0), Vector2(3.6, 7.1),
+		Vector2(0.5, 21.0), Vector2(3.6, 22.4), Vector2(-2.6, 22.4), Vector2(-1.4, 21.2),
+		Vector2(2.4, 21.2), Vector2(-1.6, 24.8), Vector2(2.6, 24.8), Vector2(4.2, 23.8),
 	]
 	for i in range(family.size()):
 		family[i].show()
 		_set_actor_props(family[i], false, false)
 		family[i].position = world.grounded(slots[i].x, slots[i].y)
-		var target: Vector3 = world.altar_group.position if i != 0 else (family[i].position + Vector3(0.0, 0.0, 5.0))
+		var target: Vector3 = world.altar_group.position if i != 0 else (family[i].position + Vector3(0.0, 0.0, 6.0))
 		target.y = family[i].position.y
 		family[i].look_at(target, Vector3.UP)
 		_anim(family[i], "Bless" if i == 0 else ("Pray" if i in [5, 6] else "Idle"))
@@ -828,11 +839,10 @@ func _trigger_hotspot(h: Dictionary) -> void:
 	noah_busy_timer = 1.1
 	noah_busy_clip = str(h.get("clip", "Hammer"))
 	SoundManager.play_sfx("sfx_hammer.wav" if noah_busy_clip == "Hammer" else "sfx_ui_click.wav", -4.0)
-	inspection_boost_timer = 18.0
+	# Bug 5 FIX: Pure +60% Master Shipwright efficiency boost — NO magic free timber/progress handout!
+	inspection_boost_timer = 22.0
 	if family[0].visible:
 		_anim(family[0], noah_busy_clip)
-	timber_f += 20.0
-	ark_build_pct = minf(100.0, ark_build_pct + 18.0)
 	_refresh_whisper_hud()
 	_check_act_complete()
 
@@ -888,29 +898,39 @@ func _check_act_complete() -> void:
 
 func _surface_height_for_noah(x: float, z: float) -> float:
 	var ap: Vector3 = world.ark_anchor.position
-	if int(state.get("arkStage", 0)) >= 2 and absf(x - ap.x) < 10.2 and z > ap.z - 2.2 and z < ap.z + 2.2:
+	# Exact 1:1 Biblical 102m x 17m x 10.2m Ark Interior Floors + Central Wooden Staircases!
+	if int(state.get("arkStage", 0)) >= 2 and absf(x - ap.x) < 49.5 and z > ap.z - 8.0 and z < ap.z + 8.0:
 		var rel_x: float = x - ap.x
-		if rel_x > -0.5 and rel_x < 2.6:
-			var st: float = clampf((rel_x + 0.5) / 3.1, 0.0, 1.0)
-			return lerpf(ap.y + 0.55, ap.y + 1.90, st)
-		if rel_x >= 2.6 and rel_x < 6.0:
-			return ap.y + 1.90
-		if rel_x >= 6.0:
-			var ut: float = clampf((rel_x - 6.0) / 2.2, 0.0, 1.0)
-			return lerpf(ap.y + 1.90, ap.y + 3.15, ut)
-		return ap.y + 0.55
-	if int(state.get("arkStage", 0)) >= 2 and absf(x - ap.x) < 1.8 and z >= ap.z + 2.2 and z <= ap.z + 6.4:
-		var t: float = clampf((z - (ap.z + 2.2)) / 4.2, 0.0, 1.0)
-		return lerpf(ap.y + 0.55, world.terrain_height(x, z), t)
+		var rel_z: float = z - ap.z
+		# Central Stair 1 (X=2.5..13.5, Z in [-2.4, +2.4]): Lower Deck (0.65m) -> Middle Deck (3.95m)
+		if rel_x >= 2.5 and rel_x <= 13.5 and absf(rel_z) < 2.6:
+			var s1: float = clampf((rel_x - 2.5) / 11.0, 0.0, 1.0)
+			return lerpf(ap.y + 0.65, ap.y + 3.95, s1)
+		# Middle Deck (X=13.5..18.5)
+		if rel_x > 13.5 and rel_x < 18.5:
+			return ap.y + 3.95
+		# Central Stair 2 (X=18.5..29.5, Z in [-2.4, +2.4]): Middle Deck (3.95m) -> Upper Deck (7.15m)
+		if rel_x >= 18.5 and rel_x <= 29.5 and absf(rel_z) < 2.6:
+			var s2: float = clampf((rel_x - 18.5) / 11.0, 0.0, 1.0)
+			return lerpf(ap.y + 3.95, ap.y + 7.15, s2)
+		if rel_x > 29.5:
+			return ap.y + 7.15
+		return ap.y + 0.65
+	# Exterior Boarding Gangplank Ramp (+Z side, Z=8.0..19.5)
+	if int(state.get("arkStage", 0)) >= 2 and absf(x - ap.x) < 2.8 and z >= ap.z + 8.0 and z <= ap.z + 19.8:
+		var t: float = clampf((z - (ap.z + 8.0)) / 11.5, 0.0, 1.0)
+		return lerpf(ap.y + 0.65, world.terrain_height(x, z), t)
 	return world.terrain_height(x, z)
 
 
 func _process(delta: float) -> void:
 	elapsed += delta
+	if fp_exit_cooldown > 0.0:
+		fp_exit_cooldown -= delta
 	var id: String = str(current_event.get("id", ""))
 	var noah: Node3D = family[0]
 
-	# 1. Direct-Control Noah (First-Person inside enclosed Ark OR 3rd-Person outside!)
+	# 1. Direct-Control Noah (1.68m Eye-Level First-Person inside 3.2m-tall Ark Decks OR 3rd-Person outside!)
 	if not modal_overlay.visible and id not in ["noah_01_revelation", "noah_06_flood_dove", "noah_07_exit_altar", "noah_08_rainbow_covenant"]:
 		var move_dir: Vector3 = Vector3.ZERO
 		if first_person_interior:
@@ -927,13 +947,17 @@ func _process(delta: float) -> void:
 				move_dir += right
 			if move_dir.length_squared() > 0.01:
 				move_dir = move_dir.normalized()
-				var np: Vector3 = noah.position + move_dir * 3.0 * delta
+				var fp_spd: float = 6.2 if Input.is_key_pressed(KEY_SHIFT) else 3.8
+				var np: Vector3 = noah.position + move_dir * fp_spd * delta
 				var ap: Vector3 = world.ark_anchor.position
-				np.x = clampf(np.x, ap.x - 9.4, ap.x + 9.4)
-				np.z = clampf(np.z, ap.z - 1.9, ap.z + 2.4)
+				np.x = clampf(np.x, ap.x - 48.0, ap.x + 48.0)
+				np.z = clampf(np.z, ap.z - 7.2, ap.z + 9.2)
 				np.y = _surface_height_for_noah(np.x, np.z)
 				noah.position = np
-			cam_ctrl.fp_eye_pos = noah.position + Vector3(0.0, 1.52 + sin(elapsed * 6.0) * (0.025 if move_dir.length_squared() > 0.01 else 0.0), 0.0)
+				# Bug 2 FIX: Walk smoothly back outside through the side doorway!
+				if np.z > ap.z + 8.6 and absf(np.x - ap.x) < 2.6:
+					_toggle_first_person()
+			cam_ctrl.fp_eye_pos = noah.position + Vector3(0.0, 1.68 + sin(elapsed * 6.0) * (0.03 if move_dir.length_squared() > 0.01 else 0.0), 0.0)
 		elif noah.visible and not camera_free_mode:
 			var yaw: float = cam_ctrl.current_yaw
 			var right: Vector3 = Vector3(cos(yaw), 0.0, -sin(yaw))
@@ -950,21 +974,21 @@ func _process(delta: float) -> void:
 				noah_has_click_target = false
 				noah_busy_timer = 0.0
 				move_dir = move_dir.normalized()
-				var spd: float = 5.4 if Input.is_key_pressed(KEY_SHIFT) else 3.4
+				var spd: float = 7.2 if Input.is_key_pressed(KEY_SHIFT) else 4.2
 				var np: Vector3 = noah.position + move_dir * spd * delta
-				np.x = clampf(np.x, -18.0, 38.0)
-				np.z = clampf(np.z, -10.0, 34.0)
+				np.x = clampf(np.x, -56.0, 72.0)
+				np.z = clampf(np.z, -16.0, 56.0)
 				np.y = _surface_height_for_noah(np.x, np.z)
 				noah.position = np
 				noah.look_at(noah.position + move_dir, Vector3.UP)
 				_anim(noah, "Run" if Input.is_key_pressed(KEY_SHIFT) else "Walk")
 			elif noah_has_click_target:
 				var flat_d: Vector3 = Vector3(noah_click_target.x - noah.position.x, 0.0, noah_click_target.z - noah.position.z)
-				if flat_d.length() < 0.45:
+				if flat_d.length() < 0.55:
 					noah_has_click_target = false
 				else:
 					var dir: Vector3 = flat_d.normalized()
-					var np: Vector3 = noah.position + dir * 3.6 * delta
+					var np: Vector3 = noah.position + dir * 4.4 * delta
 					np.y = _surface_height_for_noah(np.x, np.z)
 					noah.position = np
 					noah.look_at(noah.position + dir, Vector3.UP)
@@ -975,12 +999,12 @@ func _process(delta: float) -> void:
 			else:
 				_anim(noah, "Idle")
 
-			# Auto-enter TRUE FIRST-PERSON INTERIOR when Noah walks through the Ark doorway!
+			# Auto-enter First-Person Interior cleanly when Noah walks through the +Z doorway (respecting cooldown!)
 			var ap: Vector3 = world.ark_anchor.position
-			if int(state.get("arkStage", 0)) >= 2 and absf(noah.position.x - ap.x) < 9.5 and noah.position.z < ap.z + 1.9 and noah.position.z > ap.z - 2.2 and not manual_cutaway_lock:
+			if fp_exit_cooldown <= 0.0 and int(state.get("arkStage", 0)) >= 2 and absf(noah.position.x - ap.x) < 48.0 and noah.position.z < ap.z + 7.8 and noah.position.z > ap.z - 8.0 and not manual_cutaway_lock:
 				_toggle_first_person()
 
-			cam_ctrl.focus_on(noah.position + Vector3(0.0, 1.4, 0.0), -1.0, NAN, false)
+			cam_ctrl.focus_on(noah.position + Vector3(0.0, 1.6, 0.0), -1.0, NAN, false)
 
 	# 1b. Live Real-Time RTS Economy, Countdown & Raider Theft Simulation!
 	if id in ["noah_02_keel_mortise", "noah_03_hull_decks", "noah_04_pitch_provisions"]:
@@ -1017,7 +1041,8 @@ func _process(delta: float) -> void:
 		if ring != null:
 			var s: float = 1.0 + sin(elapsed * 3.5) * 0.09
 			ring.scale = Vector3(s, 1.0, s)
-		if noah.visible and noah.position.distance_to(h.pos) < 3.4:
+		# Bug 1 FIX: Check proximity in BOTH 3rd-person AND First-Person Interior mode!
+		if (noah.visible or first_person_interior) and noah.position.distance_to(h.pos) < 4.5:
 			active_hotspot = h
 	if not active_hotspot.is_empty():
 		interact_prompt.show()
@@ -1032,23 +1057,32 @@ func _process(delta: float) -> void:
 	if id in ["noah_02_keel_mortise", "noah_03_hull_decks", "noah_04_pitch_provisions"]:
 		_update_living_family(delta, id)
 
-	# 4. Live Villagers & Raiders
+	# 4. Live Villagers, Deserting Hired Workers & Dusk Raiders (calibrated to 260x260 world)
 	if id == "noah_02_keel_mortise":
 		for i in range(villagers.size()):
 			var v: Node3D = villagers[i]
-			var tg: Vector3 = world.grounded(-3.5 + float(i) * 2.1, 11.5)
-			if v.position.distance_to(tg) > 0.3:
-				v.position = v.position.move_toward(tg, delta * 2.0)
+			var tg: Vector3 = world.grounded(-6.0 + float(i) * 3.2, 23.0)
+			if v.position.distance_to(tg) > 0.4:
+				v.position = v.position.move_toward(tg, delta * 2.4)
 				v.look_at(tg, Vector3.UP)
 				_anim(v, "Walk")
 			else:
 				_anim(v, "Idle")
+		# Bug 6 FIX: Hired workers visibly abandon site and walk away down the South village road!
+		if ark_build_pct >= 20.0:
+			for i in range(hired_workers.size()):
+				var hw: Node3D = hired_workers[i]
+				var away: Vector3 = world.grounded(2.0 + float(i) * 2.5, 48.0)
+				if hw.position.distance_to(away) > 0.5:
+					hw.position = hw.position.move_toward(away, delta * 3.0)
+					hw.look_at(away, Vector3.UP)
+					_anim(hw, "Walk")
 	elif id == "noah_03_hull_decks":
 		for i in range(raiders.size()):
 			var r: Node3D = raiders[i]
-			var rg: Vector3 = world.grounded(-2.5 + float(i) * 2.3, 28.0 if crisis_resolved else 10.5)
-			if r.position.distance_to(rg) > 0.35:
-				r.position = r.position.move_toward(rg, delta * 2.6)
+			var rg: Vector3 = world.grounded(-6.0 + float(i) * 3.5, 46.0 if crisis_resolved else 23.5)
+			if r.position.distance_to(rg) > 0.45:
+				r.position = r.position.move_toward(rg, delta * 3.2)
 				r.look_at(rg, Vector3.UP)
 				_anim(r, "Run")
 			else:
@@ -1100,11 +1134,11 @@ func _update_living_family(_delta: float, id: String) -> void:
 
 		match role:
 			"log":
-				var cycle: float = fposmod(elapsed * 0.14 + family_ai_phase[k], 2.0)
+				var cycle: float = fposmod(elapsed * 0.11 + family_ai_phase[k], 2.0)
 				var going_back: bool = cycle >= 1.0
 				var t: float = cycle - 1.0 if going_back else cycle
-				var p_forest: Vector3 = world.grounded(21.0, -4.0 + float(k) * 1.4)
-				var p_depot: Vector3 = world.grounded(-5.5, 2.0 + float(k % 3) * 1.1)
+				var p_forest: Vector3 = world.grounded(60.0, 2.0 + float(k) * 2.2)
+				var p_depot: Vector3 = world.grounded(-14.0, 15.0 + float(k % 3) * 1.4)
 				var target: Vector3 = p_depot.lerp(p_forest, t) if going_back else p_forest.lerp(p_depot, t)
 				var dir: Vector3 = target - member.position
 				member.position = target
@@ -1113,16 +1147,16 @@ func _update_living_family(_delta: float, id: String) -> void:
 				_set_actor_props(member, not going_back, false)
 				_anim(member, "Walk")
 			"build":
-				var bx: float = -4.0 + float(k % 4) * 2.8
-				member.position = world.grounded(bx, -0.3)
-				member.look_at(world.grounded(bx, -4.5), Vector3.UP)
+				var bx: float = -18.0 + float(k % 4) * 10.5
+				member.position = world.grounded(bx, 10.2)
+				member.look_at(world.grounded(bx, 0.0), Vector3.UP)
 				_set_actor_props(member, false, true)
 				_anim(member, "BrushPitch" if id == "noah_04_pitch_provisions" else "Hammer")
 			"pitch":
-				var cyc: float = fposmod(elapsed * 0.18 + family_ai_phase[k], 2.0)
+				var cyc: float = fposmod(elapsed * 0.16 + family_ai_phase[k], 2.0)
 				var pt: float = 2.0 - cyc if cyc >= 1.0 else cyc
-				var pa: Vector3 = world.grounded(8.6 + float(k % 2) * 1.1, 2.8 + float(k % 3) * 0.8)
-				var pb: Vector3 = world.grounded(3.2, 3.6 + float(k % 2) * 0.8)
+				var pa: Vector3 = world.grounded(13.5 + float(k % 2) * 1.6, 15.0 + float(k % 3) * 1.1)
+				var pb: Vector3 = world.grounded(5.5, 16.5 + float(k % 2) * 1.1)
 				var np: Vector3 = pa.lerp(pb, pt)
 				var d: Vector3 = np - member.position
 				member.position = np
@@ -1131,9 +1165,9 @@ func _update_living_family(_delta: float, id: String) -> void:
 				_set_actor_props(member, false, false)
 				_anim(member, "Walk")
 			"guard":
-				var gx: float = -7.5 + float(k % 4) * 2.4
-				member.position = world.grounded(gx, 7.6)
-				member.look_at(world.grounded(gx, 24.0), Vector3.UP)
+				var gx: float = -16.0 + float(k % 4) * 4.5
+				member.position = world.grounded(gx, 21.5)
+				member.look_at(world.grounded(gx, 42.0), Vector3.UP)
 				_set_actor_props(member, false, true)
 				_anim(member, "Idle")
 

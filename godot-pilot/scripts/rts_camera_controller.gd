@@ -3,12 +3,12 @@ extends Node3D
 ## Reusable Free 3D RTS Camera: WASD pan, Mouse-wheel zoom (close-up to grand overview),
 ## Right-drag orbit rotation, Middle-drag pan, and smooth cinematic focus_on().
 
-@export var min_distance: float = 6.5
-@export var max_distance: float = 58.0
-@export var pan_speed: float = 24.0
-@export var zoom_speed: float = 3.0
+@export var min_distance: float = 7.5
+@export var max_distance: float = 115.0
+@export var pan_speed: float = 34.0
+@export var zoom_speed: float = 5.5
 @export var orbit_sensitivity: float = 0.0055
-@export var bounds_xz: Rect2 = Rect2(-46.0, -38.0, 92.0, 82.0)
+@export var bounds_xz: Rect2 = Rect2(-95.0, -75.0, 190.0, 165.0)
 
 var free_pan_enabled: bool = false
 var pitch_override: float = NAN
@@ -35,9 +35,9 @@ var _last_mouse: Vector2 = Vector2.ZERO
 func _ready() -> void:
 	camera = Camera3D.new()
 	camera.name = "RTSCamera3D"
-	camera.fov = 40.0
-	camera.near = 0.25
-	camera.far = 320.0
+	camera.fov = 42.0
+	camera.near = 0.20
+	camera.far = 520.0
 	add_child(camera)
 	camera.current = true
 	position = target_focus
