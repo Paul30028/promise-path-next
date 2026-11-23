@@ -3,12 +3,15 @@ extends Node3D
 ## Reusable Free 3D RTS Camera: WASD pan, Mouse-wheel zoom (close-up to grand overview),
 ## Right-drag orbit rotation, Middle-drag pan, and smooth cinematic focus_on().
 
-@export var min_distance: float = 11.0
+@export var min_distance: float = 6.5
 @export var max_distance: float = 58.0
 @export var pan_speed: float = 24.0
-@export var zoom_speed: float = 3.5
+@export var zoom_speed: float = 3.0
 @export var orbit_sensitivity: float = 0.0055
 @export var bounds_xz: Rect2 = Rect2(-46.0, -38.0, 92.0, 82.0)
+
+var free_pan_enabled: bool = false
+var pitch_override: float = NAN
 
 var target_focus: Vector3 = Vector3(0.0, 1.0, 2.0)
 var target_distance: float = 28.0
@@ -89,32 +92,33 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
-	var move: Vector2 = Vector2.ZERO
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
-		move.y += 1.0
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
-		move.y -= 1.0
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
-		move.x -= 1.0
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
-		move.x += 1.0
 	if Input.is_key_pressed(KEY_Q):
 		target_yaw += delta * 1.15
 	if Input.is_key_pressed(KEY_E):
-		target_yaw -= delta * 1.15
-	if move.length_squared() > 0.0:
-		move = move.normalized()
-		var right: Vector3 = Vector3(cos(current_yaw), 0.0, -sin(current_yaw))
-		var fwd: Vector3 = Vector3(-sin(current_yaw), 0.0, -cos(current_yaw))
-		var speed_mul: float = lerpf(0.65, 1.85, (current_distance - min_distance) / maxf(max_distance - min_distance, 1.0))
-		target_focus += (right * move.x + fwd * move.y) * pan_speed * speed_mul * delta
-		_clamp_focus()
+		pass
+	if free_pan_enabled:
+		var move: Vector2 = Vector2.ZERO
+		if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+			move.y += 1.0
+		if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+			move.y -= 1.0
+		if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+			move.x -= 1.0
+		if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+			move.x += 1.0
+		if move.length_squared() > 0.0:
+			move = move.normalized()
+			var right: Vector3 = Vector3(cos(current_yaw), 0.0, -sin(current_yaw))
+			var fwd: Vector3 = Vector3(-sin(current_yaw), 0.0, -cos(current_yaw))
+			var speed_mul: float = lerpf(0.65, 1.85, (current_distance - min_distance) / maxf(max_distance - min_distance, 1.0))
+			target_focus += (right * move.x + fwd * move.y) * pan_speed * speed_mul * delta
+			_clamp_focus()
 
 	var k: float = 1.0 - exp(-delta * 7.5)
 	position = position.lerp(target_focus, k)
 	current_distance = lerpf(current_distance, target_distance, k)
 	current_yaw = lerpf(current_yaw, target_yaw, k)
-	target_pitch = _pitch_for_distance(target_distance)
+	target_pitch = pitch_override if not is_nan(pitch_override) else _pitch_for_distance(target_distance)
 	current_pitch = lerpf(current_pitch, target_pitch, k)
 	_apply_camera_transform()
 

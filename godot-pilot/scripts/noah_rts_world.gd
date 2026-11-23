@@ -262,14 +262,16 @@ func _build_river_and_flood() -> void:
 	river_mesh.material_override = rmat
 	add_child(river_mesh)
 
-	# Real 3D Rising Floodwater Plane (submerges village & forest during Act 4!)
+	# Real 3D Rising Floodwater Plane with animated rolling waves & white foam shader!
 	flood_water = MeshInstance3D.new()
 	flood_water.name = "RisingFloodWater"
 	var fp: PlaneMesh = PlaneMesh.new()
 	fp.size = Vector2(240.0, 240.0)
+	fp.subdivide_width = 64
+	fp.subdivide_depth = 64
 	flood_water.mesh = fp
-	var fmat: StandardMaterial3D = _mat(Color(0.08, 0.16, 0.21, 0.92), 0.12, 0.30)
-	fmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var fmat: ShaderMaterial = ShaderMaterial.new()
+	fmat.shader = load("res://shaders/VFX_FloodWaves.gdshader") as Shader
 	flood_water.material_override = fmat
 	flood_water.position.y = -10.5
 	add_child(flood_water)
@@ -283,19 +285,35 @@ func _build_ark() -> void:
 	add_child(ark_anchor)
 	ark = spawn_asset("BLD_NoahsArk.glb", 4.8, Vector3.ZERO, ark_anchor)
 	ark_scale = 4.8 / 4.93494165
+	# Subtle warm interior lantern light + sunlit shafts streaming through the 1-cubit upper window band
+	var int_light: OmniLight3D = OmniLight3D.new()
+	int_light.name = "ArkInteriorWarmLight"
+	int_light.position = Vector3(0.0, 2.6, 0.0)
+	int_light.light_color = Color(1.0, 0.84, 0.56)
+	int_light.light_energy = 1.6
+	int_light.omni_range = 16.0
+	ark_anchor.add_child(int_light)
 
 
-func set_ark_stage(stage: int) -> void:
+func set_ark_stage(stage: int, cutaway: bool = false, retract_ramp: bool = false) -> void:
 	if ark == null:
 		return
 	for node in ark.find_children("*", "MeshInstance3D", true, false):
-		var req: int = 3
 		var n: String = str(node.name)
 		if n.begins_with("Stage1"):
-			req = 1
-		elif n.begins_with("Stage2"):
-			req = 2
-		node.visible = stage >= req
+			node.visible = stage >= 1
+		elif n.begins_with("Stage2_HullBackEnds"):
+			node.visible = stage >= 2
+		elif n.begins_with("Stage2_HullFrontCutaway"):
+			node.visible = stage >= 2 and not cutaway
+		elif n.begins_with("Interior_"):
+			node.visible = stage >= 2
+		elif n.begins_with("Stage3_RoofCutaway"):
+			node.visible = stage >= 3 and not cutaway
+		elif n.begins_with("Stage3_Ramp"):
+			node.visible = stage >= 2 and not retract_ramp
+		else:
+			node.visible = stage >= 3
 
 
 func _build_shipyard_props() -> void:
@@ -354,41 +372,17 @@ func _build_east_forest() -> void:
 	forest_group = Node3D.new()
 	forest_group.name = "EastGopherWoodForest"
 	add_child(forest_group)
-	var cypress_mat: StandardMaterial3D = _mat(Color(0.17, 0.26, 0.15), 0.92)
-	var trunk_mat: StandardMaterial3D = _mat(Color(0.30, 0.20, 0.11), 0.94)
-	# 18 handcrafted CC0 olive/cedar trees + 22 tall dark Mesopotamian cypress spires
-	for i in range(18):
-		var fx: float = 19.5 + fmod(float(i) * 7.3, 24.0)
-		var fz: float = -18.0 + fmod(float(i) * 9.1, 36.0)
-		spawn_asset("CC0_OliveTree_Optimized.glb", 3.6 + float(i % 3) * 0.9, grounded(fx, fz), forest_group)
-	for i in range(24):
-		var cx: float = 18.0 + fmod(float(i) * 6.7 + 3.0, 28.0)
-		var cz: float = -24.0 + fmod(float(i) * 8.3 + 5.0, 44.0)
-		var base: Vector3 = grounded(cx, cz)
-		var h: float = 5.2 + float(i % 4) * 1.1
-		var cone: CylinderMesh = CylinderMesh.new()
-		cone.top_radius = 0.08
-		cone.bottom_radius = 1.05
-		cone.height = h
-		cone.radial_segments = 7
-		var foliage: MeshInstance3D = MeshInstance3D.new()
-		foliage.mesh = cone
-		foliage.material_override = cypress_mat
-		foliage.position = base + Vector3(0.0, h * 0.5 + 0.8, 0.0)
-		forest_group.add_child(foliage)
-		var tr: CylinderMesh = CylinderMesh.new()
-		tr.top_radius = 0.18
-		tr.bottom_radius = 0.26
-		tr.height = 1.4
-		var tr_mi: MeshInstance3D = MeshInstance3D.new()
-		tr_mi.mesh = tr
-		tr_mi.material_override = trunk_mat
-		tr_mi.position = base + Vector3(0.0, 0.7, 0.0)
-		forest_group.add_child(tr_mi)
-	# Also sprinkle a few valley olive trees along the left river bank
-	for vz in [-22.0, -8.0, 6.0, 18.0, 30.0]:
-		var vx: float = -24.0 + sin(vz * 0.2) * 3.0
-		spawn_asset("CC0_OliveTree_Optimized.glb", 3.2, grounded(vx, vz), forest_group)
+	# ZERO plastic green cone trees! Pure handcrafted CC0 olive/cedar grove across East Slope & Western River Bank
+	for i in range(28):
+		var fx: float = 18.5 + fmod(float(i) * 7.3, 27.0)
+		var fz: float = -22.0 + fmod(float(i) * 9.7, 44.0)
+		var tree: Node3D = spawn_asset("CC0_OliveTree_Optimized.glb", 3.4 + float(i % 4) * 1.15, grounded(fx, fz), forest_group)
+		tree.rotation.y = float(i) * 1.27
+	# Lush valley olive trees along the western river bank & highland cliff
+	for vz in [-28.0, -16.0, -4.0, 8.0, 20.0, 32.0]:
+		var vx: float = -23.0 + sin(vz * 0.18) * 3.5
+		var vt: Node3D = spawn_asset("CC0_OliveTree_Optimized.glb", 3.4 + absf(sin(vz)) * 1.1, grounded(vx, vz), forest_group)
+		vt.rotation.y = vz * 0.4
 
 
 func _build_south_village() -> void:
@@ -528,33 +522,30 @@ func _build_altar_and_ararat() -> void:
 
 
 func _build_god_ray() -> void:
-	# Soft volumetric golden shaft of sunlight + real SpotLight3D onto Noah (Act 1 Revelation — NO figure of God!)
+	# Soft Fresnel-faded volumetric golden light shaft + SpotLight3D (Act 1 Revelation — NO figure of God!)
 	var cyl: CylinderMesh = CylinderMesh.new()
-	cyl.top_radius = 1.4
-	cyl.bottom_radius = 5.4
-	cyl.height = 38.0
-	cyl.radial_segments = 24
+	cyl.top_radius = 1.6
+	cyl.bottom_radius = 6.4
+	cyl.height = 42.0
+	cyl.radial_segments = 32
 	cyl.cap_top = false
 	cyl.cap_bottom = false
 	god_ray = MeshInstance3D.new()
 	god_ray.name = "DivineLightShaft"
 	god_ray.mesh = cyl
-	var gmat: StandardMaterial3D = _mat(Color(1.0, 0.85, 0.50, 0.075), 1.0)
-	gmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	gmat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	gmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	gmat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var gmat: ShaderMaterial = ShaderMaterial.new()
+	gmat.shader = load("res://shaders/VFX_GodRay.gdshader") as Shader
 	god_ray.material_override = gmat
-	god_ray.position = Vector3(0.5, 16.5, 1.5)
-	god_ray.rotation_degrees = Vector3(8.0, 0.0, -14.0)
+	god_ray.position = Vector3(1.5, 18.0, -2.5)
+	god_ray.rotation_degrees = Vector3(10.0, 0.0, -16.0)
 	god_ray.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var spot: SpotLight3D = SpotLight3D.new()
 	spot.position = Vector3(0.0, 14.0, 0.0)
 	spot.rotation_degrees = Vector3(-90.0, 0.0, 0.0)
 	spot.light_color = Color(1.0, 0.86, 0.54)
-	spot.light_energy = 8.0
-	spot.spot_range = 42.0
-	spot.spot_angle = 26.0
+	spot.light_energy = 7.5
+	spot.spot_range = 46.0
+	spot.spot_angle = 28.0
 	god_ray.add_child(spot)
 	add_child(god_ray)
 	god_ray.hide()
