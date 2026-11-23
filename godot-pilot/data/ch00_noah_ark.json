@@ -4,129 +4,218 @@
   "titleZh": "序章 · 诺亚方舟与彩虹之约",
   "eraZh": "上古立约",
   "protagonistZh": "挪亚",
-  "canonRef": "创 6–9（重点：创 8:6–9:17）",
+  "canonRef": "创 6:13–9:17",
   "initialState": {
-    "water": 10,
-    "harmony": 80,
-    "pressure": 10
+    "water": 12,
+    "harmony": 78,
+    "newLandVitality": 0,
+    "arkStage": 0
   },
   "ui": {
-    "hudZh": "序章 第 %d / 4 幕  |  新地生机: %d%%",
+    "hudZh": "序章 第 %d / 6 幕  |  方舟进度: %d/3  |  新地生机: %d%%",
     "canonZh": "经文正典锚点",
-    "adaptationZh": "玩法改编 · 经文锚点见出处",
+    "adaptationZh": "玩法/演出改编 · 经文锚点见出处",
     "actionHintZh": "请先完成：%s",
     "closeZh": "收起",
     "actions": {
-      "explore_ridge": "走下跳板踏查岩台",
-      "gather_stones": "岩坡拾取未凿原石筑坛",
+      "survey_site": "踏查高坡方舟基址",
+      "gather_wood": "采伐歌斐木搭建龙骨",
+      "gather_pitch": "采掘松香/沥青涂抹船身",
+      "board_ark": "引导八口与活物登舟",
+      "gather_stones": "亚拉腊岩坡拾石筑坛",
       "pray": "坛前跪拜献祭（创 8:20）"
     }
   },
   "completion": {
-    "titleZh": "序章完结 · 彩虹之约永立（创 9:13）",
-    "canonRef": "创 9:12–17",
-    "bodyZh": "神说：“我把虹放在云彩中，这就可作我与地立约的记号。”洪水成为过去，全地重焕生机。历史沿闪的谱系向美索不达米亚绵延，即将开启亚伯兰出迦勒底吾珥的应许之路。",
+    "titleZh": "序章完结 · 彩虹永约立于云中（创 9:13）",
+    "canonRef": "创 9:8–17",
+    "bodyZh": "神与挪亚并他的后裔，以及地上一切有血肉的活物立下永约：“我把虹放在云彩中，这就可作我与地立约的记号。”洪水退去，历史沿闪的谱系向美索不达米亚绵延，即将开启亚伯兰出迦勒底吾珥的应许之路。",
     "previewZh": "下一站：B01 巴别与闪的后裔 → P01 出迦勒底的吾珥（创 11:31–12:9）"
   },
-  "firstEventId": "noah_act1_dove_olive",
+  "firstEventId": "noah_01_call_survey",
   "events": [
     {
-      "id": "noah_act1_dove_olive",
+      "id": "noah_01_call_survey",
       "act": 1,
-      "titleZh": "橄榄新叶与下船踏查",
+      "arkStage": 0,
+      "sceneMode": "build_site",
+      "titleZh": "领命造舟与踏查基址",
       "speakerZh": "挪亚",
-      "canonRef": "创 8:6–14",
+      "canonRef": "创 6:13–14",
       "isAdaptation": true,
-      "requiredAction": "explore_ridge",
-      "bodyZh": "大雨止息，洪水已从地上渐渐退去，方舟稳稳停泊在亚拉腊山的岩脊上。鸽子衔回一片新拧的橄榄叶子，大地正在苏醒。点击湿润岩台走下木跳板，先为全家人踏查稳固的落脚之处。（下船踏查顺序为玩法引导改编）",
+      "requiredAction": "survey_site",
+      "bodyZh": "全地满了强暴，神吩咐我用歌斐木造一只方舟，分一间一间地造，里外抹上松香。我将与妻子、三个儿子闪、含、雅弗和三位儿媳共八口一同承接这重任。先点击地面踏查高坡基址，定下龙骨方位。（基址踏查为移动教学改编）",
       "choices": [
         {
-          "id": "noah_release_flocks",
-          "labelZh": "先引导温顺羊群沿跳板踏上湿润岩坡",
-          "resultZh": "洁白的羊群轻步踏出方舟，在石缝新抽的橄榄嫩枝旁低头觅食，全地恢复生机。",
-          "deltaWater": 2,
-          "deltaHarmony": 5,
-          "deltaPressure": 15,
-          "nextEventId": "noah_act2_build_altar"
-        },
-        {
-          "id": "noah_survey_with_sons",
-          "labelZh": "先携闪、含、雅弗勘察下方平坦石台",
-          "resultZh": "父子四人稳步走下跳板，选定视野开阔、正对河谷的湿润石台作为筑坛之地。",
+          "id": "noah_site_ridge",
+          "labelZh": "选定坚实岩脊奠基，全家同心开工",
+          "resultZh": "基址已定，全家八口开始预备工具与木料，踏上凭信建舟之路。",
           "deltaWater": 0,
-          "deltaHarmony": 8,
-          "deltaPressure": 15,
-          "nextEventId": "noah_act2_build_altar"
+          "deltaHarmony": 5,
+          "deltaVitality": 0,
+          "nextEventId": "noah_02a_mockery_wood"
         }
       ]
     },
     {
-      "id": "noah_act2_build_altar",
+      "id": "noah_02a_mockery_wood",
       "act": 2,
-      "titleZh": "步出方舟与拾石筑坛",
-      "speakerZh": "闪（挪亚长子）",
-      "canonRef": "创 8:15–20",
+      "arkStage": 1,
+      "sceneMode": "build_site",
+      "titleZh": "波折一 · 旱地造船的嘲笑与孤立",
+      "speakerZh": "挪亚（与三子）",
+      "canonRef": "创 6:14–16（呼应来 11:7 / 彼后 2:5）",
       "isAdaptation": true,
-      "requiredAction": "gather_stones",
-      "bodyZh": "神已吩咐我们全家与方舟里一切活物都出来，在地上多多滋生。父亲，我们在踏入新地的第一件事，当为保存我们性命的耶和华筑一座坛。请前往岩坡拾取未凿的天然毛石，在石台中央垒起祭坛。",
+      "requiredAction": "gather_wood",
+      "bodyZh": "方舟龙骨与粗大肋木刚刚立起，晴空之下却滴雨未降。附近城邑的乡人纷纷嘲笑我们在旱地造巨船，原先雇来运木的帮工也陆续散去，木料补给陷入停滞。（帮工离去与劝诫对话为建舟波折改编）",
       "choices": [
         {
-          "id": "noah_altar_unhewn",
-          "labelZh": "精选未经雕琢的天然山石，谦卑垒成低矮石坛",
-          "resultZh": "一座朴素庄严的未凿毛石祭坛在亚拉腊山石台上落成，柴禾整齐码放其上。",
+          "id": "noah_endure_family",
+          "labelZh": "沉静顺服，携三子与家人加倍劳作亲手运木",
+          "resultZh": "虽倍加辛劳，但全家八口信心益坚，方舟三层船壳木板逐渐合拢成形。",
+          "deltaWater": -2,
+          "deltaHarmony": 8,
+          "deltaVitality": 0,
+          "nextEventId": "noah_02b_pitch_shortage"
+        },
+        {
+          "id": "noah_warn_share",
+          "labelZh": "温和传讲义道并分粮酬谢，挽留部分木匠协助",
+          "resultZh": "虽然多数人仍不信而去，但仍有几位工匠留下帮运大木，船壳合拢更快。",
+          "deltaWater": -4,
+          "deltaHarmony": 4,
+          "deltaVitality": 0,
+          "nextEventId": "noah_02b_pitch_shortage"
+        }
+      ]
+    },
+    {
+      "id": "noah_02b_pitch_shortage",
+      "act": 2,
+      "arkStage": 2,
+      "sceneMode": "build_site",
+      "titleZh": "波折二 · 松香紧缺与乌云压境",
+      "speakerZh": "挪亚的妻子",
+      "canonRef": "创 6:14, 18–22",
+      "isAdaptation": true,
+      "requiredAction": "gather_pitch",
+      "bodyZh": "船壳已经合拢，远方天际却开始积聚厚重乌云。可是里外涂抹船身防水的松香与沥青存量告急，若接缝渗水，洪水来临时必危及全舟性命！请速赴岩坡采掘松香/沥青完成涂覆。（松香紧缺为建舟波折改编）",
+      "choices": [
+        {
+          "id": "noah_thick_pitch",
+          "labelZh": "不计辛劳采足天然沥青，方舟里外彻底厚涂密封",
+          "resultZh": "厚实的松香/沥青封牢每一道木缝，顶层天窗与木跳板全部完工，神所吩咐的都照样行了。",
+          "deltaWater": -2,
+          "deltaHarmony": 6,
+          "deltaVitality": 0,
+          "nextEventId": "noah_03_board_ark"
+        },
+        {
+          "id": "noah_seal_and_stock",
+          "labelZh": "优先密封底舱主缝，同步抢运干草与粮食入舱",
+          "resultZh": "底舱稳固且舱内粮草齐备，方舟已做好迎接风暴的准备。",
+          "deltaWater": 2,
+          "deltaHarmony": 4,
+          "deltaVitality": 0,
+          "nextEventId": "noah_03_board_ark"
+        }
+      ]
+    },
+    {
+      "id": "noah_03_board_ark",
+      "act": 3,
+      "arkStage": 3,
+      "sceneMode": "build_site",
+      "titleZh": "波折三 · 风暴前夜八口与众活物入舟",
+      "speakerZh": "挪亚",
+      "canonRef": "创 7:1–16",
+      "isAdaptation": true,
+      "requiredAction": "board_ark",
+      "bodyZh": "狂风骤起、天色转暗！凡洁净的畜类七公七母、不洁净的畜类一公一母以及空中的飞鸟都来到方舟前。木跳板前人畜汇集、雨点将落，须立刻有序调度登舟。（登舟秩序调度为玩法改编）",
+      "choices": [
+        {
+          "id": "noah_board_animals_first",
+          "labelZh": "先引导众活物有序入舱，家人殿后抢收最后粮袋",
+          "resultZh": "各类活物与挪亚全家八口平安进入方舟，耶和华就把他关在方舟里头。",
           "deltaWater": 0,
           "deltaHarmony": 6,
-          "deltaPressure": 25,
-          "nextEventId": "noah_act3_kneel_offering"
+          "deltaVitality": 0,
+          "nextEventId": "noah_04_flood_dove"
         },
         {
-          "id": "noah_altar_teach_family",
-          "labelZh": "召聚全家八口合力搬石，教导世代铭记敬畏",
-          "resultZh": "挪亚全家八口同心协力筑成新地第一座坛，感恩之心充满全营。",
+          "id": "noah_board_steady_ramp",
+          "labelZh": "加固木跳板护栏，分批清点八口家人与活物稳步登舟",
+          "resultZh": "风势渐猛而秩序井然，全员安全入舟，船门在暴雨倾盆前紧紧关闭。",
           "deltaWater": 0,
-          "deltaHarmony": 10,
-          "deltaPressure": 25,
-          "nextEventId": "noah_act3_kneel_offering"
+          "deltaHarmony": 6,
+          "deltaVitality": 0,
+          "nextEventId": "noah_04_flood_dove"
         }
       ]
     },
     {
-      "id": "noah_act3_kneel_offering",
-      "act": 3,
-      "titleZh": "跪拜献祭与四季之诺",
-      "speakerZh": "挪亚",
-      "canonRef": "创 8:20–22",
+      "id": "noah_04_flood_dove",
+      "act": 4,
+      "arkStage": 3,
+      "sceneMode": "ararat_after_flood",
+      "titleZh": "洪水、亚拉腊众山与放鸟探地",
+      "speakerZh": "卷轴旁白",
+      "canonRef": "创 7:17–8:12（含创 8:4）",
       "isAdaptation": false,
-      "requiredAction": "pray",
-      "bodyZh": "挪亚拿各类洁净的牲畜、飞鸟献在坛上为燔祭。请点击「坛前跪拜献祭」，率领全家俯伏敬拜耶和华。耶和华闻那馨香之气，定意不再因人的缘故咒诅地——地还存留的时候，稼穑、寒暑、冬夏、昼夜就永不停息了。",
+      "bodyZh": "四十昼夜大雨倾盆，大渊的泉源裂开，水势浩大却托起方舟蒙神保存。神记念挪亚和方舟里的一切活物，叫风吹地，水势渐落，方舟停在亚拉腊众山上（创 8:4）。挪亚先后放出乌鸦与鸽子，鸽子终衔回一片新拧的橄榄叶子——地上水退了。",
       "choices": [
         {
-          "id": "noah_thanksgiving",
-          "labelZh": "俯伏感恩，颂赞耶和华的怜悯与保守",
-          "resultZh": "细烟自石坛袅袅升起，温暖的晨光破开雨云，洒满亚拉腊山谷。",
+          "id": "noah_await_command",
+          "labelZh": "等候神的吩咐，准备步出方舟踏上新地",
+          "resultZh": "云雾散开，晨光照亮亚拉腊众山湿润的岩台与新抽的橄榄嫩枝。",
+          "deltaWater": 4,
+          "deltaHarmony": 4,
+          "deltaVitality": 40,
+          "nextEventId": "noah_05_exit_altar"
+        }
+      ]
+    },
+    {
+      "id": "noah_05_exit_altar",
+      "act": 5,
+      "arkStage": 3,
+      "sceneMode": "ararat_after_flood",
+      "titleZh": "奉命出舟、拾石筑坛与跪拜献祭",
+      "speakerZh": "挪亚",
+      "canonRef": "创 8:15–20",
+      "isAdaptation": true,
+      "requiredAction": "pray",
+      "bodyZh": "神吩咐我们全家八口与一切活物出方舟！步下木跳板后，我们先为耶和华筑了一座石坛，拿各类洁净的牲畜与飞鸟献为燔祭。请点击「坛前跪拜献祭」，率领全家敬拜保存我们性命的主。（拾石筑坛交互、跪拜与全家围坛为演出改编）",
+      "choices": [
+        {
+          "id": "noah_offer_thanksgiving",
+          "labelZh": "俯伏感恩，将蒙保存的新生全然交托耶和华",
+          "resultZh": "细烟自石坛袅袅升起，耶和华闻那馨香之气，清晨阳光破云而出。",
           "deltaWater": 0,
           "deltaHarmony": 8,
-          "deltaPressure": 30,
-          "nextEventId": "noah_act4_rainbow_covenant"
+          "deltaVitality": 80,
+          "nextEventId": "noah_06_rainbow_covenant"
         }
       ]
     },
     {
-      "id": "noah_act4_rainbow_covenant",
-      "act": 4,
-      "titleZh": "云中虹彩与永约之光",
+      "id": "noah_06_rainbow_covenant",
+      "act": 6,
+      "arkStage": 3,
+      "sceneMode": "ararat_rainbow",
+      "titleZh": "四季之诺与彩虹永约",
       "speakerZh": "经文启示 / 挪亚",
-      "canonRef": "创 9:8–17",
+      "canonRef": "创 8:21–9:17",
       "isAdaptation": false,
-      "bodyZh": "神赐福给挪亚和他的儿子，并与他们以及地上一切有血肉的活物立下永约：“我把虹放在云彩中，这就可作我与地立约的记号……水就再不泛滥毁坏一切有血肉的物了。”看哪，河谷晨雾间已映出圣洁的虹彩。",
+      "bodyZh": "耶和华宣告：“地还存留的时候，稼穑、寒暑、冬夏、昼夜就永不停息了。”神又与挪亚和他的后裔，并与一切有血肉的活物立下永约：“我把虹放在云彩中，这就可作我与地立约的记号……水就再不泛滥毁坏一切有血肉的物了。”（此永约乃神主动恩典，不受任何资源评分影响）",
       "choices": [
         {
-          "id": "noah_enter_overworld",
-          "labelZh": "铭记彩虹永约，展开宏观战役画卷（前往 B01 / P01 出吾珥）",
-          "resultZh": "彩虹映照新生大地，救赎历史的卷轴正缓缓向美索不达米亚与迦南展开。",
+          "id": "noah_finish_to_overworld",
+          "labelZh": "仰望云中虹彩，展开宏观战役画卷（前往 B01 / P01 出吾珥）",
+          "resultZh": "晨雾间的彩虹照亮新生山谷，救赎历史的卷轴正缓缓向美索不达米亚与迦南展开。",
           "deltaWater": 0,
           "deltaHarmony": 10,
-          "deltaPressure": 20,
+          "deltaVitality": 100,
           "nextEventId": ""
         }
       ]
