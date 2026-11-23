@@ -17,6 +17,7 @@ var ark_anchor: Node3D
 var ark: Node3D
 var god_ray: MeshInstance3D
 var flood_water: MeshInstance3D
+var road_mesh: MeshInstance3D
 var river_mesh: MeshInstance3D
 var rain: GPUParticles3D
 var rain_splash: GPUParticles3D
@@ -230,14 +231,14 @@ func _build_terrain() -> void:
 			rst.set_uv(Vector2(v.x, v.z) * 0.25)
 			rst.add_vertex(v)
 	rst.generate_normals()
-	var road_mi: MeshInstance3D = MeshInstance3D.new()
-	road_mi.name = "VillageDirtRoad"
-	road_mi.mesh = rst.commit()
+	road_mesh = MeshInstance3D.new()
+	road_mesh.name = "VillageDirtRoad"
+	road_mesh.mesh = rst.commit()
 	var road_mat: StandardMaterial3D = _mat(Color(0.58, 0.49, 0.38), 0.96)
 	road_mat.albedo_texture = load("res://assets/textures/terrain_dirt_albedo.png") as Texture2D
 	road_mat.uv1_triplanar = true
-	road_mi.material_override = road_mat
-	add_child(road_mi)
+	road_mesh.material_override = road_mat
+	add_child(road_mesh)
 
 	# REAL PolyHaven CC0 Photogrammetry Cliffs, Boulders & Mediterranean Shrubs (ZERO fake grey spheres!)
 	var cliff_1: String = "res://assets/cc0_models/namaqualand_cliff_01/namaqualand_cliff_01_1k.gltf"
@@ -597,7 +598,7 @@ func _build_rainbow() -> void:
 		for v: Vector2 in [Vector2(i, 0), Vector2(i + 1, 0), Vector2(i, 1), Vector2(i + 1, 0), Vector2(i + 1, 1), Vector2(i, 1)]:
 			var u: float = v.x / 96.0
 			var a: float = u * PI
-			var r: float = 20.0 + v.y * 3.2
+			var r: float = 16.0 + v.y * 3.2
 			st.set_uv(Vector2(u, v.y))
 			st.add_vertex(Vector3(cos(a) * r, sin(a) * r, 0.0))
 	st.generate_normals()
@@ -607,55 +608,59 @@ func _build_rainbow() -> void:
 	var smat: ShaderMaterial = ShaderMaterial.new()
 	smat.shader = load("res://shaders/VFX_CovenantRainbow.gdshader") as Shader
 	rainbow.material_override = smat
-	rainbow.position = Vector3(-18.0, -4.5, -18.0)
-	rainbow.rotation_degrees.y = 32.0
+	rainbow.position = Vector3(-4.0, -1.5, -18.0)
+	rainbow.rotation_degrees.y = -18.0
 	rainbow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(rainbow)
 	rainbow.hide()
 
 
 func _build_rain() -> void:
-	# Hardware GPU Particles with HeightField Collision + Sub-Emitter Splash (inspired by Wojtek Pe showcase!)
-	rain_collider = GPUParticlesCollisionHeightField3D.new()
-	rain_collider.name = "RainHeightFieldCollider"
-	rain_collider.size = Vector3(90.0, 36.0, 90.0)
-	rain_collider.position = Vector3(0.0, 6.0, 2.0)
-	rain_collider.resolution = GPUParticlesCollisionHeightField3D.RESOLUTION_512
-	rain_collider.update_mode = GPUParticlesCollisionHeightField3D.UPDATE_MODE_WHEN_MOVED
-	add_child(rain_collider)
+	var is_mobile: bool = RenderingServer.get_current_rendering_method() != "forward_plus"
+	# Heightfield collisions and splash sub-emitters require Forward+.
+	if not is_mobile:
+		# Hardware GPU Particles with HeightField Collision + Sub-Emitter Splash (inspired by Wojtek Pe showcase!)
+		rain_collider = GPUParticlesCollisionHeightField3D.new()
+		rain_collider.name = "RainHeightFieldCollider"
+		rain_collider.size = Vector3(90.0, 36.0, 90.0)
+		rain_collider.position = Vector3(0.0, 6.0, 2.0)
+		rain_collider.resolution = GPUParticlesCollisionHeightField3D.RESOLUTION_512
+		rain_collider.update_mode = GPUParticlesCollisionHeightField3D.UPDATE_MODE_WHEN_MOVED
+		add_child(rain_collider)
 
-	# Sub-emitter splash droplets bursting when raindrops hit the Ark roof, cliffs, or ground!
-	rain_splash = GPUParticles3D.new()
-	rain_splash.name = "RainSplashSubEmitter"
-	rain_splash.amount = 600
-	rain_splash.lifetime = 0.28
-	rain_splash.emitting = false
-	var sp_mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
-	sp_mat.direction = Vector3(0.0, 1.0, 0.0)
-	sp_mat.spread = 58.0
-	sp_mat.initial_velocity_min = 1.6
-	sp_mat.initial_velocity_max = 3.2
-	sp_mat.gravity = Vector3(0.0, -9.8, 0.0)
-	sp_mat.scale_min = 0.5
-	sp_mat.scale_max = 1.1
-	rain_splash.process_material = sp_mat
-	var sp_mesh: SphereMesh = SphereMesh.new()
-	sp_mesh.radius = 0.035
-	sp_mesh.height = 0.07
-	var sp_draw_mat: StandardMaterial3D = _mat(Color(0.80, 0.88, 0.94, 0.65), 0.1)
-	sp_draw_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	sp_draw_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	sp_mesh.material = sp_draw_mat
-	rain_splash.draw_pass_1 = sp_mesh
-	add_child(rain_splash)
+		# Sub-emitter splash droplets bursting when raindrops hit the Ark roof, cliffs, or ground!
+		rain_splash = GPUParticles3D.new()
+		rain_splash.name = "RainSplashSubEmitter"
+		rain_splash.amount = 600
+		rain_splash.lifetime = 0.28
+		rain_splash.emitting = false
+		var sp_mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+		sp_mat.direction = Vector3(0.0, 1.0, 0.0)
+		sp_mat.spread = 58.0
+		sp_mat.initial_velocity_min = 1.6
+		sp_mat.initial_velocity_max = 3.2
+		sp_mat.gravity = Vector3(0.0, -9.8, 0.0)
+		sp_mat.scale_min = 0.5
+		sp_mat.scale_max = 1.1
+		rain_splash.process_material = sp_mat
+		var sp_mesh: SphereMesh = SphereMesh.new()
+		sp_mesh.radius = 0.035
+		sp_mesh.height = 0.07
+		var sp_draw_mat: StandardMaterial3D = _mat(Color(0.80, 0.88, 0.94, 0.65), 0.1)
+		sp_draw_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		sp_draw_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		sp_mesh.material = sp_draw_mat
+		rain_splash.draw_pass_1 = sp_mesh
+		add_child(rain_splash)
 
 	rain = GPUParticles3D.new()
 	rain.name = "FloodRainGPU"
-	rain.amount = 1400
+	rain.amount = 450 if is_mobile else 1400
 	rain.lifetime = 1.5
 	rain.position = Vector3(0.0, 26.0, 2.0)
 	add_child(rain)
-	rain.sub_emitter = rain.get_path_to(rain_splash)
+	if not is_mobile:
+		rain.sub_emitter = rain.get_path_to(rain_splash)
 	var rmat: ParticleProcessMaterial = ParticleProcessMaterial.new()
 	rmat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
 	rmat.emission_box_extents = Vector3(34.0, 2.0, 30.0)
@@ -664,9 +669,10 @@ func _build_rain() -> void:
 	rmat.initial_velocity_min = 20.0
 	rmat.initial_velocity_max = 26.0
 	rmat.gravity = Vector3(0.0, -8.0, 0.0)
-	rmat.collision_mode = ParticleProcessMaterial.COLLISION_HIDE_ON_CONTACT
-	rmat.sub_emitter_mode = ParticleProcessMaterial.SUB_EMITTER_AT_COLLISION
-	rmat.sub_emitter_amount_at_collision = 2
+	if not is_mobile:
+		rmat.collision_mode = ParticleProcessMaterial.COLLISION_HIDE_ON_CONTACT
+		rmat.sub_emitter_mode = ParticleProcessMaterial.SUB_EMITTER_AT_COLLISION
+		rmat.sub_emitter_amount_at_collision = 2
 	rain.process_material = rmat
 	var drop: BoxMesh = BoxMesh.new()
 	drop.size = Vector3(0.022, 0.65, 0.022)
@@ -679,6 +685,11 @@ func _build_rain() -> void:
 
 
 func apply_mood(mode: String) -> void:
+	road_mesh.visible = mode != "ararat"
+	for node: Node in ark_anchor.get_children():
+		if node is OmniLight3D and str(node.name).begins_with("ArkLantern_"):
+			var lantern: OmniLight3D = node as OmniLight3D
+			lantern.visible = mode != "flood"
 	var t: Tween = create_tween().set_parallel(true)
 	match mode:
 		"revelation":

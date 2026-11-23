@@ -332,17 +332,17 @@ func _build_whisper_hud() -> void:
 	mode_btn = _make_pill("跟随挪亚 [Tab]", _toggle_camera_mode)
 	tr_hb.add_child(mode_btn)
 
-	# 2b. Compact Bottom-Left 4-Station Workforce Allocation Tactical Bar (Real RTS Strategy!)
+	# 2b. Compact Bottom-Left 4-Station Workforce Allocation Tactical Bar (48x44px mobile touch targets!)
 	strategy_panel = PanelContainer.new()
 	strategy_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	strategy_panel.offset_left = 14
-	strategy_panel.offset_right = 340
-	strategy_panel.offset_top = -274
-	strategy_panel.offset_bottom = -92
+	strategy_panel.offset_right = 380
+	strategy_panel.offset_top = -316
+	strategy_panel.offset_bottom = -88
 	strategy_panel.add_theme_stylebox_override("panel", _style_box(Color(0.08, 0.06, 0.04, 0.84), Color(0.76, 0.58, 0.28, 0.88)))
 	layer.add_child(strategy_panel)
 	var st_vb: VBoxContainer = VBoxContainer.new()
-	st_vb.add_theme_constant_override("separation", 5)
+	st_vb.add_theme_constant_override("separation", 6)
 	strategy_panel.add_child(st_vb)
 	var st_hdr: Label = Label.new()
 	st_hdr.text = "家族 7 人实时分工调度（人力博弈）"
@@ -363,14 +363,14 @@ func _build_whisper_hud() -> void:
 		var lb: Label = Label.new()
 		lb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		lb.add_theme_color_override("font_color", Color(0.95, 0.91, 0.82))
-		lb.add_theme_font_size_override("font_size", 13)
+		lb.add_theme_font_size_override("font_size", 14)
 		hb.add_child(lb)
 		strategy_labels[key] = lb
 		var bm: Button = _make_pill("-", func() -> void: _assign_worker(key, -1))
-		bm.custom_minimum_size = Vector2(30, 26)
+		bm.custom_minimum_size = Vector2(48, 44)
 		hb.add_child(bm)
 		var bp: Button = _make_pill("+", func() -> void: _assign_worker(key, 1))
-		bp.custom_minimum_size = Vector2(30, 26)
+		bp.custom_minimum_size = Vector2(48, 44)
 		hb.add_child(bp)
 
 	# 3. Floating Center-Bottom [E] World Interaction Prompt (only visible when Noah is near a 3D Hotspot!)
@@ -478,7 +478,14 @@ func _add_hotspot(id: String, pos: Vector3, label: String, clip: String = "Hamme
 	lbl.outline_size = 10
 	root.add_child(lbl)
 
-	hotspots.append({"id": id, "pos": pos, "label": label, "clip": clip, "done": false, "node": root, "ring": ring})
+	hotspots.append({"id": id, "pos": pos, "label": label, "clip": clip, "done": false, "node": root, "ring": ring, "lbl": lbl})
+
+
+func _sync_hotspot_labels() -> void:
+	for h in hotspots:
+		var lbl: Label3D = h.get("lbl") as Label3D
+		if lbl != null and is_instance_valid(lbl):
+			lbl.visible = not first_person_interior
 
 
 func _assign_worker(station: String, delta_v: int) -> void:
@@ -522,6 +529,7 @@ func _toggle_first_person() -> void:
 		cam_ctrl.first_person_mode = false
 		family[0].show()
 	_apply_ark_visibility()
+	_sync_hotspot_labels()
 	fp_btn.text = "退出第一人称 [F]" if first_person_interior else "第一人称进舱 [F]"
 
 
@@ -558,6 +566,12 @@ func _enter_event(id: String) -> void:
 
 	var stage: int = int(current_event.get("arkStage", 0))
 	state.arkStage = stage
+	match id:
+		"noah_01_revelation": ark_build_pct = 0.0
+		"noah_02_keel_mortise": ark_build_pct = maxf(ark_build_pct, 10.0)
+		"noah_03_hull_decks": ark_build_pct = maxf(ark_build_pct, 45.0)
+		"noah_04_pitch_provisions": ark_build_pct = maxf(ark_build_pct, 75.0)
+		"noah_05_board_ark", "noah_06_flood_dove", "noah_07_exit_altar", "noah_08_rainbow_covenant": ark_build_pct = 100.0
 	if not manual_cutaway_lock:
 		interior_cutaway = false
 	_apply_ark_visibility()
@@ -637,8 +651,9 @@ func _enter_event(id: String) -> void:
 				cam_ctrl.focus_on(family[0].position + Vector3(0.0, 1.5, -2.0), 22.0, -0.35, preview_mode)
 			# 3D Walk-Inside Inspection Stations INSIDE the Ark + Raider Defense outside!
 			_add_hotspot("inside_lower", ap + Vector3(-2.5, 0.55, -0.2), "检查下层龙骨榫卯与畜栏", "Hammer")
-			_add_hotspot("inside_mid", ap + Vector3(4.2, 0.55, -0.2), "检查中层分舱与一肘透光带", "Hammer")
+			_add_hotspot("inside_mid", ap + Vector3(3.8, 1.90, -0.2), "沿木梯上中层检查分舱与透光带", "Hammer")
 			_add_hotspot("defend_yard", world.grounded(-3.5, 7.2), "筑木栅与三子护材对峙", "Bless")
+			_sync_hotspot_labels()
 
 		"noah_04_pitch_provisions":
 			world.apply_mood("build")
@@ -687,13 +702,24 @@ func _enter_event(id: String) -> void:
 				world.flood_water.position.y = flood_level
 				world.ark_anchor.position.y = world.ark_base_y
 			_stage_ararat_worship()
-			cam_ctrl.focus_on(Vector3(-1.5, 1.8, 4.0), 26.0, -0.52, preview_mode)
+			cam_ctrl.pitch_override = -0.24
+			cam_ctrl.focus_on(Vector3(-1.2, 2.4, 2.8), 28.0, -0.36, preview_mode)
 			if id == "noah_07_exit_altar":
 				_add_hotspot("offer_altar", world.altar_group.position + Vector3(0.0, 0.0, -1.6), "一家八口筑坛献祭感恩", "Bless")
 			else:
 				_add_hotspot("to_overworld", world.altar_group.position + Vector3(0.0, 0.0, -1.6), "仰望彩虹永约 · 前往宏观画卷", "Bless")
 
+	_sync_hotspot_labels()
 	_refresh_whisper_hud()
+
+
+func _set_actor_props(actor: Node3D, show_log: bool, show_tool: bool) -> void:
+	var lg: Node3D = actor.find_child("CarriedLog", false, false) as Node3D
+	if lg != null:
+		lg.visible = show_log
+	var tl: Node3D = actor.find_child("RightHandTool", true, false) as Node3D
+	if tl != null:
+		tl.visible = show_tool
 
 
 func _stage_ararat_worship() -> void:
@@ -703,6 +729,7 @@ func _stage_ararat_worship() -> void:
 	]
 	for i in range(family.size()):
 		family[i].show()
+		_set_actor_props(family[i], false, false)
 		family[i].position = world.grounded(slots[i].x, slots[i].y)
 		var target: Vector3 = world.altar_group.position if i != 0 else (family[i].position + Vector3(0.0, 0.0, 5.0))
 		target.y = family[i].position.y
@@ -716,17 +743,22 @@ func _refresh_whisper_hud() -> void:
 	var hide_top: bool = bool(current_event.get("hideResourceHud", false)) or id in ["noah_07_exit_altar", "noah_08_rainbow_covenant"]
 	top_obj_panel.visible = not hide_top
 	strategy_panel.visible = is_build_act and not first_person_interior
-	var boost_tag: String = "  [宗师监造+60%]" if inspection_boost_timer > 0.0 else ""
-	var alert_tag: String = ("  |  " + strategy_alert) if not strategy_alert.is_empty() else ""
-	top_obj_label.text = "距大雨: %ds  |  工程: %d%%  |  歌斐木: %d  |  松香: %d  |  粮草: %d%s%s" % [
-		int(maxf(flood_countdown, 0.0)),
-		int(roundf(ark_build_pct)),
-		int(timber_f),
-		int(pitch_f),
-		int(provisions_f),
-		boost_tag,
-		alert_tag,
-	]
+	if id == "noah_06_flood_dove":
+		top_obj_label.text = "洪水滔天 · 方舟蒙神保守漂流于渊面  |  请按 [E] 放出乌鸦与鸽子探看水退"
+	elif id == "noah_05_board_ark":
+		top_obj_label.text = "方舟完工 100%%  |  众活物正成双登舟  |  请按 [E] 引导全员入舱并关上舱门"
+	else:
+		var boost_tag: String = "  [宗师监造+60%]" if inspection_boost_timer > 0.0 else ""
+		var alert_tag: String = ("  |  " + strategy_alert) if not strategy_alert.is_empty() else ""
+		top_obj_label.text = "距大雨: %ds  |  工程: %d%%  |  歌斐木: %d  |  松香: %d  |  粮草: %d%s%s" % [
+			int(maxf(flood_countdown, 0.0)),
+			int(roundf(ark_build_pct)),
+			int(timber_f),
+			int(pitch_f),
+			int(provisions_f),
+			boost_tag,
+			alert_tag,
+		]
 	if strategy_labels.has("log"):
 		(strategy_labels["log"] as Label).text = "东坡伐木: %d人 (+%d木/s)" % [w_log, w_log * 4]
 		(strategy_labels["build"] as Label).text = "船坞建舟: %d人 (耗%d木/s)" % [w_build, w_build * 3]
@@ -831,6 +863,18 @@ func _check_act_complete() -> void:
 		if not bool(h.done):
 			return
 	var id: String = str(current_event.get("id", ""))
+	if id == "noah_02_keel_mortise" and ark_build_pct < 35.0:
+		strategy_alert = "龙骨工程需达 35%%（当前 %d%%），请调度家人继续伐木建舟！" % int(ark_build_pct)
+		_refresh_whisper_hud()
+		return
+	if id == "noah_03_hull_decks" and ark_build_pct < 70.0:
+		strategy_alert = "三层船壳需达 70%%（当前 %d%%），请调度家人抓紧施工！" % int(ark_build_pct)
+		_refresh_whisper_hud()
+		return
+	if id == "noah_04_pitch_provisions" and (ark_build_pct < 98.0 or pitch_f < 25.0):
+		strategy_alert = "需工程 98%% 且松香 ≥25 才可登舟！"
+		_refresh_whisper_hud()
+		return
 	match id:
 		"noah_01_revelation": _enter_event("noah_02_keel_mortise")
 		"noah_02_keel_mortise": _enter_event("noah_03_hull_decks")
@@ -844,10 +888,17 @@ func _check_act_complete() -> void:
 
 func _surface_height_for_noah(x: float, z: float) -> float:
 	var ap: Vector3 = world.ark_anchor.position
-	# Inside Ark Lower Deck!
 	if int(state.get("arkStage", 0)) >= 2 and absf(x - ap.x) < 10.2 and z > ap.z - 2.2 and z < ap.z + 2.2:
+		var rel_x: float = x - ap.x
+		if rel_x > -0.5 and rel_x < 2.6:
+			var st: float = clampf((rel_x + 0.5) / 3.1, 0.0, 1.0)
+			return lerpf(ap.y + 0.55, ap.y + 1.90, st)
+		if rel_x >= 2.6 and rel_x < 6.0:
+			return ap.y + 1.90
+		if rel_x >= 6.0:
+			var ut: float = clampf((rel_x - 6.0) / 2.2, 0.0, 1.0)
+			return lerpf(ap.y + 1.90, ap.y + 3.15, ut)
 		return ap.y + 0.55
-	# Walking up the wooden boarding ramp (+Z side of Ark)!
 	if int(state.get("arkStage", 0)) >= 2 and absf(x - ap.x) < 1.8 and z >= ap.z + 2.2 and z <= ap.z + 6.4:
 		var t: float = clampf((z - (ap.z + 2.2)) / 4.2, 0.0, 1.0)
 		return lerpf(ap.y + 0.55, world.terrain_height(x, z), t)
@@ -950,7 +1001,11 @@ func _process(delta: float) -> void:
 			ark_build_pct = minf(100.0, ark_build_pct + float(w_build) * 1.4 * boost * delta)
 		elif w_build > 0:
 			strategy_alert = "歌斐木不足！请加派人手东坡伐木"
+		if flood_countdown <= 0.0:
+			strategy_alert = "暴雨已破堤！请速完成收尾登舟！"
+			world.rain.emitting = true
 		state.timber = int(timber_f)
+		_check_act_complete()
 		_refresh_whisper_hud()
 
 	# 2. Check proximity to 3D Hotspots for [E] Prompt + pulse rings
@@ -1030,44 +1085,57 @@ func _process(delta: float) -> void:
 		b.rotation.z = sin(a) * 0.16
 
 
-func _update_living_family(delta: float, id: String) -> void:
-	# Sons 2 & 3 actively walk back and forth hauling logs from East Forest (X=22) <-> Timber Depot (X=-6)
-	for idx in [2, 3]:
-		var son: Node3D = family[idx]
-		var cycle: float = fposmod(elapsed * 0.14 + family_ai_phase[idx], 2.0)
-		var going_back: bool = cycle >= 1.0
-		var t: float = cycle - 1.0 if going_back else cycle
-		var p_forest: Vector3 = world.grounded(21.0, -3.0 + float(idx) * 2.2)
-		var p_depot: Vector3 = world.grounded(-5.5, 2.2 + float(idx - 2) * 1.4)
-		var target: Vector3 = p_depot.lerp(p_forest, t) if going_back else p_forest.lerp(p_depot, t)
-		var dir: Vector3 = target - son.position
-		son.position = target
-		if dir.length_squared() > 0.0001:
-			son.look_at(son.position + dir.normalized(), Vector3.UP)
-		var log_node: Node3D = son.find_child("CarriedLog", false, false) as Node3D
-		if log_node != null:
-			log_node.visible = not going_back
-		_anim(son, "Walk")
+func _update_living_family(_delta: float, id: String) -> void:
+	var assigned: int = 0
+	for k in range(1, family.size()):
+		var member: Node3D = family[k]
+		var role: String = "guard"
+		if assigned < w_log:
+			role = "log"
+		elif assigned < w_log + w_build:
+			role = "build"
+		elif assigned < w_log + w_build + w_pitch:
+			role = "pitch"
+		assigned += 1
 
-	# Son 4 actively hammers/brushes along the Ark side
-	var s4: Node3D = family[4]
-	s4.position = world.grounded(3.8, -0.4)
-	s4.look_at(world.grounded(3.8, -4.5), Vector3.UP)
-	_anim(s4, "BrushPitch" if id == "noah_04_pitch_provisions" else "Hammer")
-
-	# Wife (1) & Daughters (5..7) patrol between Provisions Amphorae & Boarding Ramp
-	for idx in [1, 5, 6, 7]:
-		var w: Node3D = family[idx]
-		var cyc: float = fposmod(elapsed * 0.18 + family_ai_phase[idx], 2.0)
-		var t: float = 2.0 - cyc if cyc >= 1.0 else cyc
-		var pa: Vector3 = world.grounded(8.8 + float(idx % 2) * 1.2, 3.0 + float(idx % 3) * 0.9)
-		var pb: Vector3 = world.grounded(2.8, 3.5 + float(idx % 2) * 0.8)
-		var np: Vector3 = pa.lerp(pb, t)
-		var d: Vector3 = np - w.position
-		w.position = np
-		if d.length_squared() > 0.0001:
-			w.look_at(w.position + d.normalized(), Vector3.UP)
-		_anim(w, "Walk")
+		match role:
+			"log":
+				var cycle: float = fposmod(elapsed * 0.14 + family_ai_phase[k], 2.0)
+				var going_back: bool = cycle >= 1.0
+				var t: float = cycle - 1.0 if going_back else cycle
+				var p_forest: Vector3 = world.grounded(21.0, -4.0 + float(k) * 1.4)
+				var p_depot: Vector3 = world.grounded(-5.5, 2.0 + float(k % 3) * 1.1)
+				var target: Vector3 = p_depot.lerp(p_forest, t) if going_back else p_forest.lerp(p_depot, t)
+				var dir: Vector3 = target - member.position
+				member.position = target
+				if dir.length_squared() > 0.0001:
+					member.look_at(member.position + dir.normalized(), Vector3.UP)
+				_set_actor_props(member, not going_back, false)
+				_anim(member, "Walk")
+			"build":
+				var bx: float = -4.0 + float(k % 4) * 2.8
+				member.position = world.grounded(bx, -0.3)
+				member.look_at(world.grounded(bx, -4.5), Vector3.UP)
+				_set_actor_props(member, false, true)
+				_anim(member, "BrushPitch" if id == "noah_04_pitch_provisions" else "Hammer")
+			"pitch":
+				var cyc: float = fposmod(elapsed * 0.18 + family_ai_phase[k], 2.0)
+				var pt: float = 2.0 - cyc if cyc >= 1.0 else cyc
+				var pa: Vector3 = world.grounded(8.6 + float(k % 2) * 1.1, 2.8 + float(k % 3) * 0.8)
+				var pb: Vector3 = world.grounded(3.2, 3.6 + float(k % 2) * 0.8)
+				var np: Vector3 = pa.lerp(pb, pt)
+				var d: Vector3 = np - member.position
+				member.position = np
+				if d.length_squared() > 0.0001:
+					member.look_at(member.position + d.normalized(), Vector3.UP)
+				_set_actor_props(member, false, false)
+				_anim(member, "Walk")
+			"guard":
+				var gx: float = -7.5 + float(k % 4) * 2.4
+				member.position = world.grounded(gx, 7.6)
+				member.look_at(world.grounded(gx, 24.0), Vector3.UP)
+				_set_actor_props(member, false, true)
+				_anim(member, "Idle")
 
 
 func _update_animal_procession() -> void:
