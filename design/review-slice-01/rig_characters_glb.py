@@ -83,9 +83,9 @@ def compute_skin_weights(pos, bone_specs):
             w *= arm_mask
         elif "Thigh" in name or "Shin" in name:
             side = 1.0 if name.endswith("_L") else -1.0
-            # Soft left/right split so linen robe hem deforms smoothly without tearing!
-            side_mask = 1.0 / (1.0 + np.exp(-(x * side) / 0.045))
-            lower_mask = np.clip((0.52 - y) / 0.10, 0.0, 1.0)
+            # Wide smooth fabric blend across robe hem so legs stride naturally without slicing/shearing!
+            side_mask = 1.0 / (1.0 + np.exp(-(x * side) / 0.085))
+            lower_mask = np.clip((0.50 - y) / 0.12, 0.0, 1.0)
             w *= side_mask * lower_mask
         elif name in ("Neck", "Head"):
             head_mask = np.clip((y - 0.74) / 0.06, 0.0, 1.0)
@@ -95,7 +95,8 @@ def compute_skin_weights(pos, bone_specs):
             torso_mask *= np.clip((0.15 - np.abs(x)) / 0.06, 0.15, 1.0)
             w *= torso_mask
         elif name == "Hips":
-            hip_mask = np.clip((0.64 - y) / 0.14, 0.0, 1.0) * np.clip((y - 0.28) / 0.14, 0.25, 1.0)
+            # Soft robe-drape anchor through mid-thigh keeps cloth cohesive while legs step underneath
+            hip_mask = np.clip((0.66 - y) / 0.14, 0.0, 1.0) * np.clip((y - 0.16) / 0.20, 0.22, 1.0)
             w *= hip_mask
 
         weights_all[:, bi] = w
@@ -144,9 +145,9 @@ def build_animations(bone_specs, is_sarai=False):
         ch_idle.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.08 - s1 * 0.04, 0.0, 0.0))
     anims.append(("Idle", dur_idle, times_idle, ch_idle))
 
-    # 2. Walk (expressive miniature-strategy stride — natural FORWARD lean for -Z facing!)
+    # 2. Walk (natural 3D biomechanical stride: lateral weight shift, double-bounce, pelvis/chest counter-twist, knee lift)
     n_w = 25
-    dur_walk = 0.96
+    dur_walk = 1.04
     times_walk = np.linspace(0.0, dur_walk, n_w, dtype=np.float32)
     ch_walk = {}
     hips_base = bone_specs[1][2]
@@ -154,24 +155,54 @@ def build_animations(bone_specs, is_sarai=False):
         ph = (t / dur_walk) * math.tau
         s = math.sin(ph)
         c = math.cos(ph)
-        bob = abs(math.sin(ph)) * 0.022
-        ch_walk.setdefault((1, "translation"), []).append([hips_base[0], hips_base[1] + bob, hips_base[2]])
-        # Negative X pitch leans FORWARD when character faces -Z!
-        ch_walk.setdefault((1, "rotation"), []).append(euler_xyz_to_quat(-0.04, s * 0.10, -s * 0.035))
-        ch_walk.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.06, -s * 0.08, s * 0.025))
-        ch_walk.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.05, -s * 0.11, 0.0))
-        ch_walk.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(0.05, s * 0.05, 0.0))
-        # Legs alternating stride (around X axis)
-        ch_walk.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(-s * 0.42, 0.0, 0.0))
-        ch_walk.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(max(0.0, c) * 0.34, 0.0, 0.0))
-        ch_walk.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(s * 0.42, 0.0, 0.0))
-        ch_walk.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(max(0.0, -c) * 0.34, 0.0, 0.0))
-        # Counter-swinging arms
-        ch_walk.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(s * 0.40, 0.0, -0.05))
-        ch_walk.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(0.20 + max(0.0, -s) * 0.16, 0.0, 0.0))
-        ch_walk.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-s * 0.40, 0.0, 0.05))
-        ch_walk.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(0.20 + max(0.0, s) * 0.16, 0.0, 0.0))
+        # Double-frequency vertical stride bob + lateral weight shift onto planted foot
+        bob = -math.cos(2.0 * ph) * 0.018
+        sway_x = s * 0.022
+        ch_walk.setdefault((1, "translation"), []).append([hips_base[0] + sway_x, hips_base[1] + bob, hips_base[2]])
+        # Negative X pitch leans FORWARD when character faces -Z; natural hip roll & pelvis yaw
+        ch_walk.setdefault((1, "rotation"), []).append(euler_xyz_to_quat(-0.05, s * 0.13, -s * 0.055))
+        ch_walk.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.05, -s * 0.10, s * 0.035))
+        ch_walk.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.04, -s * 0.14, s * 0.02))
+        ch_walk.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(0.06, s * 0.08, 0.0))
+        # Natural stride with smooth knee bend on swing phase (no stiff scissor-slice!)
+        l_swing = max(0.0, math.sin(ph + 0.65))
+        r_swing = max(0.0, math.sin(ph + math.pi + 0.65))
+        ch_walk.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(-s * 0.30 - l_swing * 0.14, 0.0, 0.02))
+        ch_walk.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(l_swing * 0.52, 0.0, 0.0))
+        ch_walk.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(s * 0.30 - r_swing * 0.14, 0.0, -0.02))
+        ch_walk.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(r_swing * 0.52, 0.0, 0.0))
+        # Natural relaxed counter-swinging arms with subtle elbow bend
+        ch_walk.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(s * 0.36, 0.0, -0.07))
+        ch_walk.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-0.24 - max(0.0, -s) * 0.22, 0.0, 0.0))
+        ch_walk.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-s * 0.36, 0.0, 0.07))
+        ch_walk.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.24 - max(0.0, s) * 0.22, 0.0, 0.0))
     anims.append(("Walk", dur_walk, times_walk, ch_walk))
+
+    # 2b. Run (athletic forward sprint with high knee drive and pumping elbows)
+    n_r = 25
+    dur_run = 0.68
+    times_run = np.linspace(0.0, dur_run, n_r, dtype=np.float32)
+    ch_run = {}
+    for k, t in enumerate(times_run):
+        ph = (t / dur_run) * math.tau
+        s = math.sin(ph)
+        bob = -math.cos(2.0 * ph) * 0.036
+        ch_run.setdefault((1, "translation"), []).append([hips_base[0] + s * 0.028, hips_base[1] + bob - 0.02, hips_base[2]])
+        ch_run.setdefault((1, "rotation"), []).append(euler_xyz_to_quat(-0.16, s * 0.18, -s * 0.06))
+        ch_run.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.12, -s * 0.16, s * 0.04))
+        ch_run.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.10, -s * 0.18, 0.0))
+        ch_run.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(0.18, s * 0.10, 0.0))
+        l_sw = max(0.0, math.sin(ph + 0.5))
+        r_sw = max(0.0, math.sin(ph + math.pi + 0.5))
+        ch_run.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(-s * 0.52 - l_sw * 0.22, 0.0, 0.0))
+        ch_run.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(l_sw * 0.85, 0.0, 0.0))
+        ch_run.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(s * 0.52 - r_sw * 0.22, 0.0, 0.0))
+        ch_run.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(r_sw * 0.85, 0.0, 0.0))
+        ch_run.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(s * 0.68, 0.0, -0.10))
+        ch_run.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-0.95 - max(0.0, -s) * 0.25, 0.0, 0.0))
+        ch_run.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-s * 0.68, 0.0, 0.10))
+        ch_run.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.95 - max(0.0, s) * 0.25, 0.0, 0.0))
+    anims.append(("Run", dur_run, times_run, ch_run))
 
     # 3. Pray (reverent Bronze Age Hebrew KNEELING & BOWING prayer at the altar — true 跪拜动作!)
     n_p = 25
@@ -257,6 +288,163 @@ def build_animations(bone_specs, is_sarai=False):
         ch_bl.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-1.15 - sway, 0.25, 0.45))
         ch_bl.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.48 - sway * 0.5, 0.0, 0.0))
     anims.append(("Bless", dur_bl, times_bl, ch_bl))
+
+    # 7. DrawSword (拔刀: reach across to left hip scabbard, draw bronze blade upward into guard stance)
+    n_ds = 25
+    dur_ds = 1.25
+    times_ds = np.linspace(0.0, dur_ds, n_ds, dtype=np.float32)
+    ch_ds = {}
+    for k, t in enumerate(times_ds):
+        u = t / dur_ds
+        # Phase 0..0.35 reach to left hip; 0.35..0.75 sweep upward/outward; 0.75..1.0 settle into guard
+        if u < 0.35:
+            p = u / 0.35
+            yaw_t = -0.35 * p
+            r_arm_x, r_arm_y, r_arm_z = -0.45 * p, -0.75 * p, -0.25 * p
+            r_elb = -0.75 * p
+            l_arm_x, l_arm_z = -0.25 * p, -0.15 * p
+        elif u < 0.75:
+            p = (u - 0.35) / 0.40
+            yaw_t = -0.35 + 0.65 * p
+            r_arm_x = -0.45 - 0.85 * math.sin(p * math.pi) - 0.30 * p
+            r_arm_y = -0.75 + 1.05 * p
+            r_arm_z = -0.25 + 0.65 * p
+            r_elb = -0.75 + 0.40 * p
+            l_arm_x, l_arm_z = -0.25 - 0.45 * p, -0.15 - 0.15 * p
+        else:
+            p = (u - 0.75) / 0.25
+            yaw_t = 0.30 * (1.0 - 0.25 * p)
+            r_arm_x, r_arm_y, r_arm_z = -0.75 + 0.10 * p, 0.30 - 0.10 * p, 0.40 - 0.12 * p
+            r_elb = -0.35 - 0.15 * p
+            l_arm_x, l_arm_z = -0.70, -0.30
+        ch_ds.setdefault((1, "translation"), []).append([hips_base[0], hips_base[1] - 0.04, hips_base[2]])
+        ch_ds.setdefault((1, "rotation"), []).append(euler_xyz_to_quat(-0.08, yaw_t * 0.5, 0.0))
+        ch_ds.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.08, yaw_t * 0.7, 0.0))
+        ch_ds.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.06, yaw_t, 0.0))
+        ch_ds.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(0.06, -yaw_t * 0.6, 0.0))
+        ch_ds.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(l_arm_x, 0.15, l_arm_z))
+        ch_ds.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-0.65, 0.0, 0.0))
+        ch_ds.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(r_arm_x, r_arm_y, r_arm_z))
+        ch_ds.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(r_elb, 0.0, 0.0))
+        ch_ds.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(-0.22, 0.0, 0.06))
+        ch_ds.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(0.28, 0.0, 0.0))
+        ch_ds.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(0.18, 0.0, -0.06))
+        ch_ds.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(0.22, 0.0, 0.0))
+    anims.append(("DrawSword", dur_ds, times_ds, ch_ds))
+
+    # 8. Slash (劈杀: explosive hip-driven diagonal bronze-sword cleave with torso twist & follow-through)
+    n_sl = 25
+    dur_sl = 1.05
+    times_sl = np.linspace(0.0, dur_sl, n_sl, dtype=np.float32)
+    ch_sl = {}
+    for k, t in enumerate(times_sl):
+        u = t / dur_sl
+        # 0..0.32 wind-up high right; 0.32..0.58 explosive cleave down-left; 0.58..1.0 recover
+        if u < 0.32:
+            p = u / 0.32
+            twist = 0.58 * p
+            lean = 0.08 * p
+            r_x, r_y, r_z = -0.6 - 1.35 * p, 0.35 * p, 0.55 * p
+            r_elb = -0.75 * p
+        elif u < 0.58:
+            p = (u - 0.32) / 0.26
+            e = p * p * (3.0 - 2.0 * p)
+            twist = 0.58 - 1.30 * e
+            lean = 0.08 - 0.34 * e
+            r_x = -1.95 + 2.30 * e
+            r_y = 0.35 - 1.05 * e
+            r_z = 0.55 - 0.95 * e
+            r_elb = -0.75 + 0.55 * e
+        else:
+            p = (u - 0.58) / 0.42
+            twist = -0.72 * (1.0 - p)
+            lean = -0.26 * (1.0 - p) - 0.08 * p
+            r_x = 0.35 * (1.0 - p) - 0.60 * p
+            r_y = -0.70 * (1.0 - p)
+            r_z = -0.40 * (1.0 - p) + 0.15 * p
+            r_elb = -0.20 - 0.25 * p
+        lunge = math.sin(min(u / 0.58, 1.0) * math.pi)
+        ch_sl.setdefault((1, "translation"), []).append([hips_base[0], hips_base[1] - 0.05 - 0.04 * lunge, hips_base[2] - 0.06 * lunge])
+        ch_sl.setdefault((1, "rotation"), []).append(euler_xyz_to_quat(lean * 0.5, twist * 0.55, 0.0))
+        ch_sl.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(lean * 0.7, twist * 0.75, 0.0))
+        ch_sl.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(lean, twist, 0.0))
+        ch_sl.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(-lean * 0.6, -twist * 0.75, 0.0))
+        ch_sl.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(-0.72, 0.25 - twist * 0.2, -0.32))
+        ch_sl.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-0.85, 0.0, 0.0))
+        ch_sl.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(r_x, r_y, r_z))
+        ch_sl.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(r_elb, 0.0, 0.0))
+        ch_sl.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(-0.35 - 0.25 * lunge, 0.0, 0.08))
+        ch_sl.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(0.42 + 0.25 * lunge, 0.0, 0.0))
+        ch_sl.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(0.28 + 0.15 * lunge, 0.0, -0.08))
+        ch_sl.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(0.25, 0.0, 0.0))
+    anims.append(("Slash", dur_sl, times_sl, ch_sl))
+
+    # 9. Brawl (搏斗: close-quarters left jab/shield bash -> right power cross combo)
+    n_brw = 25
+    dur_brw = 1.10
+    times_brw = np.linspace(0.0, dur_brw, n_brw, dtype=np.float32)
+    ch_brw = {}
+    for k, t in enumerate(times_brw):
+        ph = (t / dur_brw) * math.tau
+        jab = max(0.0, math.sin(ph))
+        cross = max(0.0, math.sin(ph - math.pi))
+        twist = -jab * 0.42 + cross * 0.55
+        ch_brw.setdefault((1, "translation"), []).append([hips_base[0], hips_base[1] - 0.06, hips_base[2] - 0.04 * (jab + cross)])
+        ch_brw.setdefault((1, "rotation"), []).append(euler_xyz_to_quat(-0.14, twist * 0.5, 0.0))
+        ch_brw.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.12, twist * 0.7, 0.0))
+        ch_brw.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.10, twist, 0.0))
+        ch_brw.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(0.14, -twist * 0.8, 0.0))
+        # Left arm jab
+        ch_brw.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(-0.85 - jab * 0.65, 0.15, -0.22))
+        ch_brw.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-1.10 + jab * 0.92, 0.0, 0.0))
+        # Right arm power cross
+        ch_brw.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-0.85 - cross * 0.72, -0.15, 0.22))
+        ch_brw.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-1.10 + cross * 0.95, 0.0, 0.0))
+        ch_brw.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(-0.32, 0.0, 0.08))
+        ch_brw.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(0.45, 0.0, 0.0))
+        ch_brw.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(0.24, 0.0, -0.08))
+        ch_brw.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(0.32, 0.0, 0.0))
+    anims.append(("Brawl", dur_brw, times_brw, ch_brw))
+
+    # 10. BowShoot (射箭: side-on archer stance, left bow arm extended toward -Z, right hand draws string to cheek & releases)
+    n_bw = 25
+    dur_bw = 1.65
+    times_bw = np.linspace(0.0, dur_bw, n_bw, dtype=np.float32)
+    ch_bw = {}
+    for k, t in enumerate(times_bw):
+        u = t / dur_bw
+        # 0..0.42 draw back; 0.42..0.72 hold full draw; 0.72..0.84 crisp release recoil; 0.84..1.0 relax
+        if u < 0.42:
+            draw = u / 0.42
+            recoil = 0.0
+        elif u < 0.72:
+            draw = 1.0
+            recoil = 0.0
+        elif u < 0.84:
+            draw = 1.0 - (u - 0.72) / 0.12
+            recoil = math.sin(((u - 0.72) / 0.12) * math.pi)
+        else:
+            draw = 0.0
+            recoil = 0.0
+        stance_yaw = 1.05  # Body turned ~60 deg right so left shoulder points straight at target (-Z)
+        ch_bw.setdefault((1, "translation"), []).append([hips_base[0], hips_base[1] - 0.04, hips_base[2]])
+        ch_bw.setdefault((1, "rotation"), []).append(euler_xyz_to_quat(-0.04, stance_yaw * 0.55, 0.0))
+        ch_bw.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.04, stance_yaw * 0.25, 0.0))
+        ch_bw.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.03, stance_yaw * 0.25, 0.0))
+        # Head looks straight over left shoulder at target (-Z)
+        ch_bw.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(0.04, -stance_yaw * 0.95, 0.0))
+        # Left arm holds composite bow extended forward toward -Z
+        ch_bw.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(-1.42 - recoil * 0.08, -0.95, -0.18))
+        ch_bw.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-0.08, 0.0, 0.0))
+        # Right arm pulls bowstring back to cheek, snaps back on release
+        ch_bw.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-1.25 + draw * 0.35 + recoil * 0.22, 0.35 + draw * 0.45, 0.65 + draw * 0.25))
+        ch_bw.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.45 - draw * 1.15 + recoil * 0.55, 0.0, 0.0))
+        # Wide stable archer stance
+        ch_bw.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(-0.18, 0.0, 0.14))
+        ch_bw.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(0.22, 0.0, 0.0))
+        ch_bw.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(0.16, 0.0, -0.14))
+        ch_bw.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(0.20, 0.0, 0.0))
+    anims.append(("BowShoot", dur_bw, times_bw, ch_bw))
 
     return anims
 
