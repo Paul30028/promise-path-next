@@ -12,6 +12,12 @@ config/features=PackedStringArray("4.4", "Forward Plus")
 [autoload]
 
 CampaignState="*res://scripts/campaign_state.gd"
+SoundManager="*res://scripts/sound_manager.gd"
+SceneTransition="*res://scripts/scene_transition.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/phantom_camera/plugin.cfg", "res://addons/godot_state_charts/plugin.cfg", "res://addons/dialogue_manager/plugin.cfg")
 
 [display]
 

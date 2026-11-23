@@ -500,6 +500,7 @@ func _assign_worker(station: String, delta_v: int) -> void:
 		"build": w_build = clampi(w_build + delta_v, 0, 7)
 		"pitch": w_pitch = clampi(w_pitch + delta_v, 0, 7)
 		"guard": w_guard = clampi(w_guard + delta_v, 0, 7)
+	SoundManager.play_sfx("sfx_assign.wav", -5.0)
 	_refresh_whisper_hud()
 
 
@@ -583,6 +584,8 @@ func _enter_event(id: String) -> void:
 	match id:
 		"noah_01_revelation":
 			world.apply_mood("revelation")
+			SoundManager.stop_ambience()
+			SoundManager.play_sfx("sfx_covenant_chime.wav", -6.0, 0.0)
 			flood_target = -10.5
 			for i in range(family.size()):
 				family[i].visible = (i == 0)
@@ -659,6 +662,8 @@ func _enter_event(id: String) -> void:
 
 		"noah_06_flood_dove":
 			world.apply_mood("flood")
+			SoundManager.play_ambience("sfx_rain_loop.wav", -8.0)
+			SoundManager.play_sfx("sfx_thunder.wav", -4.0)
 			cam_ctrl.pitch_override = NAN
 			flood_target = 4.2
 			if preview_mode:
@@ -672,6 +677,9 @@ func _enter_event(id: String) -> void:
 
 		"noah_07_exit_altar", "noah_08_rainbow_covenant":
 			world.apply_mood("ararat")
+			SoundManager.stop_ambience()
+			if id == "noah_08_rainbow_covenant":
+				SoundManager.play_sfx("sfx_covenant_chime.wav", -5.0, 0.0)
 			cam_ctrl.pitch_override = NAN
 			flood_target = -10.5
 			if preview_mode:
@@ -787,6 +795,7 @@ func _trigger_hotspot(h: Dictionary) -> void:
 		n.hide()
 	noah_busy_timer = 1.1
 	noah_busy_clip = str(h.get("clip", "Hammer"))
+	SoundManager.play_sfx("sfx_hammer.wav" if noah_busy_clip == "Hammer" else "sfx_ui_click.wav", -4.0)
 	inspection_boost_timer = 18.0
 	if family[0].visible:
 		_anim(family[0], noah_busy_clip)
@@ -830,7 +839,7 @@ func _check_act_complete() -> void:
 		"noah_05_board_ark": _enter_event("noah_06_flood_dove")
 		"noah_06_flood_dove": _enter_event("noah_07_exit_altar")
 		"noah_07_exit_altar": _enter_event("noah_08_rainbow_covenant")
-		"noah_08_rainbow_covenant": get_tree().change_scene_to_file("res://scenes/overworld_prologue.tscn")
+		"noah_08_rainbow_covenant": SceneTransition.change_scene("res://scenes/overworld_prologue.tscn")
 
 
 func _surface_height_for_noah(x: float, z: float) -> float:
