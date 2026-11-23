@@ -14,6 +14,7 @@ var selected_region_id: String = "reg_camp_altar_ridge"
 var hud_label: Label = null
 var dragging: bool = false
 var last_mouse: Vector2 = Vector2.ZERO
+var press_mouse: Vector2 = Vector2.ZERO
 var abram: CharacterBody3D
 var route: Array[Vector3] = []
 var graph_points: Array[Vector2] = []
@@ -58,6 +59,7 @@ func _load_region_json() -> void:
 
 func get_height(x: float, z: float) -> float:
 	var h: float = 0.0
+	var depression: float = 0.0
 	for reg in regions:
 		var c: Array = reg["center"]
 		var cx: float = float(c[0])
@@ -71,15 +73,16 @@ func get_height(x: float, z: float) -> float:
 			if elev >= 0.0:
 				h = maxf(h, elev * smooth)
 			else:
-				h += elev * smooth
+				depression += elev * smooth
+	h += depression
 	# Drop off east of x = 56 toward the lush Jordan River Valley
 	if x > 54.0:
 		var drop: float = clampf((x - 54.0) / 10.0, 0.0, 1.0)
 		h = lerpf(h, -2.4, drop * drop * (3.0 - 2.0 * drop))
-	# Flat central terrace with a readable, smooth 4m shoulder.
+	# Flat central terrace with a readable, smooth 8m shoulder.
 	var ridge_d := Vector2(x + 6.0, z - 2.0).length()
-	if ridge_d < 18.0:
-		h = lerpf(h, 2.8, 1.0 - smoothstep(14.0, 18.0, ridge_d))
+	if ridge_d < 22.0:
+		h = lerpf(h, 2.8, 1.0 - smoothstep(14.0, 22.0, ridge_d))
 	return h
 
 
@@ -203,15 +206,18 @@ func _build_shared_roads() -> void:
 				var p := a.lerp(b, float(s) / steps)
 				var q := a.lerp(b, float(s + 1) / steps)
 				# Shared cross sections, no raised boxes or gaps at segment ends.
-				for point in [p - side, q - side, p + side, p + side, q - side, q + side]:
-					st.add_vertex(Vector3(point.x, _ground(point.x, point.y) + 0.025, point.y))
+				for lane in range(8):
+					var left := -1.0 + float(lane) / 4.0
+					var right := left + 0.25
+					for point in [p + side * left, q + side * left, p + side * right, p + side * right, q + side * left, q + side * right]:
+						st.add_vertex(Vector3(point.x, _ground(point.x, point.y) + 0.06, point.y))
 	# Filled junction fans join every branch into the same surface.
 	for center in graph_points:
 		for k in range(20):
 			var a := center + Vector2.from_angle(float(k) / 20.0 * TAU) * 0.925
 			var b := center + Vector2.from_angle(float(k + 1) / 20.0 * TAU) * 0.925
 			for p in [center, a, b]:
-				st.add_vertex(Vector3(p.x, _ground(p.x, p.y) + 0.026, p.y))
+				st.add_vertex(Vector3(p.x, _ground(p.x, p.y) + 0.061, p.y))
 
 	st.generate_normals()
 	var ribbon := MeshInstance3D.new()
@@ -300,8 +306,8 @@ func _build_seven_region_chunks() -> void:
 				_add_box(details, Vector3(-4.2, 1.6, -2.5), Vector3(3.6, 3.2, 4.8), Color(0.72, 0.66, 0.55), 18.0)
 			"main_camp_altar":
 				# Main Tent + Healing Canopy + Dry-stone perimeter + North Low 12-Stone Altar!
-				_add_box(details, Vector3(-2.2, 1.3, 0.8), Vector3(5.0, 2.4, 3.4), Color(0.28, 0.18, 0.10))
-				_add_box(details, Vector3(2.4, 1.1, 0.8), Vector3(3.2, 2.0, 2.6), Color(0.84, 0.80, 0.68))
+				_add_box(details, Vector3(-2.2, 1.3, 5.0), Vector3(5.0, 2.4, 3.4), Color(0.28, 0.18, 0.10))
+				_add_box(details, Vector3(2.4, 1.1, 5.0), Vector3(3.2, 2.0, 2.6), Color(0.84, 0.80, 0.68))
 				# Irregular unhewn stone ring, each stone 0.35–0.52m high.
 				for k in range(12):
 					var angle: float = float(k) / 12.0 * TAU + sin(k * 2.7) * 0.08
@@ -349,7 +355,7 @@ func _build_seven_region_chunks() -> void:
 		lbl.pixel_size = 0.025
 		lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		lbl.no_depth_test = true
-		lbl.modulate = Color(0.99, 0.95, 0.84)
+		lbl.modulate = Color(0.18, 0.12, 0.06)
 		lbl.outline_modulate = Color(0.10, 0.07, 0.04)
 		lbl.outline_size = 0
 		lbl.position = Vector3(0.0, 6.2, 0.0)
@@ -430,7 +436,9 @@ func _update_chunk_streaming() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		dragging = event.pressed
-		if not event.pressed and event.position.distance_to(last_mouse) < 5.0:
+		if event.pressed:
+			press_mouse = event.position
+		if not event.pressed and event.position.distance_to(press_mouse) < 5.0:
 			var origin := camera.project_ray_origin(event.position)
 			var query := PhysicsRayQueryParameters3D.create(origin, origin + camera.project_ray_normal(event.position) * 400.0, 1)
 			var hit := get_world_3d().direct_space_state.intersect_ray(query)
@@ -519,7 +527,9 @@ func _physics_process(delta: float) -> void:
 			print("WALK_TEST: completed destinations=%d max_air_frames=%d peak_draw_calls=%d position=%s" % [graph_points.size(), test_max_air, test_peak_dc, abram.position])
 			get_tree().quit(0 if test_max_air < 5 and test_peak_dc < 80 else 1)
 			return
-		_start_walk(graph_points[test_destinations.pop_front()])
+		var destination_id: int = test_destinations.pop_front()
+		print("WALK_TEST destination=%d remaining=%d" % [destination_id, test_destinations.size()])
+		_start_walk(graph_points[destination_id])
 	if walking:
 		walk_elapsed += delta
 		if route.is_empty():

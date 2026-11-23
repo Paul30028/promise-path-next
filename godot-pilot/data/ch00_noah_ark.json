@@ -26,7 +26,10 @@
       "board_ark": "引导八口与众活物沿跳板登舟",
       "gather_stones": "亚拉腊岩坡拾石筑坛",
       "pray": "坛前跪拜献祭（创 8:20）"
-    }
+    },
+    "nextZh": "下一步",
+    "continueZh": "继续",
+    "overworldZh": "展开宏观战役画卷"
   },
   "completion": {
     "titleZh": "序章完结 · 彩虹永约立于云中（创 9:13）",
