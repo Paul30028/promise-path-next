@@ -12,6 +12,10 @@ extends Node3D
 
 var free_pan_enabled: bool = false
 var pitch_override: float = NAN
+var first_person_mode: bool = false
+var fp_eye_pos: Vector3 = Vector3.ZERO
+var fp_yaw: float = 0.0
+var fp_pitch: float = -0.05
 
 var target_focus: Vector3 = Vector3(0.0, 1.0, 2.0)
 var target_distance: float = 28.0
@@ -81,7 +85,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		var rel: Vector2 = mm.position - _last_mouse
 		_last_mouse = mm.position
 		if _orbiting:
-			target_yaw -= rel.x * orbit_sensitivity
+			if first_person_mode:
+				fp_yaw -= rel.x * orbit_sensitivity * 1.1
+				fp_pitch = clampf(fp_pitch - rel.y * orbit_sensitivity * 0.9, -0.72, 0.72)
+			else:
+				target_yaw -= rel.x * orbit_sensitivity
 		elif _panning:
 			var scale: float = current_distance * 0.0022
 			var right: Vector3 = Vector3(cos(current_yaw), 0.0, -sin(current_yaw))
@@ -131,6 +139,13 @@ func _clamp_focus() -> void:
 func _apply_camera_transform() -> void:
 	if camera == null:
 		return
+	if first_person_mode:
+		camera.fov = lerpf(camera.fov, 64.0, 0.22)
+		global_position = fp_eye_pos
+		camera.position = Vector3.ZERO
+		camera.rotation = Vector3(fp_pitch, fp_yaw, 0.0)
+		return
+	camera.fov = lerpf(camera.fov, 40.0, 0.22)
 	var horiz: float = cos(-current_pitch) * current_distance
 	var vert: float = sin(-current_pitch) * current_distance
 	var offset: Vector3 = Vector3(sin(current_yaw) * horiz, vert, cos(current_yaw) * horiz)

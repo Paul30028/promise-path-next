@@ -285,14 +285,15 @@ func _build_ark() -> void:
 	add_child(ark_anchor)
 	ark = spawn_asset("BLD_NoahsArk.glb", 4.8, Vector3.ZERO, ark_anchor)
 	ark_scale = 4.8 / 4.93494165
-	# Subtle warm interior lantern light + sunlit shafts streaming through the 1-cubit upper window band
-	var int_light: OmniLight3D = OmniLight3D.new()
-	int_light.name = "ArkInteriorWarmLight"
-	int_light.position = Vector3(0.0, 2.6, 0.0)
-	int_light.light_color = Color(1.0, 0.84, 0.56)
-	int_light.light_energy = 1.6
-	int_light.omni_range = 16.0
-	ark_anchor.add_child(int_light)
+	# Warm hanging oil-lantern lights along all 3 decks inside the enclosed Ark for First-Person Inspection!
+	for lx in [-6.5, 0.0, 6.5]:
+		var int_light: OmniLight3D = OmniLight3D.new()
+		int_light.name = "ArkLantern_%d" % int(lx)
+		int_light.position = Vector3(lx, 2.35, -0.2)
+		int_light.light_color = Color(1.0, 0.80, 0.48)
+		int_light.light_energy = 2.4
+		int_light.omni_range = 12.0
+		ark_anchor.add_child(int_light)
 
 
 func set_ark_stage(stage: int, cutaway: bool = false, retract_ramp: bool = false) -> void:

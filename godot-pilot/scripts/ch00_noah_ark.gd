@@ -36,10 +36,24 @@ var noah_busy_timer: float = 0.0
 var noah_busy_clip: String = ""
 var interior_cutaway: bool = false
 var manual_cutaway_lock: bool = false
+var first_person_interior: bool = false
 var camera_free_mode: bool = false
 
 var hotspots: Array[Dictionary] = []  # {id, pos, label, done, node, ring}
 var active_hotspot: Dictionary = {}
+
+# Real Deep RTS Workforce Strategy State (7 assignable family members across 4 competing stations!)
+var flood_countdown: float = 240.0
+var ark_build_pct: float = 0.0
+var timber_f: float = 30.0
+var pitch_f: float = 15.0
+var provisions_f: float = 60.0
+var w_log: int = 2
+var w_build: int = 3
+var w_pitch: int = 1
+var w_guard: int = 1
+var inspection_boost_timer: float = 0.0
+var strategy_alert: String = ""
 
 # Simulation State
 var elapsed: float = 0.0
@@ -48,14 +62,16 @@ var flood_level: float = -10.5
 var flood_target: float = -10.5
 var preview_mode: bool = false
 
-# Whisper-Clean HUD (ZERO giant right box, ZERO "+25%" button spam!)
+# Whisper-Clean HUD + Compact Tactical Workforce Allocation Bar
 var top_obj_panel: PanelContainer
 var top_obj_label: Label
+var strategy_panel: PanelContainer
+var strategy_labels: Dictionary = {}
 var interact_prompt: PanelContainer
 var interact_label: Label
 var subtitle_panel: PanelContainer
 var subtitle_label: Label
-var subtitle_timer: float = 0.0
+var fp_btn: Button
 var mode_btn: Button
 var cutaway_btn: Button
 var modal_overlay: ColorRect
@@ -90,6 +106,12 @@ func _ready() -> void:
 			preview_mode = true
 			manual_cutaway_lock = true
 			interior_cutaway = true
+		elif arg == "--first-person":
+			start_id = "noah_03_hull_decks"
+			preview_mode = true
+			first_person_interior = true
+			interior_cutaway = false
+			manual_cutaway_lock = false
 	_enter_event(start_id)
 
 
@@ -129,8 +151,9 @@ func _attach_hand_tool(actor: Node3D, glb_file: String) -> void:
 	ba.name = "RightHandTool"
 	ba.bone_idx = bone_idx
 	skel.add_child(ba)
-	var tool: Node3D = world.spawn_asset(glb_file, 0.42, Vector3(0.0, -0.14, -0.05), ba)
-	tool.rotation_degrees = Vector3(85.0, 0.0, 0.0)
+	# Fixed grip: mallet head points FORWARD (-Z) out of right fist!
+	var tool: Node3D = world.spawn_asset(glb_file, 0.40, Vector3(0.0, -0.22, -0.04), ba)
+	tool.rotation_degrees = Vector3(-82.0, 0.0, 0.0)
 
 
 func _attach_carried_log(actor: Node3D) -> Node3D:
@@ -292,20 +315,63 @@ func _build_whisper_hud() -> void:
 	top_obj_label.add_theme_font_size_override("font_size", 15)
 	top_obj_panel.add_child(top_obj_label)
 
-	# 2. Top-Right 2-Button View Control (Interior 360° Cutaway Toggle + Camera Mode)
+	# 2. Top-Right 3-Button View Control (True First-Person Interior + Cutaway + Camera Mode)
 	var tr_hb: HBoxContainer = HBoxContainer.new()
 	tr_hb.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	tr_hb.offset_left = -330
+	tr_hb.offset_left = -460
 	tr_hb.offset_right = -14
 	tr_hb.offset_top = 14
 	tr_hb.offset_bottom = 54
 	tr_hb.alignment = BoxContainer.ALIGNMENT_END
-	tr_hb.add_theme_constant_override("separation", 8)
+	tr_hb.add_theme_constant_override("separation", 6)
 	layer.add_child(tr_hb)
-	cutaway_btn = _make_pill("透视方舟内部 [V]", _toggle_cutaway)
+	fp_btn = _make_pill("第一人称进舱 [F]", _toggle_first_person)
+	tr_hb.add_child(fp_btn)
+	cutaway_btn = _make_pill("剖面透视 [V]", _toggle_cutaway)
 	tr_hb.add_child(cutaway_btn)
 	mode_btn = _make_pill("跟随挪亚 [Tab]", _toggle_camera_mode)
 	tr_hb.add_child(mode_btn)
+
+	# 2b. Compact Bottom-Left 4-Station Workforce Allocation Tactical Bar (Real RTS Strategy!)
+	strategy_panel = PanelContainer.new()
+	strategy_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	strategy_panel.offset_left = 14
+	strategy_panel.offset_right = 340
+	strategy_panel.offset_top = -274
+	strategy_panel.offset_bottom = -92
+	strategy_panel.add_theme_stylebox_override("panel", _style_box(Color(0.08, 0.06, 0.04, 0.84), Color(0.76, 0.58, 0.28, 0.88)))
+	layer.add_child(strategy_panel)
+	var st_vb: VBoxContainer = VBoxContainer.new()
+	st_vb.add_theme_constant_override("separation", 5)
+	strategy_panel.add_child(st_vb)
+	var st_hdr: Label = Label.new()
+	st_hdr.text = "家族 7 人实时分工调度（人力博弈）"
+	st_hdr.add_theme_color_override("font_color", Color(0.98, 0.84, 0.48))
+	st_hdr.add_theme_font_size_override("font_size", 14)
+	st_vb.add_child(st_hdr)
+	var rows: Array[Array] = [
+		["log", "东坡伐木（产木）"],
+		["build", "船坞建舟（耗木）"],
+		["pitch", "松香备粮（稳心）"],
+		["guard", "木栅守望（防盗）"],
+	]
+	for row in rows:
+		var key: String = str(row[0])
+		var hb: HBoxContainer = HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 6)
+		st_vb.add_child(hb)
+		var lb: Label = Label.new()
+		lb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lb.add_theme_color_override("font_color", Color(0.95, 0.91, 0.82))
+		lb.add_theme_font_size_override("font_size", 13)
+		hb.add_child(lb)
+		strategy_labels[key] = lb
+		var bm: Button = _make_pill("-", func() -> void: _assign_worker(key, -1))
+		bm.custom_minimum_size = Vector2(30, 26)
+		hb.add_child(bm)
+		var bp: Button = _make_pill("+", func() -> void: _assign_worker(key, 1))
+		bp.custom_minimum_size = Vector2(30, 26)
+		hb.add_child(bp)
 
 	# 3. Floating Center-Bottom [E] World Interaction Prompt (only visible when Noah is near a 3D Hotspot!)
 	interact_prompt = PanelContainer.new()
@@ -405,8 +471,8 @@ func _add_hotspot(id: String, pos: Vector3, label: String, clip: String = "Hamme
 	lbl.position = Vector3(0.0, 1.55, 0.0)
 	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	lbl.no_depth_test = true
-	lbl.font_size = 42
-	lbl.pixel_size = 0.0065
+	lbl.font_size = 36
+	lbl.pixel_size = 0.0038
 	lbl.modulate = Color(1.0, 0.94, 0.76)
 	lbl.outline_modulate = Color(0.08, 0.05, 0.03)
 	lbl.outline_size = 10
@@ -415,11 +481,56 @@ func _add_hotspot(id: String, pos: Vector3, label: String, clip: String = "Hamme
 	hotspots.append({"id": id, "pos": pos, "label": label, "clip": clip, "done": false, "node": root, "ring": ring})
 
 
+func _assign_worker(station: String, delta_v: int) -> void:
+	var idle_pool: int = 7 - (w_log + w_build + w_pitch + w_guard)
+	if delta_v > 0 and idle_pool <= 0:
+		# Rebalance automatically from the largest other station so player never gets stuck!
+		if station != "log" and w_log > 1:
+			w_log -= 1
+		elif station != "build" and w_build > 1:
+			w_build -= 1
+		elif station != "pitch" and w_pitch > 0:
+			w_pitch -= 1
+		elif station != "guard" and w_guard > 0:
+			w_guard -= 1
+		else:
+			return
+	match station:
+		"log": w_log = clampi(w_log + delta_v, 0, 7)
+		"build": w_build = clampi(w_build + delta_v, 0, 7)
+		"pitch": w_pitch = clampi(w_pitch + delta_v, 0, 7)
+		"guard": w_guard = clampi(w_guard + delta_v, 0, 7)
+	_refresh_whisper_hud()
+
+
+func _toggle_first_person() -> void:
+	first_person_interior = not first_person_interior
+	if first_person_interior:
+		# Put Noah INSIDE the fully enclosed Ark looking down the central corridor!
+		interior_cutaway = false
+		manual_cutaway_lock = false
+		var ap: Vector3 = world.ark_anchor.position
+		if absf(family[0].position.x - ap.x) > 9.5 or family[0].position.z > ap.z + 2.0:
+			family[0].position = ap + Vector3(-5.8, 0.55, 0.15)
+		cam_ctrl.first_person_mode = true
+		cam_ctrl.fp_yaw = -PI * 0.46  # Look down the full length of the 3-deck Ark (+X)
+		cam_ctrl.fp_pitch = 0.04
+		cam_ctrl.fp_eye_pos = family[0].position + Vector3(0.0, 1.52, 0.0)
+		family[0].hide()
+	else:
+		cam_ctrl.first_person_mode = false
+		family[0].show()
+	_apply_ark_visibility()
+	fp_btn.text = "退出第一人称 [F]" if first_person_interior else "第一人称进舱 [F]"
+
+
 func _toggle_cutaway() -> void:
+	if first_person_interior:
+		_toggle_first_person()
 	manual_cutaway_lock = not manual_cutaway_lock
 	interior_cutaway = manual_cutaway_lock
 	_apply_ark_visibility()
-	cutaway_btn.text = "关闭内部透视 [V]" if interior_cutaway else "透视方舟内部 [V]"
+	cutaway_btn.text = "关闭剖面透视 [V]" if interior_cutaway else "剖面透视 [V]"
 
 
 func _toggle_camera_mode() -> void:
@@ -496,11 +607,22 @@ func _enter_event(id: String) -> void:
 			_add_hotspot("timber_check", world.grounded(-6.2, 3.6), "验收歌斐木料堆", "Idle")
 
 		"noah_03_hull_decks":
-			world.apply_mood("dusk_raid" if not interior_cutaway else "build")
+			world.apply_mood("build" if (interior_cutaway or first_person_interior) else "dusk_raid")
 			cam_ctrl.pitch_override = NAN
 			for m in family:
 				m.show()
-			if interior_cutaway and preview_mode:
+			if first_person_interior and preview_mode:
+				# TRUE ENCLOSED FIRST-PERSON NOAH INSIDE THE 3-DECK ARK!
+				interior_cutaway = false
+				_apply_ark_visibility()
+				family[0].position = ap + Vector3(-6.2, 0.55, 0.25)
+				family[0].hide()
+				cam_ctrl.first_person_mode = true
+				cam_ctrl.fp_eye_pos = family[0].position + Vector3(0.0, 1.52, 0.0)
+				cam_ctrl.fp_yaw = -PI * 0.45
+				cam_ctrl.fp_pitch = 0.06
+				cam_ctrl._apply_camera_transform()
+			elif interior_cutaway and preview_mode:
 				# Place Noah RIGHT INSIDE the 3-deck Ark on the Lower/Middle deck inspecting the stalls!
 				family[0].position = ap + Vector3(-1.5, 0.55, -0.2)
 				family[0].look_at(ap + Vector3(4.0, 0.55, -1.5), Vector3.UP)
@@ -511,8 +633,8 @@ func _enter_event(id: String) -> void:
 				family[0].position = world.grounded(1.0, 4.2)
 				cam_ctrl.focus_on(family[0].position + Vector3(0.0, 1.5, -2.0), 22.0, -0.35, preview_mode)
 			# 3D Walk-Inside Inspection Stations INSIDE the Ark + Raider Defense outside!
-			_add_hotspot("inside_lower", ap + Vector3(-4.2, 0.55, -0.4), "入舱检查下层龙骨与畜栏", "Hammer")
-			_add_hotspot("inside_mid", ap + Vector3(4.2, 0.55, -0.4), "检查分舱隔间与一肘透光带", "Hammer")
+			_add_hotspot("inside_lower", ap + Vector3(-2.5, 0.55, -0.2), "检查下层龙骨榫卯与畜栏", "Hammer")
+			_add_hotspot("inside_mid", ap + Vector3(4.2, 0.55, -0.2), "检查中层分舱与一肘透光带", "Hammer")
 			_add_hotspot("defend_yard", world.grounded(-3.5, 7.2), "筑木栅与三子护材对峙", "Bless")
 
 		"noah_04_pitch_provisions":
@@ -582,18 +704,26 @@ func _stage_ararat_worship() -> void:
 
 func _refresh_whisper_hud() -> void:
 	var id: String = str(current_event.get("id", ""))
+	var is_build_act: bool = id in ["noah_02_keel_mortise", "noah_03_hull_decks", "noah_04_pitch_provisions"]
 	var hide_top: bool = bool(current_event.get("hideResourceHud", false)) or id in ["noah_07_exit_altar", "noah_08_rainbow_covenant"]
 	top_obj_panel.visible = not hide_top
-	var done_cnt: int = 0
-	for h in hotspots:
-		if bool(h.done):
-			done_cnt += 1
-	top_obj_label.text = "%s  |  巡检进度: %d/%d  |  歌斐木: %d  |  WASD移动 · 右键360°环视 · [V]透视船舱 · [E]交互" % [
-		str(current_event.get("titleZh", "")),
-		done_cnt,
-		hotspots.size(),
-		int(state.get("timber", 0)),
+	strategy_panel.visible = is_build_act and not first_person_interior
+	var boost_tag: String = "  [宗师监造+60%]" if inspection_boost_timer > 0.0 else ""
+	var alert_tag: String = ("  |  " + strategy_alert) if not strategy_alert.is_empty() else ""
+	top_obj_label.text = "距大雨: %ds  |  工程: %d%%  |  歌斐木: %d  |  松香: %d  |  粮草: %d%s%s" % [
+		int(maxf(flood_countdown, 0.0)),
+		int(roundf(ark_build_pct)),
+		int(timber_f),
+		int(pitch_f),
+		int(provisions_f),
+		boost_tag,
+		alert_tag,
 	]
+	if strategy_labels.has("log"):
+		(strategy_labels["log"] as Label).text = "东坡伐木: %d人 (+%d木/s)" % [w_log, w_log * 4]
+		(strategy_labels["build"] as Label).text = "船坞建舟: %d人 (耗%d木/s)" % [w_build, w_build * 3]
+		(strategy_labels["pitch"] as Label).text = "松香备粮: %d人 (+%d漆/s)" % [w_pitch, w_pitch * 2]
+		(strategy_labels["guard"] as Label).text = "木栅守望: %d人 (%s)" % [w_guard, "安全" if w_guard >= 2 else "易被盗材!"]
 	subtitle_label.text = "【%s · %s】%s" % [
 		str(current_event.get("speakerZh", "")),
 		str(current_event.get("canonRef", "")),
@@ -606,7 +736,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		var kc: Key = (event as InputEventKey).keycode
-		if kc == KEY_V:
+		if kc == KEY_F:
+			_toggle_first_person()
+		elif kc == KEY_V:
 			_toggle_cutaway()
 		elif kc == KEY_TAB:
 			_toggle_camera_mode()
@@ -655,9 +787,11 @@ func _trigger_hotspot(h: Dictionary) -> void:
 		n.hide()
 	noah_busy_timer = 1.1
 	noah_busy_clip = str(h.get("clip", "Hammer"))
+	inspection_boost_timer = 18.0
 	if family[0].visible:
 		_anim(family[0], noah_busy_clip)
-	state.timber = int(state.get("timber", 0)) + 25
+	timber_f += 20.0
+	ark_build_pct = minf(100.0, ark_build_pct + 18.0)
 	_refresh_whisper_hud()
 	_check_act_complete()
 
@@ -716,10 +850,31 @@ func _process(delta: float) -> void:
 	var id: String = str(current_event.get("id", ""))
 	var noah: Node3D = family[0]
 
-	# 1. Direct-Control Noah (WASD / Click-to-Walk + Automatic Walk-Inside 3-Deck Cutaway!)
-	if noah.visible and not modal_overlay.visible and id not in ["noah_01_revelation", "noah_07_exit_altar", "noah_08_rainbow_covenant"]:
+	# 1. Direct-Control Noah (First-Person inside enclosed Ark OR 3rd-Person outside!)
+	if not modal_overlay.visible and id not in ["noah_01_revelation", "noah_06_flood_dove", "noah_07_exit_altar", "noah_08_rainbow_covenant"]:
 		var move_dir: Vector3 = Vector3.ZERO
-		if not camera_free_mode:
+		if first_person_interior:
+			var yaw: float = cam_ctrl.fp_yaw
+			var right: Vector3 = Vector3(cos(yaw), 0.0, -sin(yaw))
+			var fwd: Vector3 = Vector3(-sin(yaw), 0.0, -cos(yaw))
+			if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+				move_dir += fwd
+			if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+				move_dir -= fwd
+			if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+				move_dir -= right
+			if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+				move_dir += right
+			if move_dir.length_squared() > 0.01:
+				move_dir = move_dir.normalized()
+				var np: Vector3 = noah.position + move_dir * 3.0 * delta
+				var ap: Vector3 = world.ark_anchor.position
+				np.x = clampf(np.x, ap.x - 9.4, ap.x + 9.4)
+				np.z = clampf(np.z, ap.z - 1.9, ap.z + 2.4)
+				np.y = _surface_height_for_noah(np.x, np.z)
+				noah.position = np
+			cam_ctrl.fp_eye_pos = noah.position + Vector3(0.0, 1.52 + sin(elapsed * 6.0) * (0.025 if move_dir.length_squared() > 0.01 else 0.0), 0.0)
+		elif noah.visible and not camera_free_mode:
 			var yaw: float = cam_ctrl.current_yaw
 			var right: Vector3 = Vector3(cos(yaw), 0.0, -sin(yaw))
 			var fwd: Vector3 = Vector3(-sin(yaw), 0.0, -cos(yaw))
@@ -731,46 +886,63 @@ func _process(delta: float) -> void:
 				move_dir -= right
 			if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
 				move_dir += right
-		if move_dir.length_squared() > 0.01:
-			noah_has_click_target = false
-			noah_busy_timer = 0.0
-			move_dir = move_dir.normalized()
-			var spd: float = 5.4 if Input.is_key_pressed(KEY_SHIFT) else 3.4
-			var np: Vector3 = noah.position + move_dir * spd * delta
-			np.x = clampf(np.x, -18.0, 38.0)
-			np.z = clampf(np.z, -10.0, 34.0)
-			np.y = _surface_height_for_noah(np.x, np.z)
-			noah.position = np
-			noah.look_at(noah.position + move_dir, Vector3.UP)
-			_anim(noah, "Run" if Input.is_key_pressed(KEY_SHIFT) else "Walk")
-		elif noah_has_click_target:
-			var flat_d: Vector3 = Vector3(noah_click_target.x - noah.position.x, 0.0, noah_click_target.z - noah.position.z)
-			if flat_d.length() < 0.45:
+			if move_dir.length_squared() > 0.01:
 				noah_has_click_target = false
-			else:
-				var dir: Vector3 = flat_d.normalized()
-				var np: Vector3 = noah.position + dir * 3.6 * delta
+				noah_busy_timer = 0.0
+				move_dir = move_dir.normalized()
+				var spd: float = 5.4 if Input.is_key_pressed(KEY_SHIFT) else 3.4
+				var np: Vector3 = noah.position + move_dir * spd * delta
+				np.x = clampf(np.x, -18.0, 38.0)
+				np.z = clampf(np.z, -10.0, 34.0)
 				np.y = _surface_height_for_noah(np.x, np.z)
 				noah.position = np
-				noah.look_at(noah.position + dir, Vector3.UP)
-				_anim(noah, "Walk")
-		elif noah_busy_timer > 0.0:
-			noah_busy_timer -= delta
-			_anim(noah, noah_busy_clip)
-		else:
-			_anim(noah, "Idle")
+				noah.look_at(noah.position + move_dir, Vector3.UP)
+				_anim(noah, "Run" if Input.is_key_pressed(KEY_SHIFT) else "Walk")
+			elif noah_has_click_target:
+				var flat_d: Vector3 = Vector3(noah_click_target.x - noah.position.x, 0.0, noah_click_target.z - noah.position.z)
+				if flat_d.length() < 0.45:
+					noah_has_click_target = false
+				else:
+					var dir: Vector3 = flat_d.normalized()
+					var np: Vector3 = noah.position + dir * 3.6 * delta
+					np.y = _surface_height_for_noah(np.x, np.z)
+					noah.position = np
+					noah.look_at(noah.position + dir, Vector3.UP)
+					_anim(noah, "Walk")
+			elif noah_busy_timer > 0.0:
+				noah_busy_timer -= delta
+				_anim(noah, noah_busy_clip)
+			else:
+				_anim(noah, "Idle")
 
-		# Auto-open 3-Deck Interior Cutaway whenever Noah steps onto the ramp or INSIDE the Ark!
-		if not manual_cutaway_lock:
+			# Auto-enter TRUE FIRST-PERSON INTERIOR when Noah walks through the Ark doorway!
 			var ap: Vector3 = world.ark_anchor.position
-			var inside_now: bool = int(state.get("arkStage", 0)) >= 2 and absf(noah.position.x - ap.x) < 10.6 and noah.position.z < ap.z + 3.2 and noah.position.z > ap.z - 2.6
-			if inside_now != interior_cutaway:
-				interior_cutaway = inside_now
-				_apply_ark_visibility()
-				cutaway_btn.text = "关闭内部透视 [V]" if interior_cutaway else "透视方舟内部 [V]"
+			if int(state.get("arkStage", 0)) >= 2 and absf(noah.position.x - ap.x) < 9.5 and noah.position.z < ap.z + 1.9 and noah.position.z > ap.z - 2.2 and not manual_cutaway_lock:
+				_toggle_first_person()
 
-		if not camera_free_mode:
 			cam_ctrl.focus_on(noah.position + Vector3(0.0, 1.4, 0.0), -1.0, NAN, false)
+
+	# 1b. Live Real-Time RTS Economy, Countdown & Raider Theft Simulation!
+	if id in ["noah_02_keel_mortise", "noah_03_hull_decks", "noah_04_pitch_provisions"]:
+		flood_countdown = maxf(0.0, flood_countdown - delta)
+		if inspection_boost_timer > 0.0:
+			inspection_boost_timer -= delta
+		timber_f += float(w_log) * 4.0 * delta
+		pitch_f += float(w_pitch) * 2.0 * delta
+		provisions_f += float(w_pitch) * 1.6 * delta
+		var timber_need: float = float(w_build) * 3.0 * delta
+		strategy_alert = ""
+		if id == "noah_03_hull_decks" and not crisis_resolved and w_guard < 2:
+			timber_f = maxf(0.0, timber_f - 5.0 * delta)
+			strategy_alert = "强人正在盗材！调派守望或建栅栏"
+		if timber_f >= timber_need and w_build > 0:
+			timber_f -= timber_need
+			var boost: float = 1.6 if inspection_boost_timer > 0.0 else 1.0
+			ark_build_pct = minf(100.0, ark_build_pct + float(w_build) * 1.4 * boost * delta)
+		elif w_build > 0:
+			strategy_alert = "歌斐木不足！请加派人手东坡伐木"
+		state.timber = int(timber_f)
+		_refresh_whisper_hud()
 
 	# 2. Check proximity to 3D Hotspots for [E] Prompt + pulse rings
 	active_hotspot = {}

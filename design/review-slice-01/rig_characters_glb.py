@@ -171,14 +171,14 @@ def build_animations(bone_specs, is_sarai=False):
         ch_walk.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(l_swing * 0.52, 0.0, 0.0))
         ch_walk.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(s * 0.30 - r_swing * 0.14, 0.0, -0.02))
         ch_walk.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(r_swing * 0.52, 0.0, 0.0))
-        # Natural relaxed counter-swinging arms with subtle elbow bend
+        # Natural relaxed counter-swinging arms with forward elbow bend (+X bends forearm forward toward -Z!)
         ch_walk.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(s * 0.36, 0.0, -0.07))
-        ch_walk.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-0.24 - max(0.0, -s) * 0.22, 0.0, 0.0))
+        ch_walk.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(0.24 + max(0.0, s) * 0.24, 0.0, 0.0))
         ch_walk.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-s * 0.36, 0.0, 0.07))
-        ch_walk.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.24 - max(0.0, s) * 0.22, 0.0, 0.0))
+        ch_walk.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(0.24 + max(0.0, -s) * 0.24, 0.0, 0.0))
     anims.append(("Walk", dur_walk, times_walk, ch_walk))
 
-    # 2b. Run (athletic forward sprint with high knee drive and pumping elbows)
+    # 2b. Run (athletic forward sprint with high knee drive and pumping forward-bent elbows)
     n_r = 25
     dur_run = 0.68
     times_run = np.linspace(0.0, dur_run, n_r, dtype=np.float32)
@@ -199,9 +199,9 @@ def build_animations(bone_specs, is_sarai=False):
         ch_run.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(s * 0.52 - r_sw * 0.22, 0.0, 0.0))
         ch_run.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(r_sw * 0.85, 0.0, 0.0))
         ch_run.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(s * 0.68, 0.0, -0.10))
-        ch_run.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-0.95 - max(0.0, -s) * 0.25, 0.0, 0.0))
+        ch_run.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(0.95 + max(0.0, s) * 0.25, 0.0, 0.0))
         ch_run.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-s * 0.68, 0.0, 0.10))
-        ch_run.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.95 - max(0.0, s) * 0.25, 0.0, 0.0))
+        ch_run.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(0.95 + max(0.0, -s) * 0.25, 0.0, 0.0))
     anims.append(("Run", dur_run, times_run, ch_run))
 
     # 3. Pray (reverent Bronze Age Hebrew KNEELING & BOWING prayer at the altar — true 跪拜动作!)
@@ -244,15 +244,15 @@ def build_animations(bone_specs, is_sarai=False):
         ch_ham.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.14 - strike * 0.12, -0.10 + strike * 0.16, 0.0))
         ch_ham.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.10 - strike * 0.10, -0.08 + strike * 0.12, 0.0))
         ch_ham.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(-0.12, 0.06, 0.0))
-        # Right arm (8=UpperArm_R, 9=LowerArm_R) raises high and strikes down cleanly
-        ch_ham.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-0.55 - strike * 0.85, 0.08, 0.18))
-        ch_ham.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.50 - max(0.0, strike) * 0.55, 0.0, 0.0))
-        # Left arm (6=UpperArm_L, 7=LowerArm_L) steadies timber peg
-        ch_ham.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(-0.45, -0.15, -0.12))
-        ch_ham.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-0.42, 0.0, 0.0))
+        # Right arm (8=UpperArm_R, 9=LowerArm_R) raises FORWARD & UP (+X) then strikes DOWN onto timber!
+        ch_ham.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(0.95 + strike * 0.72, -0.10, 0.14))
+        ch_ham.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(0.65 + max(0.0, strike) * 0.45, 0.0, 0.0))
+        # Left arm (6=UpperArm_L, 7=LowerArm_L) steadies timber peg in front
+        ch_ham.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(0.58, 0.18, -0.10))
+        ch_ham.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(0.52, 0.0, 0.0))
     anims.append(("Hammer", dur_ham, times_ham, ch_ham))
 
-    # 5. BrushPitch (stooped sweeping stroke applying hot bitumen/pitch to hull seams)
+    # 5. BrushPitch (stooped sweeping stroke applying hot bitumen/pitch forward on hull seams)
     n_b = 25
     dur_br = 1.6
     times_br = np.linspace(0.0, dur_br, n_b, dtype=np.float32)
@@ -264,13 +264,13 @@ def build_animations(bone_specs, is_sarai=False):
         ch_br.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.24, sweep * 0.18, 0.0))
         ch_br.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.18, sweep * 0.22, 0.0))
         ch_br.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(-0.16, sweep * 0.10, 0.0))
-        ch_br.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-0.72 + sweep * 0.25, sweep * 0.38, 0.12))
-        ch_br.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.35 + sweep * 0.18, 0.0, 0.0))
-        ch_br.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(-0.35, -0.12, -0.10))
-        ch_br.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-0.25, 0.0, 0.0))
+        ch_br.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(0.82 + sweep * 0.22, sweep * 0.35, 0.10))
+        ch_br.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(0.42 + sweep * 0.16, 0.0, 0.0))
+        ch_br.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(0.45, 0.12, -0.10))
+        ch_br.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(0.35, 0.0, 0.0))
     anims.append(("BrushPitch", dur_br, times_br, ch_br))
 
-    # 6. Bless (exact 00_prologue_noah_ark_final.png thanksgiving pose: upright, head lifted skyward, both arms raised!)
+    # 6. Bless (exact 00_prologue_noah_ark_final.png thanksgiving pose: upright, head lifted skyward, both arms raised FORWARD & UP!)
     n_bl = 25
     dur_bl = 3.2
     times_bl = np.linspace(0.0, dur_bl, n_bl, dtype=np.float32)
@@ -282,11 +282,11 @@ def build_animations(bone_specs, is_sarai=False):
         ch_bl.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(0.05 + sway * 0.3, 0.0, 0.0))
         ch_bl.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(0.08 + sway * 0.3, 0.0, 0.0))
         ch_bl.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(0.24 + sway * 0.4, sway * 0.5, 0.0))
-        # Both arms raised outward & upward toward the Rainbow Covenant
-        ch_bl.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(-1.15 - sway, -0.25, -0.45))
-        ch_bl.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-0.48 - sway * 0.5, 0.0, 0.0))
-        ch_bl.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-1.15 - sway, 0.25, 0.45))
-        ch_bl.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.48 - sway * 0.5, 0.0, 0.0))
+        # Both arms raised forward & upward (+X) toward the Rainbow Covenant
+        ch_bl.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(1.35 + sway, -0.22, -0.42))
+        ch_bl.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(0.45 + sway * 0.4, 0.0, 0.0))
+        ch_bl.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(1.35 + sway, 0.22, 0.42))
+        ch_bl.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(0.45 + sway * 0.4, 0.0, 0.0))
     anims.append(("Bless", dur_bl, times_bl, ch_bl))
 
     # 7. DrawSword (拔刀: reach across to left hip scabbard, draw bronze blade upward into guard stance)
