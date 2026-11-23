@@ -1,945 +1,688 @@
 extends Node3D
-## Narrative text, actions, choices, and event transitions come from chapter JSON.
-const Loader: Script = preload("res://scripts/glb_asset_loader.gd")
-const DATA: String = "res://data/ch00_noah_ark.json"
-@export_range(-1, 3) var preview_stage: int = -1
-@export var preview_ararat: bool = false
-var chapter: Dictionary
-var event: Dictionary
-var state: Dictionary
+## Playable 120x120 Grand RTS Strategy-Survival + Live 3D Crisis Director for Prologue (Gen 6-9).
+## Driven by res://data/ch00_noah_ark.json with Free RTS Camera, 4-Zone World, Visible Plot Twists
+## (Mocking Villagers & Worker Desertion, Dusk Torch Raiders, Real Rising 3D Flood, Multi-Species Boarding),
+## and Minimal Cinematic HUD (NO permanent giant side text box!).
+
+const DATA_PATH: String = "res://data/ch00_noah_ark.json"
+
+var chapter: Dictionary = {}
 var event_index: Dictionary = {}
-var phase: String = "build"
-var pending_choice: Dictionary = {}
-var action_ready: bool = false
-var action_running: bool = false
-var action_time: float = 0.0
-var elapsed: float = 0.0
-var waypoints: Array[Vector3] = []
-var obstacles: Array[Rect2] = []
-var ark: Node3D
-var noah: Node3D
-var player: AnimationPlayer
-var animation: String = ""
-var camera: Camera3D
-var rig: Node3D
-var focus: Vector3 = Vector3.ZERO
-var sun: DirectionalLight3D
-var environment: Environment
-var sky_material: ProceduralSkyMaterial
-var ground_material: StandardMaterial3D
-var water: MeshInstance3D
-var rain: CPUParticles3D
-var rainbow: MeshInstance3D
-var altar: Node3D
-var fence: Node3D
-var stakes: Node3D
-var provisions: Node3D
-var foliage: Node3D
-var terrace: Node3D
-var hud_panel: PanelContainer
-var yard: Node3D
-var shoots: Node3D
-var sheep: Node3D
-var content: VBoxContainer
-var hud: Label
-var panel: PanelContainer
-var mood_tween: Tween
-var water_tween: Tween
-var flood_finished: bool = true
-var prayer: bool = false
+var current_event: Dictionary = {}
+var state: Dictionary = {}
+
+var world: NoahRTSWorld
+var cam_ctrl: RTSCameraController
+
+# Cast & Actors
 var family: Array[Node3D] = []
-var family_players: Array[AnimationPlayer] = []
+var hired_workers: Array[Node3D] = []
+var villagers: Array[Node3D] = []
+var raiders: Array[Node3D] = []
+var animal_root: Node3D
 var birds: Array[Node3D] = []
 var boarding_path: Array[Vector3] = []
 
+# Live RTS simulation state
+var elapsed: float = 0.0
+var phase_progress: float = 0.0
+var worker_boost: float = 1.0
+var crisis_triggered: bool = false
+var crisis_resolved: bool = false
+var flood_level: float = -10.5
+var flood_target: float = -10.5
+var flood_peak_reached: bool = false
+var preview_mode: bool = false
+
+# Minimal Cinematic UI Nodes
+var top_bar: PanelContainer
+var top_label: Label
+var progress_bar: ProgressBar
+var subtitle_panel: PanelContainer
+var subtitle_title: Label
+var subtitle_body: Label
+var cmd_dock: HBoxContainer
+var modal_overlay: ColorRect
+var modal_title: Label
+var modal_body: Label
+var modal_choices: VBoxContainer
+
+
 func _ready() -> void:
-	var file: FileAccess = FileAccess.open(DATA, FileAccess.READ)
-	if file == null:
-		push_error("Cannot open chapter JSON: " + DATA)
-		return
-	var parsed: Variant = JSON.parse_string(file.get_as_text())
-	file.close()
-	if not parsed is Dictionary:
-		push_error("Invalid chapter JSON: " + DATA)
-		return
-	chapter = parsed
-	state = chapter.initialState.duplicate(true)
-	for item in chapter.events:
-		event_index[item.id] = item
-	_build_world()
-	_build_ui()
-	var start: String = chapter.firstEventId
-	var stage: int = preview_stage
-	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--stage="):
-			stage = clampi(int(arg.get_slice("=", 1)), 0, 3)
-		if arg == "--ararat":
-			preview_ararat = true
-	if stage >= 0:
-		for item in chapter.events:
-			if int(item.arkStage) == stage:
-				start = item.id
-				break
-	if preview_ararat:
-		start = chapter.events[-1].id
+	_load_json()
+	world = NoahRTSWorld.new()
+	world.name = "NoahRTSWorld"
+	add_child(world)
+	world.build_all()
+
+	cam_ctrl = RTSCameraController.new()
+	cam_ctrl.name = "RTSCameraController"
+	add_child(cam_ctrl)
+
+	_spawn_cast_and_animals()
+	_build_minimal_hud()
+
+	var start_id: String = str(chapter.get("firstEventId", "noah_01_revelation"))
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--preview-scene="):
-			var requested: String = arg.trim_prefix("--preview-scene=")
-			if event_index.has(requested):
-				start = requested
-			else:
-				push_warning("Unknown preview scene: " + requested)
-	_enter_event(start)
+			var req: String = arg.trim_prefix("--preview-scene=")
+			if event_index.has(req):
+				start_id = req
+				preview_mode = true
+	_enter_event(start_id)
 
-func _material(color: Color, roughness: float = .9) -> StandardMaterial3D:
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = roughness
-	return mat
 
-func _box(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:
-	var node: MeshInstance3D = MeshInstance3D.new()
-	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = size
-	node.mesh = mesh
-	node.material_override = mat
-	node.position = pos
-	parent.add_child(node)
-	return node
+func _load_json() -> void:
+	var f: FileAccess = FileAccess.open(DATA_PATH, FileAccess.READ)
+	if f == null:
+		push_error("Cannot open " + DATA_PATH)
+		return
+	var parsed: Variant = JSON.parse_string(f.get_as_text())
+	f.close()
+	if parsed is Dictionary:
+		chapter = parsed
+		state = chapter.get("initialState", {"timber": 0, "provisions": 60, "harmony": 80, "arkStage": 0}).duplicate(true)
+		for ev in chapter.get("events", []):
+			event_index[str(ev.id)] = ev
 
-func _asset(file: String, height: float, pos: Vector3, parent: Node3D = self) -> Node3D:
-	var packed: PackedScene = load("res://assets/models/" + file) as PackedScene
-	var node: Node3D = null
-	if packed != null:
-		node = Node3D.new()
-		node.name = file.get_basename()
-		var model: Node3D = packed.instantiate() as Node3D
-		if model != null:
-			var bounds: AABB = Loader._compute_local_aabb(model)
-			var factor: float = height / maxf(bounds.size.y, 0.001)
-			model.scale = Vector3.ONE * factor
-			model.position.y = -bounds.position.y * factor
-			node.add_child(model)
-	if node == null:
-		push_error("Missing prologue asset: " + file)
-		node = Node3D.new()
-	parent.add_child(node)
-	node.position = pos
-	return node
 
-func _build_world() -> void:
-	environment = Environment.new()
-	environment.background_mode = Environment.BG_SKY
-	sky_material = ProceduralSkyMaterial.new()
-	var sky: Sky = Sky.new()
-	sky.sky_material = sky_material
-	environment.sky = sky
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	environment.ambient_light_energy = .32
-	environment.tonemap_mode = Environment.TONE_MAPPER_ACES
-	environment.fog_enabled = true
-	environment.fog_density = .008
-	var world: WorldEnvironment = WorldEnvironment.new()
-	world.environment = environment
-	add_child(world)
-	sun = DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-48, -32, 0)
-	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 90
-	sun.shadow_blur = 1.2
-	add_child(sun)
-	rig = Node3D.new()
-	rig.name = "CameraRig"
-	add_child(rig)
-	camera = Camera3D.new()
-	camera.position = Vector3(-12.5,13.5,20.5)
-	camera.fov = 38
-	camera.h_offset = 2.8
-	camera.far = 220
-	rig.add_child(camera)
-	camera.look_at(Vector3(-2.0,2.0,-0.5))
-	camera.current = true
-	ground_material = _material(Color(.69,.59,.44))
-	ground_material.albedo_texture = load("res://assets/textures/terrain_rock_albedo.png")
-	ground_material.normal_enabled = true
-	ground_material.normal_texture = load("res://assets/textures/terrain_rock_normal.png")
-	ground_material.normal_scale = .32
-	ground_material.uv1_triplanar = true
-	ground_material.uv1_scale = Vector3(.2,.2,.2)
-	var ground: MeshInstance3D = MeshInstance3D.new()
-	ground.name = "SculptedAraratTerrain"
-	ground.mesh = _terrain_mesh()
-	ground.material_override = ground_material
-	add_child(ground)
-	_build_valley()
-	var stone: StandardMaterial3D = _material(Color(.66,.64,.59),.88)
-	stone.albedo_texture = load("res://assets/textures/rock_boulder_albedo.png")
-	stone.uv1_triplanar = true
-	# Soft distant highland ridges in warm earthy limestone tones
-	for i in range(12):
-		var hill: SphereMesh = SphereMesh.new()
-		hill.radius = 1.0
-		hill.height = 2.0
-		hill.radial_segments = 16
-		hill.rings = 8
-		var node: MeshInstance3D = MeshInstance3D.new()
-		node.mesh = _crag_mesh(hill,float(i))
-		var hill_mat: StandardMaterial3D = _material(Color(.46+i*.008,.44+i*.006,.38), .95)
-		hill_mat.albedo_texture = load("res://assets/textures/terrain_rock_albedo.png")
-		hill_mat.uv1_triplanar = true
-		hill_mat.uv1_scale = Vector3(.15,.15,.15)
-		node.material_override = hill_mat
-		node.position = Vector3(-48+i*10,-1.5,-42 - absf(sin(i))*10)
-		node.scale = Vector3(13 + i%4, 7.5 + (i%3)*2.8, 10)
-		add_child(node)
-	ark = _asset("BLD_NoahsArk.glb",4.0,Vector3(1.8,0,-5.0))
-	var bounds: AABB = Loader._compute_local_aabb(ark)
-	obstacles.append(Rect2(Vector2(ark.position.x+bounds.position.x-.35,ark.position.z-2.8),Vector2(bounds.size.x+.7,5.5)))
-	noah = _asset("CHR_Noah_rigged.glb",1.65,Vector3(-7,0,6))
-	_build_family()
-	_build_boarding_path()
-	yard = Node3D.new()
-	yard.name = "TimberStacks"
-	add_child(yard)
-	var wood: StandardMaterial3D = _material(Color(.32,.19,.085))
-	wood.albedo_texture = load("res://assets/textures/wood_timber_albedo.png")
-	for i in range(10):
-		_box(yard,Vector3(3,.25,.28),Vector3(-5,.125 + float(i/4)*.25,1.5 + (i%4)*.32),wood)
-	obstacles.append(Rect2(-7,1,4,2.5))
-	stakes = Node3D.new()
-	stakes.name = "YardStakes"
-	add_child(stakes)
-	for x in [-10.5,10.5]:
-		for z in [-4.5,.5]:
-			_box(stakes,Vector3(.12,.75,.12),Vector3(x,terrain_height(x,z)+.375,z),wood)
-	provisions = Node3D.new()
-	provisions.name = "PitchAndProvisions"
-	add_child(provisions)
-	for i in range(5):
-		_asset("CC0_Amphora.glb",.8,_grounded(Vector3(7+i*.6,0,3)),provisions)
-	var pot: MeshInstance3D = MeshInstance3D.new()
-	pot.name = "PitchCauldron"
-	var pot_mesh: CylinderMesh = CylinderMesh.new()
-	pot_mesh.top_radius = .52
-	pot_mesh.bottom_radius = .38
-	pot_mesh.height = .65
-	pot.mesh = pot_mesh
-	pot.position = Vector3(6,terrain_height(6,3)+.325,3)
-	pot.material_override = _material(Color(.07,.045,.025))
-	provisions.add_child(pot)
-	var pitch_mesh: CylinderMesh = CylinderMesh.new()
-	pitch_mesh.top_radius = .46
-	pitch_mesh.bottom_radius = .46
-	pitch_mesh.height = .025
-	var pitch: MeshInstance3D = MeshInstance3D.new()
-	pitch.mesh = pitch_mesh
-	pitch.position = Vector3(6,terrain_height(6,3)+.66,3)
-	pitch.material_override = _material(Color(.025,.018,.012),.45)
-	provisions.add_child(pitch)
-	obstacles.append(Rect2(6.5,2.5,3.8,1.2))
-	foliage = Node3D.new()
-	foliage.name = "FramingOlives"
-	add_child(foliage)
-	for pos in [Vector3(-14,0,-6),Vector3(13,0,7),Vector3(-14,0,8)]:
-		_asset("CC0_OliveTree_Optimized.glb",3.5,_grounded(pos),foliage)
-		obstacles.append(Rect2(Vector2(pos.x-.8,pos.z-.8),Vector2(1.6,1.6)))
-	fence = Node3D.new()
-	fence.name = "GuardFence"
-	add_child(fence)
-	for i in range(9):
-		for z in [.65,3.9]:
-			_box(fence,Vector3(.12,1.2,.12),Vector3(-7+i*.5,.6,z),wood)
-	for z in [.65,3.9]:
-		for y in [.45,.9]:
-			_box(fence,Vector3(4.2,.1,.1),Vector3(-5,y,z),wood)
-	fence.hide()
-	altar = Node3D.new()
-	altar.name = "AltarGroup"
-	altar.position = Vector3(0,terrain_height(0,6.2),6.2)
-	add_child(altar)
-	var limestone: StandardMaterial3D = _material(Color(.76,.73,.67),.92)
-	limestone.albedo_texture = stone.albedo_texture
-	limestone.uv1_triplanar = true
-	for i in range(14):
-		var rock: MeshInstance3D = MeshInstance3D.new()
-		var mesh: SphereMesh = SphereMesh.new()
-		mesh.radius = .4
-		mesh.height = .5
-		mesh.radial_segments = 7
-		mesh.rings = 3
-		rock.mesh = _crag_mesh(mesh,float(i))
-		rock.material_override = limestone
-		var a: float = float(i%7)*TAU/7.0
-		rock.position = Vector3(cos(a)*.65,.25+float(i/7)*.32,sin(a)*.55)
-		rock.scale = Vector3(1.0 + .14*sin(i*2.3),1.0 + .12*cos(i*1.7),1.0 + .17*sin(i))
-		rock.rotation_degrees = Vector3(i%3*7,i*37,i%4*4)
-		altar.add_child(rock)
-	var ember_mat: StandardMaterial3D = _material(Color(.36,.19,.07))
-	ember_mat.emission_enabled = true
-	ember_mat.emission = Color(.95,.52,.16)
-	ember_mat.emission_energy_multiplier = .55
-	var ember_mesh: CylinderMesh = CylinderMesh.new()
-	ember_mesh.top_radius = .45
-	ember_mesh.bottom_radius = .52
-	ember_mesh.height = .08
-	var ember_bed: MeshInstance3D = MeshInstance3D.new()
-	ember_bed.mesh = ember_mesh
-	ember_bed.material_override = ember_mat
-	ember_bed.position = Vector3(0,.62,0)
-	altar.add_child(ember_bed)
-	for i in range(5):
-		var log_node: MeshInstance3D = _box(altar,Vector3(1.1,.12,.14),Vector3(0,.74+(i%2)*.12,(i-2)*.15),wood)
-		log_node.rotation.y = .55 if i%2 == 0 else -.65
-	_smoke(altar,Vector3(0,.9,0),false)
-	var embers: OmniLight3D = OmniLight3D.new()
-	embers.position.y = .9
-	embers.light_color = Color(1,.55,.22)
-	embers.light_energy = .55
-	embers.omni_range = 3
-	altar.add_child(embers)
-	obstacles.append(Rect2(-1.2,5.35,2.4,1.7))
-	terrace = Node3D.new()
-	terrace.name = "WetStoneTerrace"
-	add_child(terrace)
-	_build_puddles()
-	_build_outcrops(stone)
-	altar.hide()
-	shoots = Node3D.new()
-	add_child(shoots)
-	for pos in [Vector3(3.5,0,9.5),Vector3(-4,0,8),Vector3(-4,0,3.5)]:
-		_asset("CC0_OliveTree_Optimized.glb",.85,_grounded(pos),shoots)
-	shoots.hide()
-	sheep = Node3D.new()
-	sheep.name = "AnimalPairs"
-	add_child(sheep)
-	var species: Array[String] = ["ANI_Ox.glb","CC0_Sheep_Grab3D.glb","ANI_Goat.glb","ANI_Donkey.glb"]
-	for i in range(8):
-		var animal: Node3D = _asset(species[i/2],1.05 if i/2 != 1 else .75,Vector3.ZERO,sheep)
-		_animate(animal,"Walk")
-	_build_birds()
-	sheep.hide()
-	water = MeshInstance3D.new()
-	var plane: PlaneMesh = PlaneMesh.new()
-	plane.size = Vector2(180,160)
-	water.mesh = plane
-	water.material_override = _material(Color(.075,.13,.15),.23)
-	water.position.y = -7
-	add_child(water)
-	rain = CPUParticles3D.new()
-	rain.amount = 650
-	rain.lifetime = 1.8
-	rain.position = Vector3(0,15,0)
-	rain.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	rain.emission_box_extents = Vector3(19,4,14)
-	rain.direction = Vector3(-.12,-1,.04)
-	rain.spread = 5
-	rain.initial_velocity_min = 14
-	rain.initial_velocity_max = 19
-	rain.gravity = Vector3(0,-4,0)
-	var drop: BoxMesh = BoxMesh.new()
-	drop.size = Vector3(.018,.35,.018)
-	drop.material = _material(Color(.5,.62,.68))
-	rain.mesh = drop
-	rain.emitting = false
-	add_child(rain)
-	_build_rainbow()
+func _anim(actor: Node3D, clip: String) -> void:
+	var ap: AnimationPlayer = actor.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	if ap == null or not ap.has_animation(clip):
+		return
+	ap.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
+	if ap.current_animation != clip:
+		ap.play(clip, 0.2)
+		ap.advance(0.0)
 
-func _build_rainbow() -> void:
-	var surface: SurfaceTool = SurfaceTool.new()
-	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for i in range(96):
-		for vertex in [Vector2(i,0),Vector2(i+1,0),Vector2(i,1),Vector2(i+1,0),Vector2(i+1,1),Vector2(i,1)]:
-			var u: float = vertex.x/96.0
-			var a: float = u*PI
-			var radius: float = 7.5+vertex.y*1.1
-			surface.set_uv(Vector2(u,vertex.y))
-			surface.add_vertex(Vector3(cos(a)*radius,sin(a)*radius,0))
-	surface.generate_normals()
-	rainbow = MeshInstance3D.new()
-	rainbow.name = "VFX_CovenantRainbow"
-	rainbow.mesh = surface.commit()
-	var mat: ShaderMaterial = ShaderMaterial.new()
-	mat.shader = load("res://shaders/VFX_CovenantRainbow.gdshader")
-	rainbow.material_override = mat
-	rainbow.position = Vector3(-9.5,-2.0,-11.0)
-	rainbow.rotation_degrees.y = 26.0
-	rainbow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(rainbow)
-	rainbow.hide()
 
-func _build_ui() -> void:
+func _add_torch(parent: Node3D) -> void:
+	var stick: MeshInstance3D = MeshInstance3D.new()
+	var cyl: CylinderMesh = CylinderMesh.new()
+	cyl.top_radius = 0.03
+	cyl.bottom_radius = 0.025
+	cyl.height = 0.65
+	stick.mesh = cyl
+	var sm: StandardMaterial3D = StandardMaterial3D.new()
+	sm.albedo_color = Color(0.28, 0.16, 0.08)
+	stick.material_override = sm
+	stick.position = Vector3(0.32, 1.15, -0.25)
+	parent.add_child(stick)
+
+	var flame: MeshInstance3D = MeshInstance3D.new()
+	var sph: SphereMesh = SphereMesh.new()
+	sph.radius = 0.10
+	sph.height = 0.22
+	flame.mesh = sph
+	var fm: StandardMaterial3D = StandardMaterial3D.new()
+	fm.albedo_color = Color(1.0, 0.65, 0.18)
+	fm.emission_enabled = true
+	fm.emission = Color(1.0, 0.52, 0.12)
+	fm.emission_energy_multiplier = 2.4
+	flame.material_override = fm
+	flame.position = Vector3(0.32, 1.52, -0.25)
+	parent.add_child(flame)
+
+	var light: OmniLight3D = OmniLight3D.new()
+	light.position = Vector3(0.32, 1.65, -0.25)
+	light.light_color = Color(1.0, 0.58, 0.22)
+	light.light_energy = 1.8
+	light.omni_range = 6.5
+	parent.add_child(light)
+
+
+func _spawn_cast_and_animals() -> void:
+	# 1. All 8 Family Members (Noah + Wife + 3 Sons + 3 Daughters-in-law)
+	var fam_files: Array[String] = [
+		"CHR_Noah_rigged.glb",
+		"CHR_Noah_Wife_rigged.glb",
+		"CHR_Noah_Son_rigged.glb",
+		"CHR_Noah_Son_rigged.glb",
+		"CHR_Noah_Son_rigged.glb",
+		"CHR_Noah_Daughter_rigged.glb",
+		"CHR_Noah_Daughter_rigged.glb",
+		"CHR_Noah_Daughter_rigged.glb",
+	]
+	for i in range(fam_files.size()):
+		var h: float = 1.68 if i == 0 else (1.56 if i == 1 or i >= 5 else 1.62)
+		var actor: Node3D = world.spawn_asset(fam_files[i], h, world.grounded(-2.0 + float(i), 5.0))
+		actor.name = "Family_%d" % i
+		family.append(actor)
+		_anim(actor, "Idle")
+
+	# 2. Hired Workers (who desert during Act 2A crisis!)
+	for i in range(2):
+		var hw: Node3D = world.spawn_asset("CHR_Noah_Son_rigged.glb", 1.58, world.grounded(14.0 + float(i) * 1.6, 1.5))
+		hw.name = "HiredWorker_%d" % i
+		hw.hide()
+		hired_workers.append(hw)
+
+	# 3. Mocking Villagers (march visibly up from South Village!)
+	for i in range(4):
+		var v: Node3D = world.spawn_asset("CHR_Abram_rigged.glb" if i % 2 == 0 else "CHR_Noah_Son_rigged.glb", 1.58, world.grounded(-2.0 + float(i) * 1.8, 28.0))
+		v.name = "Villager_%d" % i
+		v.hide()
+		villagers.append(v)
+
+	# 4. Night Raiders with flickering torches (march visibly up the South road during Act 2B!)
+	for i in range(3):
+		var r: Node3D = world.spawn_asset("CHR_Noah_Son_rigged.glb", 1.62, world.grounded(-2.5 + float(i) * 2.2, 24.0))
+		r.name = "Raider_%d" % i
+		_add_torch(r)
+		r.hide()
+		raiders.append(r)
+
+	# 5. Multi-Species Boarding Animal Pairs
+	animal_root = Node3D.new()
+	animal_root.name = "AnimalProcession"
+	add_child(animal_root)
+	var species: Array[Dictionary] = [
+		{"file": "CC0_Sheep_Grab3D.glb", "h": 0.92},
+		{"file": "CC0_Sheep_Grab3D.glb", "h": 0.90},
+		{"file": "ANI_Ox.glb", "h": 1.38},
+		{"file": "ANI_Ox.glb", "h": 1.34},
+		{"file": "ANI_Goat.glb", "h": 0.96},
+		{"file": "ANI_Goat.glb", "h": 0.94},
+		{"file": "ANI_Donkey.glb", "h": 1.20},
+		{"file": "ANI_Donkey.glb", "h": 1.18},
+	]
+	for i in range(species.size()):
+		var sp: Dictionary = species[i]
+		var a: Node3D = world.spawn_asset(str(sp.file), float(sp.h), Vector3.ZERO, animal_root)
+		a.name = "Animal_%d" % i
+	animal_root.hide()
+
+	# Boarding ramp path from courtyard up into Ark doorway
+	var ap: Vector3 = world.ark_anchor.position
+	var sc: float = world.ark_scale
+	boarding_path = [
+		world.grounded(3.2, 13.5),
+		world.grounded(2.0, 7.2),
+		ap + Vector3(0.0, 0.0, 6.4 * sc),
+		ap + Vector3(0.0, 1.98 * sc, 2.5 * sc),
+		ap + Vector3(0.0, 1.98 * sc, 1.6 * sc),
+	]
+
+	# 6. Circling Raven & Olive-Leaf Dove
+	for bf: String in ["ANI_Raven.glb", "ANI_Dove_Olive.glb"]:
+		var b: Node3D = world.spawn_asset(bf, 0.45, Vector3(0.0, 9.0, 0.0))
+		b.hide()
+		birds.append(b)
+
+
+func _style_box(bg: Color, border: Color, radius: int = 8) -> StyleBoxFlat:
+	var s: StyleBoxFlat = StyleBoxFlat.new()
+	s.bg_color = bg
+	s.border_color = border
+	s.set_border_width_all(1)
+	s.set_corner_radius_all(radius)
+	s.content_margin_left = 14
+	s.content_margin_right = 14
+	s.content_margin_top = 8
+	s.content_margin_bottom = 8
+	return s
+
+
+func _make_btn(text: String, cb: Callable, min_w: float = 110.0) -> Button:
+	var b: Button = Button.new()
+	b.text = text
+	b.custom_minimum_size = Vector2(min_w, 40.0)
+	b.add_theme_font_size_override("font_size", 15)
+	b.add_theme_color_override("font_color", Color(0.98, 0.93, 0.80))
+	b.add_theme_stylebox_override("normal", _style_box(Color(0.20, 0.14, 0.08, 0.92), Color(0.76, 0.58, 0.30), 6))
+	b.add_theme_stylebox_override("hover", _style_box(Color(0.30, 0.21, 0.11, 0.96), Color(0.94, 0.76, 0.42), 6))
+	b.pressed.connect(cb)
+	return b
+
+
+func _build_minimal_hud() -> void:
 	var layer: CanvasLayer = CanvasLayer.new()
 	add_child(layer)
-	hud = Label.new()
-	hud.position = Vector2(20,16)
-	hud.add_theme_color_override("font_color",Color(.97,.88,.69))
-	hud.add_theme_constant_override("outline_size",4)
-	hud_panel = PanelContainer.new()
-	hud_panel.position = Vector2(14,10)
-	var hud_style: StyleBoxFlat = StyleBoxFlat.new()
-	hud_style.bg_color = Color(.11,.08,.05,.74)
-	hud_style.border_color = Color(.76,.60,.32,.85)
-	hud_style.set_border_width_all(1)
-	hud_style.set_corner_radius_all(8)
-	hud_style.content_margin_left = 12
-	hud_style.content_margin_right = 12
-	hud_style.content_margin_top = 6
-	hud_style.content_margin_bottom = 6
-	hud_panel.add_theme_stylebox_override("panel",hud_style)
-	layer.add_child(hud_panel)
-	hud_panel.add_child(hud)
-	panel = PanelContainer.new()
-	panel.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
-	panel.offset_left = -370
-	panel.offset_right = -16
-	panel.offset_top = 68
-	panel.offset_bottom = -20
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(.10,.075,.045,.96)
-	style.border_color = Color(.72,.51,.25)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 16
-	style.content_margin_right = 16
-	style.content_margin_top = 18
-	style.content_margin_bottom = 18
-	panel.add_theme_stylebox_override("panel",style)
-	layer.add_child(panel)
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	panel.add_child(scroll)
-	content = VBoxContainer.new()
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_theme_constant_override("separation",14)
-	scroll.add_child(content)
 
-func _text(value: String, size: int = 18) -> void:
-	var label: Label = Label.new()
-	label.text = value
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_color_override("font_color",Color(.97,.91,.77))
-	label.add_theme_font_size_override("font_size",size)
-	content.add_child(label)
+	# 1. Top-Center Slim Status Bar (hidden in Silent Revelation & Worship/Rainbow!)
+	top_bar = PanelContainer.new()
+	top_bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	top_bar.offset_left = 180
+	top_bar.offset_right = -260
+	top_bar.offset_top = 12
+	top_bar.offset_bottom = 66
+	top_bar.add_theme_stylebox_override("panel", _style_box(Color(0.09, 0.07, 0.05, 0.80), Color(0.72, 0.56, 0.28, 0.85)))
+	layer.add_child(top_bar)
+	var tvb: VBoxContainer = VBoxContainer.new()
+	tvb.add_theme_constant_override("separation", 4)
+	top_bar.add_child(tvb)
+	top_label = Label.new()
+	top_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	top_label.add_theme_color_override("font_color", Color(0.97, 0.90, 0.72))
+	top_label.add_theme_font_size_override("font_size", 15)
+	tvb.add_child(top_label)
+	progress_bar = ProgressBar.new()
+	progress_bar.custom_minimum_size.y = 10
+	progress_bar.show_percentage = false
+	progress_bar.max_value = 100.0
+	tvb.add_child(progress_bar)
 
-func _button(value: String, callback: Callable, disabled: bool = false) -> void:
-	var button: Button = Button.new()
-	button.text = value
-	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	button.custom_minimum_size.y = 48
-	button.disabled = disabled
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(.24,.17,.09)
-	style.border_color = Color(.72,.51,.25)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(5)
-	button.add_theme_stylebox_override("normal",style)
-	button.pressed.connect(callback)
-	content.add_child(button)
+	# 2. Top-Right Compact Camera Quick-Jump Strip
+	var cam_panel: PanelContainer = PanelContainer.new()
+	cam_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	cam_panel.offset_left = -246
+	cam_panel.offset_right = -12
+	cam_panel.offset_top = 12
+	cam_panel.offset_bottom = 66
+	cam_panel.add_theme_stylebox_override("panel", _style_box(Color(0.09, 0.07, 0.05, 0.74), Color(0.65, 0.50, 0.26, 0.75)))
+	layer.add_child(cam_panel)
+	var chb: HBoxContainer = HBoxContainer.new()
+	chb.add_theme_constant_override("separation", 4)
+	cam_panel.add_child(chb)
+	chb.add_child(_make_btn("船坞", func() -> void: cam_ctrl.focus_on(Vector3(1.0, 1.5, 0.0), 25.0, -0.45), 50.0))
+	chb.add_child(_make_btn("森林", func() -> void: cam_ctrl.focus_on(Vector3(26.0, 3.0, 0.0), 26.0, -0.75), 50.0))
+	chb.add_child(_make_btn("村落", func() -> void: cam_ctrl.focus_on(Vector3(2.0, -1.0, 29.0), 26.0, -0.25), 50.0))
+	chb.add_child(_make_btn("全景", func() -> void: cam_ctrl.focus_on(Vector3(0.0, 0.0, 4.0), 50.0, -0.52), 50.0))
 
-func _refresh_ui() -> void:
-	for child in content.get_children():
-		content.remove_child(child)
-		child.queue_free()
-	var ui: Dictionary = chapter.ui
-	hud_panel.visible = not bool(event.get("hideResourceHud",false)) and str(event.id) not in ["noah_01_revelation","noah_07_exit_altar","noah_08_rainbow_covenant"]
-	hud.visible = hud_panel.visible
-	hud.text = "歌斐木: %d  |  粮草: %d  |  家族同心: %d" % [int(state.timber),int(state.provisions),int(state.harmony)]
-	_text(chapter.titleZh,16)
-	_text(event.titleZh,24)
-	_text(event.canonRef,16)
-	_text(event.speakerZh,16)
-	_text(ui.adaptationZh if event.isAdaptation else ui.canonZh,14)
-	if not pending_choice.is_empty():
-		_text(pending_choice.resultZh)
-		_button(ui.continueZh,_continue_story)
-		return
-	_text(event.bodyZh)
-	var action: String = event.get("requiredAction", "")
-	if not action.is_empty() and not action_ready:
-		_text(ui.actionHintZh % ui.actions[action],16)
-		_button(ui.actions[action],_perform_action,action_running)
-	var choices: Array = event.get("choices",[])
-	for choice: Dictionary in choices:
-		_button(str(choice.labelZh),_choose.bind(choice),not action_ready or not flood_finished)
-	if choices.is_empty():
-		_button(str(ui.continueZh),_advance_without_choice,not action_ready or not flood_finished)
+	# 3. Bottom Cinematic Subtitle Bar + Compact RTS Command Dock
+	var bottom_vb: VBoxContainer = VBoxContainer.new()
+	bottom_vb.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bottom_vb.offset_left = 72
+	bottom_vb.offset_right = -72
+	bottom_vb.offset_top = -152
+	bottom_vb.offset_bottom = -12
+	bottom_vb.add_theme_constant_override("separation", 8)
+	layer.add_child(bottom_vb)
+
+	subtitle_panel = PanelContainer.new()
+	subtitle_panel.add_theme_stylebox_override("panel", _style_box(Color(0.07, 0.05, 0.04, 0.80), Color(0.70, 0.54, 0.28, 0.70), 8))
+	bottom_vb.add_child(subtitle_panel)
+	var svb: VBoxContainer = VBoxContainer.new()
+	svb.add_theme_constant_override("separation", 4)
+	subtitle_panel.add_child(svb)
+	subtitle_title = Label.new()
+	subtitle_title.add_theme_color_override("font_color", Color(0.95, 0.80, 0.45))
+	subtitle_title.add_theme_font_size_override("font_size", 15)
+	svb.add_child(subtitle_title)
+	subtitle_body = Label.new()
+	subtitle_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	subtitle_body.add_theme_color_override("font_color", Color(0.96, 0.93, 0.86))
+	subtitle_body.add_theme_font_size_override("font_size", 15)
+	svb.add_child(subtitle_body)
+
+	cmd_dock = HBoxContainer.new()
+	cmd_dock.alignment = BoxContainer.ALIGNMENT_CENTER
+	cmd_dock.add_theme_constant_override("separation", 10)
+	bottom_vb.add_child(cmd_dock)
+
+	# 4. Centered Crisis Decision Modal Scroll (ONLY appears on live dramatic twists!)
+	modal_overlay = ColorRect.new()
+	modal_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	modal_overlay.color = Color(0.03, 0.02, 0.02, 0.52)
+	modal_overlay.hide()
+	layer.add_child(modal_overlay)
+	var center: CenterContainer = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	modal_overlay.add_child(center)
+	var card: PanelContainer = PanelContainer.new()
+	card.custom_minimum_size = Vector2(560.0, 260.0)
+	card.add_theme_stylebox_override("panel", _style_box(Color(0.11, 0.08, 0.05, 0.96), Color(0.84, 0.65, 0.32), 10))
+	center.add_child(card)
+	var mvb: VBoxContainer = VBoxContainer.new()
+	mvb.add_theme_constant_override("separation", 12)
+	card.add_child(mvb)
+	modal_title = Label.new()
+	modal_title.add_theme_color_override("font_color", Color(0.98, 0.84, 0.48))
+	modal_title.add_theme_font_size_override("font_size", 22)
+	mvb.add_child(modal_title)
+	modal_body = Label.new()
+	modal_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	modal_body.add_theme_color_override("font_color", Color(0.95, 0.91, 0.82))
+	modal_body.add_theme_font_size_override("font_size", 16)
+	mvb.add_child(modal_body)
+	modal_choices = VBoxContainer.new()
+	modal_choices.add_theme_constant_override("separation", 8)
+	mvb.add_child(modal_choices)
+
 
 func _enter_event(id: String) -> void:
 	if not event_index.has(id):
-		push_error("Unknown chapter event: " + id)
 		return
-	event = event_index[id]
-	pending_choice = {}
-	action_ready = not event.has("requiredAction")
-	action_running = false
-	prayer = int(event.act) >= 5
-	state.arkStage = int(event.arkStage)
-	for node in ark.find_children("*","MeshInstance3D",true,false):
-		var stage: int = 3
-		if str(node.name).begins_with("Stage1"):
-			stage = 1
-		elif str(node.name).begins_with("Stage2"):
-			stage = 2
-		node.visible = int(event.arkStage) >= stage
-	phase = "ararat" if int(event.act) >= 5 else ("flood" if int(event.act) == 4 else "build")
-	stakes.visible = int(event.arkStage) == 0
-	yard.visible = phase == "build" and int(event.arkStage) > 0
-	provisions.visible = int(event.arkStage) >= 3 and phase == "build"
-	foliage.visible = phase != "flood"
-	terrace.visible = phase == "ararat"
-	fence.visible = bool(state.get("guardFence",false)) and phase == "build"
-	altar.visible = phase == "ararat"
-	shoots.visible = phase == "ararat"
-	rainbow.visible = id == "noah_08_rainbow_covenant"
-	sheep.visible = int(event.act) == 3
-	noah.visible = phase != "flood"
-	focus = Vector3.ZERO
-	_mood()
-	for arg: String in OS.get_cmdline_user_args():
-		if arg.begins_with("--preview-scene=") or arg.begins_with("--stage=") or arg == "--ararat":
-			mood_tween.custom_step(4.0)
-			if phase != "flood":
-				water_tween.custom_step(4.0)
-	_pose_family()
-	_update_procession(0.0)
-	_update_birds()
-	# Seek all active clips before the first preview frame.
-	for animator: AnimationPlayer in family_players:
-		if animator != null:
-			animator.advance(0.0)
-	_refresh_ui()
+	current_event = event_index[id]
+	phase_progress = 0.0
+	worker_boost = 1.0
+	crisis_triggered = false
+	crisis_resolved = false
+	modal_overlay.hide()
 
-func _mood() -> void:
-	if mood_tween != null:
-		mood_tween.kill()
-	if water_tween != null:
-		water_tween.kill()
-	mood_tween = create_tween().set_parallel(true)
-	var storm: bool = phase == "flood"
-	var morning: bool = phase == "ararat"
-	rain.emitting = storm
-	mood_tween.tween_property(sun,"light_color",Color(.64,.7,.78) if storm else Color(1,.94,.82),2)
-	mood_tween.tween_property(sun,"light_energy",.3 if storm else (1.05 if morning else 1.0),2)
-	mood_tween.tween_property(sky_material,"sky_top_color",Color(.13,.17,.22) if storm else Color(.3,.5,.66),2)
-	mood_tween.tween_property(sky_material,"sky_horizon_color",Color(.38,.43,.46) if storm else Color(.86,.8,.65),2)
-	mood_tween.tween_property(environment,"fog_density",.022 if storm else (.006 if morning else .003),3)
-	mood_tween.tween_property(environment,"fog_light_color",Color(.4,.48,.52) if storm else Color(.85,.82,.71),2)
-	mood_tween.tween_property(ground_material,"albedo_color",Color(.65,.61,.54) if morning else Color(.69,.59,.44),2)
-	mood_tween.tween_property(ground_material,"roughness",.36 if morning else .95,2)
-	flood_finished = not storm
-	if storm:
-		water_tween = create_tween()
-		water_tween.tween_property(water,"position:y",3.4,5).set_trans(Tween.TRANS_SINE)
-		water_tween.tween_interval(2)
-		water_tween.tween_property(water,"position:y",-7.0,7).set_trans(Tween.TRANS_SINE)
-		water_tween.tween_callback(func() -> void:
-			flood_finished = true
-			rain.emitting = false
-			shoots.show()
-			_refresh_ui())
+	var stage: int = int(current_event.get("arkStage", 0))
+	state.arkStage = stage
+	world.set_ark_stage(stage)
+
+	# Visibility of world props & actors per act
+	world.yard_stakes.visible = (id == "noah_01_revelation")
+	world.timber_stacks.visible = (stage >= 1 and id != "noah_06_flood_dove")
+	world.pitch_station.visible = (stage >= 3 and id != "noah_06_flood_dove")
+	world.guard_fence.visible = bool(state.get("guardFence", false)) and stage >= 2 and id not in ["noah_06_flood_dove", "noah_07_exit_altar", "noah_08_rainbow_covenant"]
+	world.altar_group.visible = id in ["noah_07_exit_altar", "noah_08_rainbow_covenant"]
+	world.puddles_group.visible = id in ["noah_07_exit_altar", "noah_08_rainbow_covenant"]
+	world.olive_shoots.visible = id in ["noah_07_exit_altar", "noah_08_rainbow_covenant"]
+	world.rainbow.visible = (id == "noah_08_rainbow_covenant")
+	animal_root.visible = (id == "noah_05_board_ark")
+	for b in birds:
+		b.visible = id in ["noah_06_flood_dove", "noah_07_exit_altar"]
+
+	# Hide crisis NPCs by default
+	for hw in hired_workers:
+		hw.visible = (id == "noah_02_keel_mortise")
+	for v in villagers:
+		v.visible = (id == "noah_02_keel_mortise")
+	for r in raiders:
+		r.visible = (id == "noah_03_hull_decks")
+
+	# Mood, flood water, camera focus, and cast staging
+	match id:
+		"noah_01_revelation":
+			world.apply_mood("revelation")
+			flood_target = -10.5
+			cam_ctrl.focus_on(Vector3(1.0, 1.8, 2.0), 22.0, -0.58, preview_mode)
+			_stage_revelation()
+		"noah_02_keel_mortise":
+			world.apply_mood("build")
+			flood_target = -10.5
+			cam_ctrl.focus_on(Vector3(4.0, 1.5, 4.0), 36.0, -0.45, preview_mode)
+			_stage_shipyard_work("Hammer")
+			_reset_villagers_and_workers()
+		"noah_03_hull_decks":
+			world.apply_mood("dusk_raid")
+			flood_target = -10.5
+			cam_ctrl.focus_on(Vector3(0.0, 1.2, 8.0), 32.0, -0.35, preview_mode)
+			_stage_shipyard_work("Hammer")
+			_reset_raiders()
+		"noah_04_pitch_provisions":
+			world.apply_mood("build")
+			flood_target = -10.5
+			cam_ctrl.focus_on(Vector3(3.0, 1.5, 2.0), 29.0, -0.42, preview_mode)
+			_stage_shipyard_work("BrushPitch")
+		"noah_05_board_ark":
+			world.apply_mood("dusk_raid")
+			flood_target = -10.5
+			cam_ctrl.focus_on(Vector3(1.5, 1.6, 5.0), 27.0, -0.38, preview_mode)
+			_stage_boarding_watch()
+		"noah_06_flood_dove":
+			world.apply_mood("flood")
+			flood_target = 4.2
+			if preview_mode:
+				flood_level = 3.8
+				world.flood_water.position.y = flood_level
+				world.ark_anchor.position.y = flood_level - 0.55
+			cam_ctrl.focus_on(Vector3(-2.0, 2.5, 4.0), 48.0, -0.55, preview_mode)
+			for m in family:
+				m.hide()
+		"noah_07_exit_altar", "noah_08_rainbow_covenant":
+			world.apply_mood("ararat")
+			flood_target = -10.5
+			if preview_mode:
+				flood_level = -10.5
+				world.flood_water.position.y = flood_level
+				world.ark_anchor.position.y = world.ark_base_y
+			cam_ctrl.focus_on(Vector3(-2.5, 1.6, 3.5), 32.0, -0.52, preview_mode)
+			_stage_ararat_worship()
+
+	_refresh_hud()
+
+
+func _stage_revelation() -> void:
+	for i in range(family.size()):
+		family[i].visible = (i == 0)
+	family[0].position = world.grounded(0.5, 3.5)
+	family[0].look_at(world.grounded(0.5, -10.0), Vector3.UP)
+	_anim(family[0], "Pray")
+
+
+func _stage_shipyard_work(work_clip: String) -> void:
+	var slots: Array[Vector2] = [
+		Vector2(-4.5, 1.5), Vector2(8.6, 3.6), Vector2(-1.2, 1.8), Vector2(3.2, 1.8),
+		Vector2(6.5, 1.6), Vector2(9.8, 4.2), Vector2(7.6, 4.8), Vector2(10.6, 5.2),
+	]
+	for i in range(family.size()):
+		family[i].show()
+		family[i].position = world.grounded(slots[i].x, slots[i].y)
+		var look_t: Vector3 = world.grounded(slots[i].x, -4.5)
+		look_t.y = family[i].position.y
+		family[i].look_at(look_t, Vector3.UP)
+		_anim(family[i], work_clip if i in [0, 2, 3, 4] else "Idle")
+
+
+func _stage_boarding_watch() -> void:
+	var slots: Array[Vector2] = [
+		Vector2(-3.2, 4.5), Vector2(5.2, 4.8), Vector2(-1.8, 5.5), Vector2(4.4, 5.8),
+		Vector2(6.2, 3.5), Vector2(7.4, 4.2), Vector2(-4.6, 5.2), Vector2(6.8, 5.4),
+	]
+	for i in range(family.size()):
+		family[i].show()
+		family[i].position = world.grounded(slots[i].x, slots[i].y)
+		var look_t: Vector3 = world.grounded(1.0, 2.0)
+		look_t.y = family[i].position.y
+		family[i].look_at(look_t, Vector3.UP)
+		_anim(family[i], "Idle")
+
+
+func _stage_ararat_worship() -> void:
+	var slots: Array[Vector2] = [
+		Vector2(0.5, 4.6), Vector2(3.1, 5.8), Vector2(-2.2, 5.8), Vector2(-1.1, 4.8),
+		Vector2(2.0, 4.8), Vector2(-1.2, 8.0), Vector2(2.1, 8.0), Vector2(3.6, 7.1),
+	]
+	for i in range(family.size()):
+		family[i].show()
+		family[i].position = world.grounded(slots[i].x, slots[i].y)
+		var target: Vector3 = world.altar_group.position if i != 0 else (family[i].position + Vector3(0.0, 0.0, 5.0))
+		target.y = family[i].position.y
+		family[i].look_at(target, Vector3.UP)
+		_anim(family[i], "Bless" if i == 0 else ("Pray" if i in [5, 6] else "Idle"))
+
+
+func _reset_villagers_and_workers() -> void:
+	for i in range(hired_workers.size()):
+		hired_workers[i].position = world.grounded(12.0 + float(i) * 2.0, 1.2)
+		_anim(hired_workers[i], "Hammer")
+	for i in range(villagers.size()):
+		var start_z: float = 12.5 if preview_mode else 26.0
+		villagers[i].position = world.grounded(-3.5 + float(i) * 2.2, start_z)
+		_anim(villagers[i], "Walk")
+
+
+func _reset_raiders() -> void:
+	for i in range(raiders.size()):
+		var rz: float = 11.5 if preview_mode else 25.0
+		raiders[i].position = world.grounded(-3.0 + float(i) * 2.4, rz)
+		raiders[i].look_at(world.grounded(0.0, 2.0), Vector3.UP)
+		_anim(raiders[i], "Run")
+
+
+func _refresh_hud() -> void:
+	var id: String = str(current_event.get("id", ""))
+	var hide_hud: bool = bool(current_event.get("hideResourceHud", false)) or id in ["noah_07_exit_altar", "noah_08_rainbow_covenant"]
+	top_bar.visible = not hide_hud
+	top_label.text = "%s  |  歌斐木: %d  |  粮草: %d  |  家族同心: %d  |  阶段进度: %d%%" % [
+		str(current_event.get("titleZh", "")),
+		int(state.get("timber", 0)),
+		int(state.get("provisions", 60)),
+		int(state.get("harmony", 80)),
+		int(roundf(phase_progress)),
+	]
+	progress_bar.value = phase_progress
+	subtitle_title.text = "%s · %s（%s）" % [
+		str(current_event.get("titleZh", "")),
+		str(current_event.get("speakerZh", "")),
+		str(current_event.get("canonRef", "")),
+	]
+	subtitle_body.text = str(current_event.get("bodyZh", ""))
+
+	for c in cmd_dock.get_children():
+		cmd_dock.remove_child(c)
+		c.queue_free()
+
+	match id:
+		"noah_01_revelation":
+			cmd_dock.add_child(_make_btn("领受启示 · 展开三百肘造舟蓝图", func() -> void: _enter_event("noah_02_keel_mortise"), 280.0))
+		"noah_02_keel_mortise":
+			cmd_dock.add_child(_make_btn("[1] 派人东坡采运歌斐木 (+25%)", func() -> void: _boost_work(25.0, 35, 0), 210.0))
+			cmd_dock.add_child(_make_btn("[2] 全员凿刻榫卯立龙骨 (+30%)", func() -> void: _boost_work(30.0, 15, 0), 210.0))
+			if phase_progress >= 100.0 and crisis_resolved:
+				cmd_dock.add_child(_make_btn("进入下一阶段 · 搭建三层船壳 →", func() -> void: _enter_event("noah_03_hull_decks"), 220.0))
+		"noah_03_hull_decks":
+			cmd_dock.add_child(_make_btn("[1] 搭建三层隔间与透光带 (+35%)", func() -> void: _boost_work(35.0, 20, 0), 230.0))
+			if not crisis_resolved:
+				cmd_dock.add_child(_make_btn("[!] 应对南坡强人夜袭", _open_crisis_modal, 190.0))
+			elif phase_progress >= 100.0:
+				cmd_dock.add_child(_make_btn("进入下一阶段 · 塞缝抹松香 →", func() -> void: _enter_event("noah_04_pitch_provisions"), 220.0))
+		"noah_04_pitch_provisions":
+			cmd_dock.add_child(_make_btn("[1] 麻絮塞缝 · 里外厚涂松香 (+40%)", func() -> void: _boost_work(40.0, 0, 10), 240.0))
+			cmd_dock.add_child(_make_btn("[2] 分舱储藏粮草陶罐 (+35%)", func() -> void: _boost_work(35.0, 0, 25), 210.0))
+			if phase_progress >= 100.0:
+				cmd_dock.add_child(_make_btn("风暴将至 · 引导百兽登舟 →", func() -> void: _enter_event("noah_05_board_ark"), 220.0))
+		"noah_05_board_ark":
+			cmd_dock.add_child(_make_btn("引导洁净与不洁净活物成双入舟 (+50%)", func() -> void: _boost_work(50.0, 0, 0), 290.0))
+			if phase_progress >= 100.0:
+				cmd_dock.add_child(_make_btn("关上舱门 · 迎接大洪水 →", func() -> void: _enter_event("noah_06_flood_dove"), 210.0))
+		"noah_06_flood_dove":
+			cmd_dock.add_child(_make_btn("放出乌鸦与鸽子探看水势", func() -> void: _enter_event("noah_07_exit_altar"), 240.0))
+		"noah_07_exit_altar":
+			cmd_dock.add_child(_make_btn("一家八口筑坛献祭 · 仰望彩虹永约 →", func() -> void: _enter_event("noah_08_rainbow_covenant"), 280.0))
+		"noah_08_rainbow_covenant":
+			cmd_dock.add_child(_make_btn("展开宏观战役画卷（前往 B01 / P01 出吾珥）", func() -> void: get_tree().change_scene_to_file("res://scenes/overworld_prologue.tscn"), 340.0))
+
+
+func _boost_work(delta_pct: float, timber_add: int, prov_add: int) -> void:
+	phase_progress = minf(100.0, phase_progress + delta_pct * worker_boost)
+	state.timber = int(state.get("timber", 0)) + timber_add
+	state.provisions = int(state.get("provisions", 60)) + prov_add
+	var id: String = str(current_event.get("id", ""))
+	if id in ["noah_02_keel_mortise", "noah_03_hull_decks"] and phase_progress >= 45.0 and not crisis_triggered:
+		crisis_triggered = true
+		_open_crisis_modal()
+	_refresh_hud()
+
+
+func _open_crisis_modal() -> void:
+	var id: String = str(current_event.get("id", ""))
+	modal_overlay.show()
+	for c in modal_choices.get_children():
+		modal_choices.remove_child(c)
+		c.queue_free()
+	if id == "noah_02_keel_mortise":
+		cam_ctrl.focus_on(Vector3(2.0, 0.5, 13.0), 26.0, -0.28)
+		modal_title.text = "突发波折 · 乡邻嘲笑与雇工溃散"
+		modal_body.text = "南坡村民成群走上船坞外围嘲笑旱地造舟，两名雇工当场扔下斧头沿山路离去！建造效率骤降，你如何应对？"
+		modal_choices.add_child(_make_btn("重排一家八口跨季轮班，亲手顶上榫卯与伐木（家族同心 +8）", func() -> void: _resolve_crisis(8, false), 480.0))
+		modal_choices.add_child(_make_btn("分发部分粮草稳住人心，缓慢坚持工期（粮草 -10，同心 +4）", func() -> void: _resolve_crisis(4, false), 480.0))
+	elif id == "noah_03_hull_decks":
+		cam_ctrl.focus_on(Vector3(0.0, 0.5, 11.0), 25.0, -0.32)
+		modal_title.text = "夜间危机 · 强人举火把逼近木料堆"
+		modal_body.text = "夜幕降临，三名强人举着火把顺着南坡山路逼近你的歌斐木料堆，企图强抢大木！请立刻下令应对（非致命防卫）："
+		modal_choices.add_child(_make_btn("立即筑起木栅栏，派三子举火把夜巡对峙驱离强人", func() -> void: _resolve_crisis(6, true), 480.0))
+		modal_choices.add_child(_make_btn("主动分让部分边角废料，以和息争避免流血（木材 -15）", func() -> void: _resolve_crisis(4, false), 480.0))
 	else:
-		water_tween = create_tween()
-		water_tween.tween_property(water,"position:y",-7.0,2)
+		modal_overlay.hide()
 
-func _choose(choice: Dictionary) -> void:
-	if not action_ready or not flood_finished or not pending_choice.is_empty():
-		return
-	pending_choice = choice
-	if choice.id == "hull_fence_watch":
+
+func _resolve_crisis(harmony_delta: int, build_fence: bool) -> void:
+	crisis_resolved = true
+	worker_boost = 1.0
+	state.harmony = int(state.get("harmony", 80)) + harmony_delta
+	if build_fence:
 		state.guardFence = true
-		fence.show()
-	# Worship and covenant never mutate resource or performance state.
-	if int(event.act) < 5 and not bool(event.get("hideResourceHud",false)):
-		state.harmony = clampi(int(state.harmony) + int(choice.get("deltaHarmony",0)),0,100)
-		state.timber = maxi(0,int(state.timber) + int(choice.get("deltaTimber",0)))
-		state.provisions = maxi(0,int(state.provisions) + int(choice.get("deltaProvisions",0)))
-	_refresh_ui()
+		world.guard_fence.show()
+	modal_overlay.hide()
+	cam_ctrl.focus_on(Vector3(1.5, 1.5, 2.0), 30.0, -0.45)
+	_refresh_hud()
 
-func _advance_without_choice() -> void:
-	var events: Array = chapter.events
-	var index: int = events.find(event)
-	var next_id: String = str(event.get("nextEventId",""))
-	if next_id.is_empty() and index >= 0 and index + 1 < events.size():
-		next_id = str(events[index+1].id)
-	pending_choice = {"nextEventId":next_id}
-	_continue_story()
-
-func _continue_story() -> void:
-	var next: String = pending_choice.get("nextEventId", "")
-	if not next.is_empty():
-		_enter_event(next)
-		return
-	for child in content.get_children():
-		content.remove_child(child)
-		child.queue_free()
-	for key in ["titleZh","canonRef","bodyZh","previewZh"]:
-		_text(chapter.completion[key])
-	_button(chapter.ui.overworldZh,func() -> void:
-		get_tree().change_scene_to_file("res://scenes/overworld_prologue.tscn"))
-
-func _perform_action() -> void:
-	if action_running or action_ready:
-		return
-	action_running = true
-	action_time = 0
-	var goal: Vector3 = Vector3(-5,0,4)
-	match str(event.requiredAction):
-		"build_hull": goal = Vector3(5,0,5)
-		"coat_pitch": goal = Vector3(6,0,4.5)
-		"board_ark": goal = Vector3(3,0,4)
-		"pray": goal = Vector3(0,0,5.8)
-	if not prayer:
-		_route(goal)
-	_refresh_ui()
-
-# Grid A* uses inflated, solid prop footprints. Every movement segment follows
-# an unobstructed grid edge; diagonal corner cutting is deliberately disallowed.
-func _blocked(cell: Vector2i) -> bool:
-	var point: Vector2 = Vector2(cell)
-	for rect in obstacles:
-		if rect.has_point(point):
-			return true
-	return false
-
-func _route(goal: Vector3) -> void:
-	var grid: AStarGrid2D = AStarGrid2D.new()
-	grid.region = Rect2i(-17,-12,35,25)
-	grid.cell_size = Vector2.ONE
-	grid.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
-	grid.update()
-	for x in range(-17,18):
-		for z in range(-12,13):
-			var cell: Vector2i = Vector2i(x,z)
-			grid.set_point_solid(cell,_blocked(cell))
-	var from: Vector2i = Vector2i(roundi(noah.position.x),roundi(noah.position.z))
-	var to: Vector2i = Vector2i(roundi(goal.x),roundi(goal.z))
-	waypoints.clear()
-	if not grid.is_in_boundsv(from) or not grid.is_in_boundsv(to) or grid.is_point_solid(to):
-		return
-	for point in grid.get_id_path(from,to):
-		waypoints.append(_grounded(Vector3(point.x,0,point.y)))
-	waypoints.append(_grounded(goal))
-
-func _play(clip: String) -> void:
-	if animation == clip or player == null or not player.has_animation(clip):
-		return
-	animation = clip
-	player.play(clip,.22)
 
 func _process(delta: float) -> void:
-	if noah == null:
-		return
 	elapsed += delta
-	rig.position = rig.position.lerp(focus,1.0-exp(-delta*2.0))
-	var moving: bool = not waypoints.is_empty() and noah.visible
-	if moving:
-		var direction: Vector3 = waypoints[0]-noah.position
-		if direction.length() < .04:
-			waypoints.pop_front()
-		else:
-			noah.position = noah.position.move_toward(waypoints[0],delta*2.8)
-			var facing: Vector3 = Vector3(direction.x,0,direction.z)
-			if facing.length_squared() > .0001:
-				noah.look_at(noah.global_position + facing,Vector3.UP)
-		_play("Walk")
+	var id: String = str(current_event.get("id", ""))
+
+	# 1. Live Villagers marching up & Hired Workers deserting in Act 2A
+	if id == "noah_02_keel_mortise":
+		for i in range(villagers.size()):
+			var v: Node3D = villagers[i]
+			var tz: float = 11.8 + float(i % 2) * 1.4
+			var target: Vector3 = world.grounded(-3.5 + float(i) * 2.2, tz)
+			if v.position.distance_to(target) > 0.25:
+				v.position = v.position.move_toward(target, delta * 2.2)
+				v.look_at(target, Vector3.UP)
+				_anim(v, "Walk")
+			else:
+				_anim(v, "Idle")
+		if crisis_triggered:
+			for i in range(hired_workers.size()):
+				var hw: Node3D = hired_workers[i]
+				var away: Vector3 = world.grounded(2.0 + float(i) * 1.5, 32.0)
+				if hw.position.distance_to(away) > 0.3:
+					hw.position = hw.position.move_toward(away, delta * 2.8)
+					hw.look_at(away, Vector3.UP)
+					_anim(hw, "Walk")
+
+	# 2. Live Night Raiders marching up or retreating in Act 2B
+	if id == "noah_03_hull_decks":
+		for i in range(raiders.size()):
+			var r: Node3D = raiders[i]
+			var goal: Vector3 = world.grounded(-2.5 + float(i) * 2.4, 28.0 if crisis_resolved else 10.2)
+			if r.position.distance_to(goal) > 0.3:
+				r.position = r.position.move_toward(goal, delta * 2.9)
+				r.look_at(goal, Vector3.UP)
+				_anim(r, "Run")
+			else:
+				_anim(r, "Brawl" if not crisis_resolved else "Idle")
+
+	# 3. Live Multi-Species Animal Boarding Procession in Act 3
+	if animal_root.visible:
+		_update_animal_procession()
+
+	# 4. Real 3D Rising Floodwater submerging village/forest & floating Ark in Act 4!
+	if absf(flood_level - flood_target) > 0.02:
+		flood_level = move_toward(flood_level, flood_target, delta * 2.4)
+		world.flood_water.position.y = flood_level
+	if id == "noah_06_flood_dove":
+		var wave: float = sin(elapsed * 1.35) * 0.22
+		world.flood_water.position.y = flood_level + wave * 0.4
+		if flood_level > world.ark_base_y + 0.4:
+			world.ark_anchor.position.y = flood_level - 0.55 + wave
+			world.ark_anchor.rotation.z = sin(elapsed * 0.9) * 0.032
+			world.ark_anchor.rotation.x = cos(elapsed * 0.75) * 0.022
 	else:
-		_play(_noah_clip())
-	if action_running and not moving:
-		action_time += delta
-		if action_time >= (2.8 if prayer else 1.2):
-			action_ready = true
-			action_running = false
-			_refresh_ui()
-	_update_procession(delta)
-	_update_birds()
+		world.ark_anchor.position.y = lerpf(world.ark_anchor.position.y, world.ark_base_y, 1.0 - exp(-delta * 4.0))
+		world.ark_anchor.rotation = world.ark_anchor.rotation.lerp(Vector3.ZERO, 1.0 - exp(-delta * 4.0))
 
-func _unhandled_input(input: InputEvent) -> void:
-	if input is InputEventMouseButton and input.pressed and input.button_index == MOUSE_BUTTON_LEFT and phase != "flood" and not prayer and not action_running:
-		var origin: Vector3 = camera.project_ray_origin(input.position)
-		var direction: Vector3 = camera.project_ray_normal(input.position)
-		var hit: Variant = Plane(Vector3.UP,0).intersects_ray(origin,direction)
-		if hit != null:
-			# Refine the plane intersection against the same sculpted surface.
-			var point: Vector3 = hit
-			for i in range(6):
-				var t: float = (terrain_height(point.x,point.z)-origin.y)/direction.y
-				point = origin+direction*t
-			_route(_grounded(point))
-
-func _exit_tree() -> void:
-	Loader.clear_cache()
-
-# Shared analytic surface for scenery, props, footsteps, and preview poses.
-func terrain_height(x: float, z: float) -> float:
-	var valley: float = 1.0 - smoothstep(-11.5,-8.0,x)
-	var shelf: float = smoothstep(-6.0,-2.0,x) * (1.0-smoothstep(-3.5,1.5,z))
-	var terrace_mask: float = smoothstep(-8.0,-5.0,x) * (1.0-smoothstep(10.0,14.0,x)) * smoothstep(-.5,2.0,z) * (1.0-smoothstep(12.0,16.0,z))
-	var relief: float = (sin(x*.53+z*.27)*.24+cos(z*.64-x*.21)*.19) * (1.0-terrace_mask)
-	var river_x: float = -12.2 + sin(z*.105)*1.4
-	var channel: float = (1.0-smoothstep(1.0,2.2,absf(x-river_x))) * valley
-	return lerpf(1.4*shelf+relief,-5.5+relief*.4,valley)-channel*.45
-
-func _grounded(pos: Vector3) -> Vector3:
-	return Vector3(pos.x,terrain_height(pos.x,pos.z),pos.z)
-
-func _terrain_mesh() -> ArrayMesh:
-	var surface: SurfaceTool = SurfaceTool.new()
-	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for z in range(52):
-		for x in range(56):
-			for corner: Vector2i in [Vector2i(0,0),Vector2i(1,0),Vector2i(0,1),Vector2i(1,0),Vector2i(1,1),Vector2i(0,1)]:
-				var px: float = -55.0 + float(x+corner.x)*110.0/56.0
-				var pz: float = -60.0 + float(z+corner.y)*100.0/52.0
-				surface.set_uv(Vector2(px,pz)*.15)
-				surface.add_vertex(Vector3(px,terrain_height(px,pz),pz))
-	surface.index()
-	surface.generate_normals()
-	return surface.commit()
-
-func _smoke(parent: Node3D, pos: Vector3, mist: bool) -> void:
-	var particles: CPUParticles3D = CPUParticles3D.new()
-	particles.name = "ValleyMist" if mist else "WhiteAltarSmoke"
-	particles.position = pos
-	particles.amount = 14 if mist else 14
-	particles.lifetime = 9.0 if mist else 3.2
-	particles.preprocess = particles.lifetime
-	particles.direction = Vector3(.12,1,.04)
-	particles.spread = 16.0
-	particles.gravity = Vector3(.01,.02,0)
-	particles.initial_velocity_min = .035 if mist else .15
-	particles.initial_velocity_max = .19 if mist else .62
-	particles.scale_amount_min = 1.4 if mist else .18
-	particles.scale_amount_max = 3.2 if mist else .48
-	particles.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	particles.emission_box_extents = Vector3(3,.2,2) if mist else Vector3(.10,.04,.10)
-	var gradient: Gradient = Gradient.new()
-	gradient.set_color(0,Color(.92,.94,.95,0))
-	gradient.add_point(.25,Color(.92,.94,.95,.07 if mist else .085))
-	gradient.set_color(1,Color(.92,.94,.95,0))
-	particles.color_ramp = gradient
-	var quad: QuadMesh = QuadMesh.new()
-	var mat: StandardMaterial3D = _material(Color(1,1,1,.045 if mist else .16))
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.vertex_color_use_as_albedo = true
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	mat.vertex_color_use_as_albedo = true
-	var texture: GradientTexture2D = GradientTexture2D.new()
-	var radial: Gradient = Gradient.new()
-	radial.set_color(0,Color.WHITE)
-	radial.set_color(1,Color(1,1,1,0))
-	texture.gradient = radial
-	texture.fill = GradientTexture2D.FILL_RADIAL
-	texture.fill_from = Vector2(.5,.5)
-	texture.fill_to = Vector2(1,.5)
-	mat.albedo_texture = texture
-	quad.material = mat
-	particles.mesh = quad
-	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	parent.add_child(particles)
-
-func _build_valley() -> void:
-	var surface: SurfaceTool = SurfaceTool.new()
-	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for i in range(100):
-		for corner: Vector2i in [Vector2i(0,0),Vector2i(1,0),Vector2i(0,1),Vector2i(1,0),Vector2i(1,1),Vector2i(0,1)]:
-			var z: float = -60.0+float(i+corner.y)
-			var x: float = -12.2+sin(z*.105)*1.4+(float(corner.x)-.5)*1.9
-			surface.set_uv(Vector2(float(corner.x),float(i+corner.y)*.05))
-			surface.add_vertex(Vector3(x,-5.62,z))
-	surface.generate_normals()
-	var river: MeshInstance3D = MeshInstance3D.new()
-	river.name = "WindingValleyRiver"
-	river.mesh = surface.commit()
-	var mat: StandardMaterial3D = _material(Color(.16,.28,.34),.12)
-	mat.metallic = .22
-	river.material_override = mat
-	add_child(river)
-	for i in range(5):
-		_smoke(self,Vector3(-15.0+sin(i)*2,-4.3,-25.0+i*10),true)
-
-func _build_puddles() -> void:
-	var wet: StandardMaterial3D = _material(Color(.18,.23,.26,.55),.08)
-	wet.metallic = .22
-	wet.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	var spots: Array[Vector2] = [Vector2(-3.8,4.6),Vector2(-2.2,8.4),Vector2(1.4,9.1),Vector2(3.6,7.8),Vector2(-4.4,7.1),Vector2(4.8,4.5),Vector2(0.8,3.6),Vector2(-1.1,9.6)]
-	for i in range(spots.size()):
-		var x: float = spots[i].x
-		var z: float = spots[i].y
-		var puddle: MeshInstance3D = MeshInstance3D.new()
-		var disc: CylinderMesh = CylinderMesh.new()
-		disc.top_radius = .55
-		disc.bottom_radius = .55
-		disc.height = .008
-		disc.radial_segments = 24
-		puddle.mesh = disc
-		puddle.material_override = wet
-		puddle.position = Vector3(x,terrain_height(x,z)+.02,z)
-		puddle.scale = Vector3(1.1+sin(i*1.9)*.35,1,.65+float(i%3)*.18)
-		puddle.rotation.y = i*1.3
-		terrace.add_child(puddle)
-
-func _build_outcrops(mat: Material) -> void:
-	for i in range(65):
-		var x: float = -9.0+sin(i*2.399)*2.1
-		var z: float = -22.0+float(i)*.61
-		if i > 39:
-			x = 2.5+cos(i*2.399)*10.8
-			z = -2.0+sin(i*2.399)*3.2
-		var rock: MeshInstance3D = MeshInstance3D.new()
-		var mesh: SphereMesh = SphereMesh.new()
-		mesh.radial_segments = 7
-		mesh.rings = 4
-		rock.mesh = mesh
-		rock.material_override = mat
-		rock.position = _grounded(Vector3(x,0,z))
-		rock.scale = Vector3(1.0+float(i%3)*.4,.55+float(i%5)*.28,.8+float(i%4)*.25)
-		rock.rotation_degrees = Vector3(i*13,i*47,i*7)
-		add_child(rock)
-
-func _animate(actor: Node3D, clip: String) -> AnimationPlayer:
-	var animator: AnimationPlayer = actor.find_child("AnimationPlayer",true,false) as AnimationPlayer
-	if animator != null and animator.has_animation(clip):
-		animator.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
-		animator.play(clip)
-		animator.advance(0.0)
-	return animator
-
-func _build_family() -> void:
-	family.append(noah)
-	var files: Array[String] = ["CHR_Noah_Wife_rigged.glb","CHR_Noah_Son_rigged.glb","CHR_Noah_Son_rigged.glb","CHR_Noah_Son_rigged.glb","CHR_Noah_Daughter_rigged.glb","CHR_Noah_Daughter_rigged.glb","CHR_Noah_Daughter_rigged.glb"]
-	for i in range(7):
-		var member: Node3D = _asset(files[i],1.5+float(i%3)*.06,Vector3.ZERO)
-		member.name = "Wife" if i == 0 else ("Son%d" % i if i < 4 else "DaughterInLaw%d" % (i-3))
-		family.append(member)
-	for member: Node3D in family:
-		var animator: AnimationPlayer = _animate(member,"Idle")
-		if animator != null:
-			for clip: String in ["Idle","Walk","Pray","Hammer","BrushPitch","Bless"]:
-				if animator.has_animation(clip):
-					animator.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
-		family_players.append(animator)
-	player = family_players[0]
-
-func _noah_clip() -> String:
-	if prayer:
-		return "Bless"
-	if str(event.id) in ["noah_02_keel_mortise","noah_03_hull_decks"]:
-		return "Hammer"
-	if str(event.id) == "noah_04_pitch_provisions":
-		return "BrushPitch"
-	return "Idle"
-
-func _pose_family() -> void:
-	waypoints.clear()
-	var worship: Array[Vector3] = [Vector3(0,0,4.65),Vector3(2.7,0,5.5),Vector3(-2.7,0,5.5),Vector3(-1.5,0,4.6),Vector3(1.5,0,4.6),Vector3(-1.65,0,7.6),Vector3(1.65,0,7.6),Vector3(3.1,0,6.8)]
-	var work: Array[Vector3] = [Vector3(-4,0,1.5),Vector3(8,0,4),Vector3(-1.5,0,1.8),Vector3(2.5,0,1.9),Vector3(5.7,0,1.7),Vector3(8.9,0,4.6),Vector3(7.2,0,5.2),Vector3(9.5,0,5.7)]
-	if str(event.id) == "noah_04_pitch_provisions":
-		work[0] = Vector3(5.2,0,3.2)
-		work[2] = Vector3(6.7,0,3.8)
-		work[3] = Vector3(4.8,0,2)
-		work[4] = Vector3(7.4,0,2)
-	for i in range(family.size()):
-		var member: Node3D = family[i]
-		member.visible = phase != "flood"
-		member.position = _grounded(worship[i] if prayer else work[i])
-		var target: Vector3 = altar.position if prayer else Vector3(member.position.x,member.position.y,-2)
-		if i == 0 and prayer:
-			target = member.position+Vector3(0,0,4)
-		target.y = member.position.y
-		member.look_at(target,Vector3.UP)
-		var clip: String = "Idle"
-		if prayer:
-			clip = "Bless" if i == 0 else ("Pray" if i in [5,6] else "Idle")
-		elif i in [0,2,3,4]:
-			clip = _noah_clip()
-		_animate(member,clip)
-	animation = _noah_clip()
-
-func _build_boarding_path() -> void:
-	# Asset-space plank centres from the upgraded GLB, including normalization.
-	var model: Node3D = ark.get_child(0) as Node3D
-	boarding_path = [_grounded(ark.position+Vector3(1.0,0,14.0)),_grounded(ark.position+Vector3(0,0,8.0))]
-	for local_point: Vector3 in [Vector3(0,-.17,6.35),Vector3(0,1.22,2.58),Vector3(0,1.22,1.8)]:
-		boarding_path.append(ark.position+model.transform*local_point)
-
-func _update_procession(_delta: float) -> void:
-	if sheep == null or not sheep.visible:
-		return
-	var lengths: Array[float] = []
-	var total: float = 0.0
-	for i in range(boarding_path.size()-1):
-		var segment: float = boarding_path[i].distance_to(boarding_path[i+1])
-		lengths.append(segment)
-		total += segment
-	for i in range(sheep.get_child_count()):
-		var animal: Node3D = sheep.get_child(i) as Node3D
-		var distance: float = fposmod(elapsed*.65+total*.7-float(i/2)*1.65,total)
-		animal.visible = distance < total-.25
-		for j in range(lengths.size()):
-			if distance > lengths[j]:
-				distance -= lengths[j]
-				continue
-			var direction: Vector3 = (boarding_path[j+1]-boarding_path[j]).normalized()
-			animal.position = boarding_path[j].lerp(boarding_path[j+1],distance/lengths[j])
-			animal.position.x += -.29 if i%2 == 0 else .29
-			if j < 2:
-				animal.position.y = terrain_height(animal.position.x,animal.position.z)
-			animal.position.y += absf(sin(elapsed*6.0+i))*.035
-			_stride(animal,i)
-			animal.look_at(animal.position+Vector3(direction.x,0,direction.z),Vector3.UP)
-			break
-
-func _build_birds() -> void:
-	for file: String in ["ANI_Raven.glb","ANI_Dove_Olive.glb"]:
-		var bird: Node3D = _asset(file,.38,Vector3.ZERO)
-		birds.append(bird)
-		_animate(bird,"Fly")
-
-func _update_birds() -> void:
+	# 5. Circling Raven & Olive-Leaf Dove
 	for i in range(birds.size()):
-		var bird: Node3D = birds[i]
-		bird.visible = str(event.get("id","")) in ["noah_06_flood_dove","noah_07_exit_altar"]
-		var angle: float = elapsed*.28+float(i)*PI
-		bird.position = Vector3(-3+cos(angle)*(7+i*2),6.5+i+sin(angle*2)*.45,-5+sin(angle)*4)
-		var tangent: Vector3 = Vector3(-sin(angle)*(7+i*2),cos(angle*2)*.9,cos(angle)*4)
-		bird.look_at(bird.position+tangent,Vector3.UP)
-		bird.rotation.z = sin(angle)*.12
-		for wing_index in [3,4]:
-			var wing: Node3D = bird.find_child("Bird_%d" % wing_index,true,false) as Node3D
-			if wing != null:
-				var flap: float = sin(elapsed*5.5+i)*.3*(1 if wing_index == 3 else -1)
-				_pivot_part(wing,Vector3(0,.06,-.02),Vector3(0,0,1),flap)
+		var b: Node3D = birds[i]
+		if not b.visible:
+			continue
+		var a: float = elapsed * 0.34 + float(i) * PI
+		var pos: Vector3 = Vector3(-2.0 + cos(a) * (10.0 + float(i) * 3.0), 8.2 + float(i) * 1.1 + sin(a * 2.0) * 0.5, -3.0 + sin(a) * 6.0)
+		var tan_v: Vector3 = Vector3(-sin(a) * 10.0, cos(a * 2.0) * 0.8, cos(a) * 6.0)
+		b.position = pos
+		b.look_at(pos + tan_v, Vector3.UP)
+		b.rotation.z = sin(a) * 0.16
 
-func _crag_mesh(source: SphereMesh, seed_value: float) -> ArrayMesh:
-	var arrays: Array = source.get_mesh_arrays()
-	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	for i in range(vertices.size()):
-		var v: Vector3 = vertices[i]
-		var displacement: float = 1.0 + .16*sin(v.x*13.0+seed_value)*cos(v.z*11.0-seed_value) + .09*sin(v.y*17.0+v.x*7.0)
-		vertices[i] = v*displacement
-	arrays[Mesh.ARRAY_VERTEX] = vertices
-	var mesh: ArrayMesh = ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
-	var surface: SurfaceTool = SurfaceTool.new()
-	surface.create_from(mesh,0)
-	surface.generate_normals()
-	return surface.commit()
 
-func _pivot_part(part: Node3D, pivot: Vector3, axis: Vector3, angle: float) -> void:
-	if not part.has_meta("rest_transform"):
-		part.set_meta("rest_transform",part.transform)
-	var rest: Transform3D = part.get_meta("rest_transform")
-	var rotation_basis: Basis = Basis(axis,angle)
-	part.transform = rest*Transform3D(rotation_basis,pivot-rotation_basis*pivot)
-
-func _stride(animal: Node3D, index: int) -> void:
-	# Generated quadrupeds have separate baked leg parts, but no skeletal clips.
-	for leg_index in range(1,5):
-		var leg: Node3D = animal.find_child("Part_%d" % leg_index,true,false) as Node3D
-		if leg != null:
-			if not leg.has_meta("hip"):
-				var bounds: AABB = Loader._compute_local_aabb(leg)
-				leg.set_meta("hip",Vector3(bounds.get_center().x,bounds.end.y,bounds.get_center().z))
-			var hip: Vector3 = leg.get_meta("hip")
-			_pivot_part(leg,hip,Vector3.RIGHT,sin(elapsed*6.0+index+float(leg_index%3)*PI)*.28)
+func _update_animal_procession() -> void:
+	var segs: Array[float] = []
+	var total: float = 0.0
+	for i in range(boarding_path.size() - 1):
+		var d: float = boarding_path[i].distance_to(boarding_path[i + 1])
+		segs.append(d)
+		total += d
+	for i in range(animal_root.get_child_count()):
+		var animal: Node3D = animal_root.get_child(i) as Node3D
+		var dist: float = fposmod(elapsed * 1.1 + total - float(i / 2) * 2.2, total)
+		for j in range(segs.size()):
+			if dist > segs[j]:
+				dist -= segs[j]
+				continue
+			var dir: Vector3 = (boarding_path[j + 1] - boarding_path[j]).normalized()
+			var p: Vector3 = boarding_path[j].lerp(boarding_path[j + 1], dist / maxf(segs[j], 0.01))
+			p.x += -0.42 if i % 2 == 0 else 0.42
+			if j < 2:
+				p.y = world.terrain_height(p.x, p.z)
+			p.y += absf(sin(elapsed * 6.5 + float(i))) * 0.05
+			animal.position = p
+			animal.look_at(p + Vector3(dir.x, 0.0, dir.z), Vector3.UP)
+			break
