@@ -99,14 +99,14 @@ func terrain_height(x: float, z: float) -> float:
 	var east_hill: float = smoothstep(58.0, 108.0, x)
 	# Southern gentle valley slope toward neighbor mudbrick village (Z > 32)
 	var south_slope: float = smoothstep(28.0, 62.0, z) * smoothstep(-68.0, -40.0, x)
-	# Towering northern Ararat mountain wall (Z < -26)
-	var north_ridge: float = 1.0 - smoothstep(-105.0, -24.0, z)
+	# Gentle northern Ararat hills (kept low enough so the Covenant Rainbow shines cleanly in the open sky!)
+	var north_ridge: float = 1.0 - smoothstep(-105.0, -32.0, z)
 
 	var organic: float = (sin(x * 0.065 + z * 0.055) * 1.65 + cos(z * 0.082 - x * 0.048) * 1.25) * (1.0 - plateau * 0.96)
 	var river_x: float = -86.0 + sin(z * 0.035) * 11.0
 	var channel: float = (1.0 - smoothstep(4.0, 11.0, absf(x - river_x))) * west_valley
 
-	var h: float = east_hill * 9.5 - south_slope * 4.2 + north_ridge * 22.0 + organic
+	var h: float = east_hill * 9.5 - south_slope * 4.2 + north_ridge * 11.5 + organic
 	h = lerpf(h, -11.5 + organic * 0.35, west_valley) - channel * 1.8
 	return h * (1.0 - plateau)
 
@@ -496,13 +496,16 @@ func _build_shipyard_props() -> void:
 	guard_fence.name = "GuardFence"
 	add_child(guard_fence)
 	for i in range(15):
-		var fx: float = -24.0 + float(i) * 1.4
+		var seg: Node3D = Node3D.new()
+		seg.name = "FenceSeg_%d" % i
+		var fx: float = -24.0 + float(i) * 1.6
 		var fz: float = 22.5
-		_box(guard_fence, Vector3(0.18, 1.6, 0.18), grounded(fx, fz, 0.78), wood)
+		_box(seg, Vector3(0.22, 1.85, 0.22), grounded(fx, fz, 0.92), wood)
 		if i < 14:
-			_box(guard_fence, Vector3(1.45, 0.14, 0.14), grounded(fx + 0.7, fz, 0.6), wood)
-			_box(guard_fence, Vector3(1.45, 0.14, 0.14), grounded(fx + 0.7, fz, 1.15), wood)
-	guard_fence.hide()
+			_box(seg, Vector3(1.65, 0.16, 0.14), grounded(fx + 0.8, fz, 0.65), wood)
+			_box(seg, Vector3(1.65, 0.16, 0.14), grounded(fx + 0.8, fz, 1.28), wood)
+		seg.hide()
+		guard_fence.add_child(seg)
 
 	pitch_station = Node3D.new()
 	pitch_station.name = "PitchStation"
@@ -518,6 +521,19 @@ func _build_shipyard_props() -> void:
 	pitch_station.add_child(pot_mi)
 	for i in range(6):
 		spawn_asset("CC0_Amphora.glb", 0.92, grounded(14.5 + float(i % 3) * 0.85, 14.0 + float(i / 3) * 0.95), pitch_station)
+
+
+## Age of Empires-style progressive Palisade Fence building (segments rise visibly from 0% -> 100%!)
+func set_fence_progress(pct: float) -> void:
+	if guard_fence == null:
+		return
+	var total: int = guard_fence.get_child_count()
+	var built: int = int(floor(clampf(pct, 0.0, 100.0) / 100.0 * float(total)))
+	guard_fence.visible = built > 0
+	for i in range(total):
+		var seg: Node3D = guard_fence.get_child(i) as Node3D
+		if seg != null:
+			seg.visible = i < built
 
 
 func _build_east_forest() -> void:
@@ -683,7 +699,7 @@ func _build_rainbow() -> void:
 		for v: Vector2 in [Vector2(i, 0), Vector2(i + 1, 0), Vector2(i, 1), Vector2(i + 1, 0), Vector2(i + 1, 1), Vector2(i, 1)]:
 			var u: float = v.x / 96.0
 			var a: float = u * PI
-			var r: float = 34.0 + v.y * 5.2
+			var r: float = 28.0 + v.y * 5.8
 			st.set_uv(Vector2(u, v.y))
 			st.add_vertex(Vector3(cos(a) * r, sin(a) * r, 0.0))
 	st.generate_normals()
@@ -693,8 +709,8 @@ func _build_rainbow() -> void:
 	var smat: ShaderMaterial = ShaderMaterial.new()
 	smat.shader = load("res://shaders/VFX_CovenantRainbow.gdshader") as Shader
 	rainbow.material_override = smat
-	rainbow.position = Vector3(-10.0, 2.0, -28.0)
-	rainbow.rotation_degrees.y = -18.0
+	rainbow.position = Vector3(2.0, 2.0, -36.0)
+	rainbow.rotation_degrees.y = -8.0
 	rainbow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(rainbow)
 	rainbow.hide()

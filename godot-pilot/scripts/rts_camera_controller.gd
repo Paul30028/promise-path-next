@@ -40,6 +40,7 @@ func _ready() -> void:
 	camera.far = 520.0
 	add_child(camera)
 	camera.current = true
+	camera.rotation_order = EULER_ORDER_YXZ
 	position = target_focus
 	_apply_camera_transform()
 
@@ -77,17 +78,28 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif mb.button_index == MOUSE_BUTTON_RIGHT:
 			_orbiting = mb.pressed
 			_last_mouse = mb.position
+		elif mb.button_index == MOUSE_BUTTON_LEFT:
+			if first_person_mode:
+				# In First-Person mode, BOTH Left-drag AND Right-drag smoothly look 360 degrees!
+				_orbiting = mb.pressed
+				_last_mouse = mb.position
+			elif not mb.pressed:
+				_orbiting = false
 		elif mb.button_index == MOUSE_BUTTON_MIDDLE:
 			_panning = mb.pressed
 			_last_mouse = mb.position
+	elif event is InputEventScreenDrag and first_person_mode:
+		var sd: InputEventScreenDrag = event
+		fp_yaw = wrapf(fp_yaw - sd.relative.x * orbit_sensitivity * 1.4, -PI, PI)
+		fp_pitch = clampf(fp_pitch - sd.relative.y * orbit_sensitivity * 1.1, -1.22, 1.25)
 	elif event is InputEventMouseMotion:
 		var mm: InputEventMouseMotion = event
-		var rel: Vector2 = mm.position - _last_mouse
+		var rel: Vector2 = mm.relative if mm.relative.length_squared() > 0.0 else (mm.position - _last_mouse)
 		_last_mouse = mm.position
-		if _orbiting:
+		if _orbiting or (first_person_mode and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED):
 			if first_person_mode:
-				fp_yaw -= rel.x * orbit_sensitivity * 1.1
-				fp_pitch = clampf(fp_pitch - rel.y * orbit_sensitivity * 0.9, -0.72, 0.72)
+				fp_yaw = wrapf(fp_yaw - rel.x * orbit_sensitivity * 1.45, -PI, PI)
+				fp_pitch = clampf(fp_pitch - rel.y * orbit_sensitivity * 1.15, -1.22, 1.25)
 			else:
 				target_yaw -= rel.x * orbit_sensitivity
 		elif _panning:
@@ -100,10 +112,20 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	if first_person_mode:
+		# Smooth unlimited 360-degree yaw & vertical pitch via Arrow keys, Q/R, or Left/Right mouse drag!
+		if Input.is_key_pressed(KEY_Q) or Input.is_key_pressed(KEY_LEFT):
+			fp_yaw = wrapf(fp_yaw + delta * 2.1, -PI, PI)
+		if Input.is_key_pressed(KEY_R) or Input.is_key_pressed(KEY_RIGHT):
+			fp_yaw = wrapf(fp_yaw - delta * 2.1, -PI, PI)
+		if Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_PAGEUP):
+			fp_pitch = clampf(fp_pitch + delta * 1.35, -1.22, 1.25)
+		if Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_PAGEDOWN):
+			fp_pitch = clampf(fp_pitch - delta * 1.35, -1.22, 1.25)
+		_apply_camera_transform()
+		return
 	if Input.is_key_pressed(KEY_Q):
 		target_yaw += delta * 1.15
-	if Input.is_key_pressed(KEY_E):
-		pass
 	if free_pan_enabled:
 		var move: Vector2 = Vector2.ZERO
 		if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
