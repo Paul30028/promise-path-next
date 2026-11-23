@@ -786,7 +786,8 @@ func apply_mood(mode: String) -> void:
 	if village_group != null:
 		village_group.visible = (mode != "ararat")
 	for l in ark_lanterns:
-		l.visible = (mode != "flood")
+		l.visible = true
+		l.light_energy = 4.5 if mode == "flood" else 3.0
 	var t: Tween = create_tween().set_parallel(true)
 	match mode:
 		"revelation":

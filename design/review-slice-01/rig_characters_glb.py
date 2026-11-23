@@ -1,8 +1,10 @@
+import io
 import json
 import math
 import os
 import struct
 import numpy as np
+from PIL import Image
 
 MODELS_DIR = r"c:\AI\gemini\promise-path-next\godot-pilot\assets\models"
 
@@ -54,6 +56,80 @@ def dist_point_to_segment(pts, a, b):
     t = np.clip(np.dot(pts - a, ab) / ab_len2, 0.0, 1.0)
     proj = a + t[:, None] * ab[None, :]
     return np.linalg.norm(pts - proj, axis=1)
+
+
+def clean_foot_cutout_bleed(pos_n, uv, idx, img_bytes):
+    """
+    Remove uncleaned white/cool-gray studio backdrop cutout bleed around character feet & sandals:
+    1) Removes pure studio-gray floor sliver triangles below Y=0.045;
+    2) Repaints cool-gray/white cutout texels mapped to feet (Y < 0.145) into authentic warm
+       ancient leather sandal & dark linen hem tones with 3px UV margin dilation!
+    """
+    if img_bytes is None:
+        return pos_n, idx, img_bytes
+    im = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+    arr = np.array(im, dtype=np.float32) / 255.0
+    H, W, _ = arr.shape
+
+    low = pos_n[:, 1] < 0.145
+    if not np.any(low):
+        return pos_n, idx, img_bytes
+
+    u_all = np.clip((uv[:, 0] * W).astype(np.int32), 0, W - 1)
+    v_all = np.clip((uv[:, 1] * H).astype(np.int32), 0, H - 1)
+    cols = arr[v_all, u_all]
+    luma = cols.mean(axis=1)
+    sat = cols.max(axis=1) - cols.min(axis=1)
+    # Studio cutout bleed is cool-gray or bright near-white (B >= R - 0.06, low saturation)
+    is_bleed_v = low & (
+        ((luma > 0.48) & (sat < 0.18) & (cols[:, 2] >= cols[:, 0] - 0.05))
+        | ((luma > 0.68) & (sat < 0.18))
+    )
+
+    tris = idx.reshape(-1, 3)
+    tri_y = pos_n[tris][:, :, 1].mean(axis=1)
+    # Drop pure flat studio-floor sliver triangles right at the bottom sole (Y < 0.045)
+    tri_all_bleed = is_bleed_v[tris].all(axis=1) & (tri_y < 0.045)
+    if np.any(tri_all_bleed):
+        tris = tris[~tri_all_bleed]
+
+    # Re-ground lowest remaining vertex to Y = 0.0
+    used_verts = np.unique(tris)
+    min_y = float(pos_n[used_verts, 1].min())
+    if min_y > 1e-4:
+        pos_n = pos_n.copy()
+        pos_n[:, 1] -= min_y
+
+    # Build a UV mask of all pixels near low-foot bleed vertices (dilated 4px for crisp edge cleanup!)
+    bleed_idx = np.where(is_bleed_v)[0]
+    if len(bleed_idx) > 0:
+        mask = np.zeros((H, W), dtype=bool)
+        bu = u_all[bleed_idx]
+        bv = v_all[bleed_idx]
+        for dy in range(-5, 6):
+            yy = np.clip(bv + dy, 0, H - 1)
+            for dx in range(-5, 6):
+                xx = np.clip(bu + dx, 0, W - 1)
+                mask[yy, xx] = True
+        # Within the foot UV neighborhood, repaint all bright/cool-gray pixels to warm leather/robe shadow
+        px_luma = arr.mean(axis=2)
+        px_sat = arr.max(axis=2) - arr.min(axis=2)
+        px_cool = (px_luma > 0.46) & (px_sat < 0.20) & (arr[:, :, 2] >= arr[:, :, 0] - 0.06)
+        px_white = (px_luma > 0.64) & (px_sat < 0.20)
+        repaint = mask & (px_cool | px_white)
+        if np.any(repaint):
+            # Subtle organic shade variation based on original pixel luminance (warm dark sandal/hem brown)
+            shade = np.clip(0.72 + (px_luma[repaint] - 0.55) * 0.45, 0.55, 0.92)
+            arr[repaint, 0] = 0.37 * shade
+            arr[repaint, 1] = 0.27 * shade
+            arr[repaint, 2] = 0.18 * shade
+            out_im = Image.fromarray((np.clip(arr, 0.0, 1.0) * 255.0).astype(np.uint8), mode="RGB")
+            bio = io.BytesIO()
+            out_im.save(bio, format="PNG")
+            img_bytes = bio.getvalue()
+            print(f"   Cleaned foot cutout bleed: {int(tri_all_bleed.sum())} floor tris dropped, {int(repaint.sum())} UV texels repainted")
+
+    return pos_n, tris.reshape(-1).astype(np.uint32), img_bytes
 
 
 def separate_lower_legs_mesh(pos_n, nrm_r, uv, idx, is_sarai=False):
@@ -547,9 +623,6 @@ def rig_glb(in_path, out_path, is_sarai=False):
         (pos_r[:, 2] - cz) / h,
     ], axis=1).astype(np.float32)
 
-    # Physically separate fused left/right feet & lower legs before skinning!
-    pos_n, nrm_r, uv, idx = separate_lower_legs_mesh(pos_n, nrm_r, uv, idx, is_sarai=is_sarai)
-
     # Extract embedded baseColor image bytes & mimeType
     img_bytes = None
     img_mime = "image/png"
@@ -559,6 +632,12 @@ def rig_glb(in_path, out_path, is_sarai=False):
         ibv = gltf["bufferViews"][img["bufferView"]]
         ioff = ibv.get("byteOffset", 0)
         img_bytes = bin_data[ioff:ioff + ibv["byteLength"]]
+
+    # Clean uncleaned studio-white/gray cutout bleed on feet & sandals (especially Noah!), then separate legs!
+    if not is_sarai:
+        pos_n, idx, img_bytes = clean_foot_cutout_bleed(pos_n, uv, idx, img_bytes)
+        img_mime = "image/png"
+    pos_n, nrm_r, uv, idx = separate_lower_legs_mesh(pos_n, nrm_r, uv, idx, is_sarai=is_sarai)
 
     # 14-bone Humanoid Skeleton (Y in [0, 1], shoulders along +-X, -Z forward)
     # Tight leg bone sigmas (0.075) aligned to real foot centers (±0.075) for clean independent leg motion!
