@@ -24,6 +24,7 @@ var sarai_playback: AnimationNodeStateMachinePlayback = null
 var abram_anim_state: StringName = &"Idle"
 var abram_pray_timer: float = 0.0
 var target_pos: Vector3 = Vector3(-1.85, 0.0, 1.25)
+var nav_waypoints: Array[Vector3] = []
 var move_speed: float = 4.2
 var dragging: bool = false
 var drag_distance: float = 0.0
@@ -2183,6 +2184,99 @@ func _build_mobile_hud() -> void:
 	hud.add_child(status_label)
 
 
+func _is_inside_courtyard(p: Vector3) -> bool:
+	var nx: float = (p.x + 1.65) / 4.55
+	var nz: float = (p.z - 0.25) / 2.58
+	return (nx * nx + nz * nz) < 1.0
+
+
+func _wp(x: float, z: float) -> Vector3:
+	return Vector3(x, get_terrain_height(x, z), z)
+
+
+func _set_move_goal(dest: Vector3) -> void:
+	nav_waypoints.clear()
+	target_pos = dest
+	if abram_actor == null:
+		nav_waypoints.append(dest)
+		return
+	var cur: Vector3 = abram_actor.global_position
+	var cur_in: bool = _is_inside_courtyard(cur)
+	var dst_in: bool = _is_inside_courtyard(dest)
+	var gate_in: Vector3 = _wp(-1.65, 2.05)
+	var gate_out: Vector3 = _wp(-1.65, 3.65)
+
+	if cur_in and not dst_in:
+		# Exit cleanly through the central stone entry stairs!
+		nav_waypoints.append(gate_in)
+		nav_waypoints.append(gate_out)
+		if dest.z < 1.5:
+			if dest.x >= -1.65:
+				# Route smoothly around the east flank up toward the 12-stone altar
+				nav_waypoints.append(_wp(3.95, 2.85))
+				nav_waypoints.append(_wp(4.15, -1.65))
+			else:
+				# Route smoothly around the west flank (clear of the stone well) to the spring
+				nav_waypoints.append(_wp(-5.65, 3.45))
+		nav_waypoints.append(dest)
+	elif not cur_in and dst_in:
+		# Approach cleanly around the courtyard wall and enter via the central stone stairs!
+		if cur.z < 1.5:
+			if cur.x >= -1.65:
+				nav_waypoints.append(_wp(4.15, -1.65))
+				nav_waypoints.append(_wp(3.95, 2.85))
+			else:
+				nav_waypoints.append(_wp(-5.65, 3.45))
+		nav_waypoints.append(gate_out)
+		nav_waypoints.append(gate_in)
+		nav_waypoints.append(dest)
+	elif not cur_in and not dst_in:
+		# Avoid cutting straight across the walled courtyard from north to south or west to east
+		if (cur.x < -3.0 and dest.x > 0.0 and cur.z < 2.2 and dest.z < 2.2) or (cur.x > 0.0 and dest.x < -3.0 and cur.z < 2.2 and dest.z < 2.2):
+			nav_waypoints.append(_wp(-1.65, 3.95))
+		nav_waypoints.append(dest)
+	else:
+		nav_waypoints.append(dest)
+
+
+func _resolve_camp_obstacles(pos: Vector3, prev: Vector3) -> Vector3:
+	var out: Vector3 = pos
+	# 1. Courtyard dry-stone wall ellipse barrier (except open central stone stairs gate x in [-2.55, -0.75], z > 1.8)
+	var in_gate: bool = (out.x > -2.55 and out.x < -0.75 and out.z > 1.75)
+	if not in_gate:
+		var prev_in: bool = _is_inside_courtyard(prev)
+		var nx: float = (out.x + 1.65) / 4.68
+		var nz: float = (out.z - 0.25) / 2.68
+		var r2: float = nx * nx + nz * nz
+		if prev_in and r2 > 0.86:
+			var s: float = sqrt(0.86 / maxf(r2, 0.001))
+			out.x = -1.65 + (out.x + 1.65) * s
+			out.z = 0.25 + (out.z - 0.25) * s
+		elif not prev_in and r2 < 1.16:
+			var s2: float = sqrt(1.16 / maxf(r2, 0.001))
+			out.x = -1.65 + (out.x + 1.65) * s2
+			out.z = 0.25 + (out.z - 0.25) * s2
+
+	# 2. Circular solid prop colliders: [cx, cz, radius] (Stone Well, Campfire Hearth, Sarai, Main Tent core, Healing Canopy core)
+	for col in [
+		[-6.65, 1.35, 1.15],  # Stone Well
+		[-2.35, 1.25, 0.92],  # Campfire Hearth
+		[-0.75, 1.30, 0.62],  # Sarai
+		[-2.00, -0.75, 1.45], # Main Tent rear interior
+		[1.15, -0.35, 1.25],  # Healing Canopy interior
+	]:
+		var dx: float = out.x - float(col[0])
+		var dz: float = out.z - float(col[1])
+		var dist: float = sqrt(dx * dx + dz * dz)
+		var min_r: float = float(col[2])
+		if dist < min_r and dist > 0.001:
+			out.x = float(col[0]) + (dx / dist) * min_r
+			out.z = float(col[1]) + (dz / dist) * min_r
+
+	out.y = get_terrain_height(out.x, out.z)
+	return out
+
+
 func _trigger_action(action_key: String) -> void:
 	if action_key == "story":
 		if story_panel != null:
@@ -2190,14 +2284,14 @@ func _trigger_action(action_key: String) -> void:
 		return
 	pending_action = action_key
 	if action_key == "water":
-		target_pos = Vector3(-5.8, get_terrain_height(-5.8, -0.8), -0.8)
-		status_note = "亚伯兰正前往西谷清泉取水..."
+		_set_move_goal(Vector3(-5.8, get_terrain_height(-5.8, -0.8), -0.8))
+		status_note = "亚伯兰正绕出院门前往西谷清泉取水..."
 	elif action_key == "pray":
-		target_pos = Vector3(1.0, get_terrain_height(1.0, -3.5), -3.5)
-		status_note = "亚伯兰正登北坡前往十二石立约祭坛求告..."
+		_set_move_goal(Vector3(1.0, get_terrain_height(1.0, -3.5), -3.5))
+		status_note = "亚伯兰正绕行东道登北坡，前往十二石立约祭坛跪拜求告..."
 	else:
-		target_pos = Vector3(-1.85, get_terrain_height(-1.85, 1.25), 1.25)
-		status_note = "亚伯兰正返回主营大帐..."
+		_set_move_goal(Vector3(-1.85, get_terrain_height(-1.85, 1.25), 1.25))
+		status_note = "亚伯兰正经石阶返回主营大帐..."
 	if status_label != null:
 		status_label.text = status_note
 
@@ -2231,7 +2325,7 @@ func _order_move_from_screen(screen_pos: Vector2) -> void:
 		var tx: float = clamp(p.x, -26.0, 26.0)
 		var tz: float = clamp(p.z, -18.0, 18.0)
 		pending_action = ""
-		target_pos = Vector3(tx, get_terrain_height(tx, tz), tz)
+		_set_move_goal(Vector3(tx, get_terrain_height(tx, tz), tz))
 
 
 func _process(delta: float) -> void:
@@ -2241,27 +2335,37 @@ func _process(delta: float) -> void:
 		sm.position.x = 1.0 + float(k) * 0.12 + sin(anim_time * 1.4 + float(k)) * 0.08
 
 	if abram_actor != null:
-		var to_target := target_pos - abram_actor.global_position
-		to_target.y = 0.0
 		var desired_state: StringName = &"Idle"
-		if to_target.length() > 0.12:
+		var cur_goal: Vector3 = nav_waypoints[0] if not nav_waypoints.is_empty() else target_pos
+		var to_target := cur_goal - abram_actor.global_position
+		to_target.y = 0.0
+		if to_target.length() <= 0.16 and nav_waypoints.size() > 1:
+			nav_waypoints.remove_at(0)
+			cur_goal = nav_waypoints[0]
+			to_target = cur_goal - abram_actor.global_position
+			to_target.y = 0.0
+
+		if to_target.length() > 0.14:
 			abram_pray_timer = 0.0
 			desired_state = &"Walk"
 			var dir: Vector3 = to_target.normalized()
 			var step: Vector3 = dir * minf(move_speed * delta, to_target.length())
-			abram_actor.global_position += step
-			abram_actor.global_position.y = get_terrain_height(abram_actor.global_position.x, abram_actor.global_position.z)
+			var prev_p: Vector3 = abram_actor.global_position
+			var next_p: Vector3 = _resolve_camp_obstacles(prev_p + step, prev_p)
+			abram_actor.global_position = next_p
 			# Rigged GLB faces -Z (Godot native look_at forward axis!)
 			abram_actor.look_at(abram_actor.global_position + dir, Vector3.UP)
 		elif pending_action != "":
+			nav_waypoints.clear()
 			if pending_action == "water":
 				water_count += 5
 				status_note = "已从西谷清泉取水 +5（当前饮水：%d）" % water_count
 			elif pending_action == "pray":
 				harmony_score = mini(100, harmony_score + 15)
-				abram_pray_timer = 4.2
+				abram_pray_timer = 4.6
 				desired_state = &"Pray"
-				status_note = "【创 13:4】亚伯兰在坛前求告耶和华的名，全营和睦升至 %d%%" % harmony_score
+				abram_actor.look_at(Vector3(1.0, abram_actor.global_position.y, -4.85), Vector3.UP)
+				status_note = "【创 13:4】亚伯兰在十二石坛前跪拜求告耶和华的名，全营和睦升至 %d%%" % harmony_score
 			else:
 				status_note = "亚伯兰已回到主营大帐"
 			chapter_story.apply_camp_delta(5 if pending_action == "water" else 0, 15 if pending_action == "pray" else 0)

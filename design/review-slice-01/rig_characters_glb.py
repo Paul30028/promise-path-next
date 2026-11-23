@@ -144,7 +144,7 @@ def build_animations(bone_specs, is_sarai=False):
         ch_idle.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.08 - s1 * 0.04, 0.0, 0.0))
     anims.append(("Idle", dur_idle, times_idle, ch_idle))
 
-    # 2. Walk (expressive miniature-strategy stride)
+    # 2. Walk (expressive miniature-strategy stride — natural FORWARD lean for -Z facing!)
     n_w = 25
     dur_walk = 0.96
     times_walk = np.linspace(0.0, dur_walk, n_w, dtype=np.float32)
@@ -154,41 +154,49 @@ def build_animations(bone_specs, is_sarai=False):
         ph = (t / dur_walk) * math.tau
         s = math.sin(ph)
         c = math.cos(ph)
-        bob = abs(math.sin(ph)) * 0.024
+        bob = abs(math.sin(ph)) * 0.022
         ch_walk.setdefault((1, "translation"), []).append([hips_base[0], hips_base[1] + bob, hips_base[2]])
-        ch_walk.setdefault((1, "rotation"), []).append(euler_xyz_to_quat(0.04, s * 0.11, -s * 0.04))
-        ch_walk.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(0.04, -s * 0.08, s * 0.03))
-        ch_walk.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(0.03, -s * 0.12, 0.0))
-        ch_walk.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(-0.04, s * 0.06, 0.0))
+        # Negative X pitch leans FORWARD when character faces -Z!
+        ch_walk.setdefault((1, "rotation"), []).append(euler_xyz_to_quat(-0.04, s * 0.10, -s * 0.035))
+        ch_walk.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.06, -s * 0.08, s * 0.025))
+        ch_walk.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.05, -s * 0.11, 0.0))
+        ch_walk.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(0.05, s * 0.05, 0.0))
         # Legs alternating stride (around X axis)
-        ch_walk.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(s * 0.42, 0.0, 0.0))
-        ch_walk.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(max(0.0, -c) * 0.35, 0.0, 0.0))
-        ch_walk.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(-s * 0.42, 0.0, 0.0))
-        ch_walk.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(max(0.0, c) * 0.35, 0.0, 0.0))
+        ch_walk.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(-s * 0.42, 0.0, 0.0))
+        ch_walk.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(max(0.0, c) * 0.34, 0.0, 0.0))
+        ch_walk.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(s * 0.42, 0.0, 0.0))
+        ch_walk.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(max(0.0, -c) * 0.34, 0.0, 0.0))
         # Counter-swinging arms
-        ch_walk.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(-s * 0.44, 0.0, -0.06))
-        ch_walk.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-0.22 - max(0.0, s) * 0.18, 0.0, 0.0))
-        ch_walk.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(s * 0.44, 0.0, 0.06))
-        ch_walk.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.22 - max(0.0, -s) * 0.18, 0.0, 0.0))
+        ch_walk.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(s * 0.40, 0.0, -0.05))
+        ch_walk.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(0.20 + max(0.0, -s) * 0.16, 0.0, 0.0))
+        ch_walk.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-s * 0.40, 0.0, 0.05))
+        ch_walk.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(0.20 + max(0.0, s) * 0.16, 0.0, 0.0))
     anims.append(("Walk", dur_walk, times_walk, ch_walk))
 
-    # 3. Pray (reverent Bronze Age Hebrew covenant prayer at the 12-Stone Altar)
+    # 3. Pray (reverent Bronze Age Hebrew KNEELING & BOWING prayer at the altar — true 跪拜动作!)
     n_p = 25
-    dur_pray = 2.4
+    dur_pray = 2.6
     times_pray = np.linspace(0.0, dur_pray, n_p, dtype=np.float32)
     ch_pray = {}
     for k, t in enumerate(times_pray):
         ph = (t / dur_pray) * math.tau
-        sway = math.sin(ph) * 0.05
-        ch_pray.setdefault((1, "translation"), []).append([hips_base[0], hips_base[1] - 0.012, hips_base[2]])
-        ch_pray.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(0.14 + sway * 0.4, 0.0, 0.0))
-        ch_pray.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(0.12 + sway * 0.5, 0.0, 0.0))
-        ch_pray.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(0.16 + sway * 0.6, 0.0, 0.0))
-        # Raised forearms in prayer / blessing
-        ch_pray.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(-0.62 - sway, 0.16, -0.08))
-        ch_pray.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-0.55 - sway, 0.12, 0.0))
-        ch_pray.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-0.62 - sway, -0.16, 0.08))
-        ch_pray.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.55 - sway, -0.12, 0.0))
+        sway = math.sin(ph) * 0.045
+        # Drop Hips down to kneeling height (0.46 -> 0.24)
+        ch_pray.setdefault((1, "translation"), []).append([hips_base[0], 0.24 + sway * 0.08, hips_base[2] - 0.04])
+        # Kneeling thighs forward, shins folded back
+        ch_pray.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(-1.15, 0.0, 0.04))
+        ch_pray.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(1.55, 0.0, 0.0))
+        ch_pray.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(-1.15, 0.0, -0.04))
+        ch_pray.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(1.55, 0.0, 0.0))
+        # Humble forward bow of Spine, Chest & Head (-X pitch leans forward for -Z facing!)
+        ch_pray.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.34 - sway * 0.5, 0.0, 0.0))
+        ch_pray.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.28 - sway * 0.5, 0.0, 0.0))
+        ch_pray.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(-0.26 - sway * 0.6, 0.0, 0.0))
+        # Arms lifted forward in reverent prayer / offering
+        ch_pray.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(0.68 + sway, -0.18, -0.10))
+        ch_pray.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(0.56 + sway, -0.12, 0.0))
+        ch_pray.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(0.68 + sway, 0.18, 0.10))
+        ch_pray.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(0.56 + sway, 0.12, 0.0))
     anims.append(("Pray", dur_pray, times_pray, ch_pray))
 
     return anims
