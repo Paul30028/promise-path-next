@@ -6,8 +6,12 @@ config_version=5
 [application]
 
 config/name="Promise Path Godot Pilot"
-run/main_scene="res://scenes/camp_pilot.tscn"
+run/main_scene="res://scenes/overworld_prologue.tscn"
 config/features=PackedStringArray("4.4", "Forward Plus")
+
+[autoload]
+
+CampaignState="*res://scripts/campaign_state.gd"
 
 [display]
 

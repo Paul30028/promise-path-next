@@ -335,6 +335,11 @@ func _ready() -> void:
 	_build_grass_meadow_multimesh()
 	_build_set_dressing_multimesh()
 	var chapter_loaded: bool = chapter_story.load_chapter("res://data/ch01_bethel.json")
+	var cstate := get_node_or_null("/root/CampaignState")
+	if cstate != null and not cstate.carryover_applied:
+		water_count = maxi(0, water_count + cstate.water_bonus)
+		harmony_score = clampi(harmony_score + cstate.harmony_bonus, 0, 100)
+		cstate.carryover_applied = true
 	_build_mobile_hud()
 	if chapter_loaded:
 		_build_chapter_hud()
