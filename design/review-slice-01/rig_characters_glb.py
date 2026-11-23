@@ -199,6 +199,65 @@ def build_animations(bone_specs, is_sarai=False):
         ch_pray.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(0.56 + sway, 0.12, 0.0))
     anims.append(("Pray", dur_pray, times_pray, ch_pray))
 
+    # 4. Hammer (rhythmic carpentry mallet swing for keel mortise & hull planking)
+    n_h = 25
+    dur_ham = 1.15
+    times_ham = np.linspace(0.0, dur_ham, n_h, dtype=np.float32)
+    ch_ham = {}
+    for k, t in enumerate(times_ham):
+        ph = (t / dur_ham) * math.tau
+        strike = math.sin(ph)
+        # Slight forward brace stance
+        ch_ham.setdefault((1, "translation"), []).append([hips_base[0], hips_base[1] - 0.03 + max(0.0, strike) * 0.015, hips_base[2]])
+        ch_ham.setdefault((1, "rotation"), []).append(euler_xyz_to_quat(-0.08, -0.14 + strike * 0.12, 0.0))
+        ch_ham.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.14 - strike * 0.12, -0.10 + strike * 0.16, 0.0))
+        ch_ham.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.10 - strike * 0.10, -0.08 + strike * 0.12, 0.0))
+        ch_ham.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(-0.12, 0.06, 0.0))
+        # Right arm (8=UpperArm_R, 9=LowerArm_R) raises high and strikes down cleanly
+        ch_ham.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-0.55 - strike * 0.85, 0.08, 0.18))
+        ch_ham.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.50 - max(0.0, strike) * 0.55, 0.0, 0.0))
+        # Left arm (6=UpperArm_L, 7=LowerArm_L) steadies timber peg
+        ch_ham.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(-0.45, -0.15, -0.12))
+        ch_ham.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-0.42, 0.0, 0.0))
+    anims.append(("Hammer", dur_ham, times_ham, ch_ham))
+
+    # 5. BrushPitch (stooped sweeping stroke applying hot bitumen/pitch to hull seams)
+    n_b = 25
+    dur_br = 1.6
+    times_br = np.linspace(0.0, dur_br, n_b, dtype=np.float32)
+    ch_br = {}
+    for k, t in enumerate(times_br):
+        ph = (t / dur_br) * math.tau
+        sweep = math.sin(ph)
+        ch_br.setdefault((1, "translation"), []).append([hips_base[0], hips_base[1] - 0.05, hips_base[2]])
+        ch_br.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.24, sweep * 0.18, 0.0))
+        ch_br.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.18, sweep * 0.22, 0.0))
+        ch_br.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(-0.16, sweep * 0.10, 0.0))
+        ch_br.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-0.72 + sweep * 0.25, sweep * 0.38, 0.12))
+        ch_br.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.35 + sweep * 0.18, 0.0, 0.0))
+        ch_br.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(-0.35, -0.12, -0.10))
+        ch_br.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-0.25, 0.0, 0.0))
+    anims.append(("BrushPitch", dur_br, times_br, ch_br))
+
+    # 6. Bless (exact 00_prologue_noah_ark_final.png thanksgiving pose: upright, head lifted skyward, both arms raised!)
+    n_bl = 25
+    dur_bl = 3.2
+    times_bl = np.linspace(0.0, dur_bl, n_bl, dtype=np.float32)
+    ch_bl = {}
+    for k, t in enumerate(times_bl):
+        ph = (t / dur_bl) * math.tau
+        sway = math.sin(ph) * 0.04
+        ch_bl.setdefault((1, "translation"), []).append([hips_base[0], hips_base[1] + sway * 0.12, hips_base[2]])
+        ch_bl.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(0.05 + sway * 0.3, 0.0, 0.0))
+        ch_bl.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(0.08 + sway * 0.3, 0.0, 0.0))
+        ch_bl.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(0.24 + sway * 0.4, sway * 0.5, 0.0))
+        # Both arms raised outward & upward toward the Rainbow Covenant
+        ch_bl.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(-1.15 - sway, -0.25, -0.45))
+        ch_bl.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(-0.48 - sway * 0.5, 0.0, 0.0))
+        ch_bl.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-1.15 - sway, 0.25, 0.45))
+        ch_bl.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.48 - sway * 0.5, 0.0, 0.0))
+    anims.append(("Bless", dur_bl, times_bl, ch_bl))
+
     return anims
 
 
