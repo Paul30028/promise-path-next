@@ -179,17 +179,20 @@ def main():
     for sz in (-HW + 1.3, HW - 1.3):
         int_pitch.append(box_uv([L - 3.4, 0.35, 0.35], [0.0, 0.75, sz]))
 
-    # Deck 2 (Middle Deck Floor Y = 3.95) — leave open central stairwell atrium at X in [2.0, 14.0], Z in [-2.6, +2.6]
+    # Deck 2 (Middle Deck Floor Y = 3.95) — stairwell opening ONLY on North side aisle (Z in [-3.2, -1.15]),
+    # leaving a completely open 4.3m-wide main corridor (Z in [-1.15, +3.15]) straight past the stairs to the rear cabin!
     int_wood.append(box_uv([52.5, 0.24, W - 1.6], [-24.25, 3.85, 0.0]))   # West half (-50.5..+2.0)
     int_wood.append(box_uv([36.5, 0.24, W - 1.6], [32.25, 3.85, 0.0]))    # East half (+14.0..+50.5)
-    for sz in (-5.2, 5.2):                                                 # Side balconies beside stairwell
-        int_wood.append(box_uv([12.2, 0.24, 5.2], [8.0, 3.85, sz]))
+    int_wood.append(box_uv([12.2, 0.24, 4.5], [8.0, 3.85, -5.45]))        # North stalls behind Stair 1
+    int_wood.append(box_uv([12.2, 0.24, 8.85], [8.0, 3.85, 3.275]))       # Wide open central+south walkway past Stair 1!
+    int_wood.append(box_uv([11.8, 0.14, 0.14], [8.0, 4.75, -1.18]))       # Deck 2 stairwell guardrail
 
-    # Deck 3 (Upper Deck Floor Y = 7.15) — leave open stairwell atrium at X in [18.0, 30.0], Z in [-2.6, +2.6]
+    # Deck 3 (Upper Deck Floor Y = 7.15) — stairwell opening ONLY on North side aisle (Z in [-3.2, -1.15])
     int_wood.append(box_uv([68.5, 0.24, W - 1.4], [-16.25, 7.05, 0.0]))   # West half (-50.5..+18.0)
     int_wood.append(box_uv([20.5, 0.24, W - 1.4], [40.25, 7.05, 0.0]))    # East half (+30.0..+50.5)
-    for sz in (-5.2, 5.2):
-        int_wood.append(box_uv([12.2, 0.24, 5.2], [24.0, 7.05, sz]))
+    int_wood.append(box_uv([12.2, 0.24, 4.5], [24.0, 7.05, -5.45]))       # North stalls behind Stair 2
+    int_wood.append(box_uv([12.2, 0.24, 8.85], [24.0, 7.05, 3.275]))      # Wide open central+south walkway past Stair 2!
+    int_wood.append(box_uv([11.8, 0.14, 0.14], [24.0, 7.95, -1.18]))      # Deck 3 stairwell guardrail
 
     # Heavy interior structural pillars & overhead deck beams + Biblical Compartment Stalls ("分一间一间地造" Gen 6:14)
     stall_xs = np.linspace(-44.0, 44.0, 12)
@@ -213,24 +216,25 @@ def main():
                 # Pitch caulked base strip along stall wall
                 int_pitch.append(box_uv([0.24, 0.24, 4.4], [sx, deck_y + 0.14, side * 5.5]))
 
-    # Wide, gradual, walkable Central Timber Staircases!
+    # Side-Mounted Timber Staircases along North Aisle (Z=-2.15, width 1.85m) so the 4.3m Main Corridor
+    # goes straight past every staircase into the Rear Cabin on Deck 1, Deck 2, and Deck 3!
     # Stair 1: Lower Deck (X=2.5, Y=0.65) -> Middle Deck (X=13.5, Y=3.95)
     for i in range(14):
         t = (i + 0.5) / 14.0
         stx = 2.5 + t * 11.0
         sty = 0.65 + t * 3.30
-        int_wood.append(box_uv([0.95, 0.18, 3.4], [stx, sty, 0.0]))
-    for sz in (-1.75, 1.75):
-        int_wood.append(box_uv([11.8, 0.22, 0.16], [8.0, 2.95, sz], rot_z=0.29))
+        int_wood.append(box_uv([0.95, 0.18, 1.85], [stx, sty, -2.15]))
+    for sz in (-3.08, -1.22):
+        int_wood.append(box_uv([11.8, 0.22, 0.14], [8.0, 2.95, sz], rot_z=0.29))
 
     # Stair 2: Middle Deck (X=18.5, Y=3.95) -> Upper Deck (X=29.5, Y=7.15)
     for i in range(14):
         t = (i + 0.5) / 14.0
         stx = 18.5 + t * 11.0
         sty = 3.95 + t * 3.20
-        int_wood.append(box_uv([0.95, 0.18, 3.4], [stx, sty, 0.0]))
-    for sz in (-1.75, 1.75):
-        int_wood.append(box_uv([11.8, 0.22, 0.16], [24.0, 6.20, sz], rot_z=0.28))
+        int_wood.append(box_uv([0.95, 0.18, 1.85], [stx, sty, -2.15]))
+    for sz in (-3.08, -1.22):
+        int_wood.append(box_uv([11.8, 0.22, 0.14], [24.0, 6.20, sz], rot_z=0.28))
 
     # --- STAGE 3: Pitched Gabled Timber Roof (Cutaway) + Sturdy Boarding Ramp (Retractable) ---
     roof_slope = 0.13

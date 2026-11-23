@@ -56,9 +56,51 @@ def dist_point_to_segment(pts, a, b):
     return np.linalg.norm(pts - proj, axis=1)
 
 
-def compute_skin_weights(pos, bone_specs):
+def separate_lower_legs_mesh(pos_n, nrm_r, uv, idx, is_sarai=False):
     """
-    Compute smooth anatomical 4-bone weights for normalized humanoid mesh (Y in [0, 1], X shoulders, +Z forward).
+    Physically separate fused TripoSR left/right feet & lower legs so there are ZERO
+    bridging/webbed triangles crossing X=0 when characters walk or run!
+    Also pushes inner-ankle vertices gently apart around X=0 so both feet read cleanly.
+    """
+    tris = idx.reshape(-1, 3)
+    # Split threshold height: men's tunics split cleanly below knee/mid-thigh (0.34),
+    # women's long robes split below lower shin/ankle (0.20) so both sandaled feet step cleanly!
+    split_y = 0.20 if is_sarai else 0.34
+    foot_y = 0.16
+
+    v_tri = pos_n[tris]  # (T, 3, 3)
+    tri_y = v_tri[:, :, 1].mean(axis=1)
+    tri_xmin = v_tri[:, :, 0].min(axis=1)
+    tri_xmax = v_tri[:, :, 0].max(axis=1)
+
+    # 1. Drop bridging triangles that span across X=0 in the lower leg / foot zone
+    crosses_center = (tri_xmin < -0.001) & (tri_xmax > 0.001) & (tri_y < split_y)
+    # Also remove very thin centerline slivers right between the two ankles/feet
+    center_sliver = (tri_y < foot_y) & (np.abs(v_tri[:, :, 0].mean(axis=1)) < 0.014)
+    keep = ~(crosses_center | center_sliver)
+    tris_clean = tris[keep]
+
+    # 2. Gently carve a crisp natural air gap between the inner left and right ankles/feet
+    pos_out = pos_n.copy()
+    x = pos_out[:, 0]
+    y = pos_out[:, 1]
+    in_foot_gap = (y < split_y) & (np.abs(x) < 0.036)
+    if np.any(in_foot_gap):
+        # Smooth ramp: strongest separation at feet (Y=0..0.16), tapering smoothly to 0 at split_y
+        t_h = np.clip((split_y - y[in_foot_gap]) / max(split_y - 0.06, 0.05), 0.0, 1.0)
+        signs = np.where(x[in_foot_gap] >= 0.0, 1.0, -1.0)
+        min_gap = 0.024 * t_h
+        cur_abs = np.abs(x[in_foot_gap])
+        push = np.maximum(0.0, min_gap - cur_abs)
+        pos_out[in_foot_gap, 0] = x[in_foot_gap] + signs * push
+
+    return pos_out, nrm_r, uv, tris_clean.reshape(-1).astype(np.uint32)
+
+
+def compute_skin_weights(pos, bone_specs, is_sarai=False):
+    """
+    Compute anatomical 4-bone weights with STRICT left/right leg isolation so
+    left and right feet stride completely independently with ZERO cross-leg glue!
     bone_specs: list of (name, parent_idx, head_xyz, tail_xyz, radius_scale)
     """
     n_verts = pos.shape[0]
@@ -67,46 +109,62 @@ def compute_skin_weights(pos, bone_specs):
 
     x = pos[:, 0]
     y = pos[:, 1]
+    split_y = 0.22 if is_sarai else 0.36
 
     for bi, (name, parent, head, tail, rad) in enumerate(bone_specs):
         if bi == 0:
-            # Root bone stays identity; Hips carries base weight
             continue
         d = dist_point_to_segment(pos, np.array(head, dtype=np.float32), np.array(tail, dtype=np.float32))
         sigma = rad
         w = np.exp(-0.5 * (d / sigma) ** 2)
 
-        # Anatomical masks so arms don't pull torso and legs don't pull arms
         if "Arm" in name or "Forearm" in name:
             side = 1.0 if name.endswith("_L") else -1.0
-            arm_mask = np.clip((x * side - 0.075) / 0.05, 0.0, 1.0) * np.clip((y - 0.36) / 0.12, 0.0, 1.0)
+            arm_mask = np.clip((x * side - 0.075) / 0.045, 0.0, 1.0) * np.clip((y - 0.36) / 0.10, 0.0, 1.0)
             w *= arm_mask
         elif "Thigh" in name or "Shin" in name:
             side = 1.0 if name.endswith("_L") else -1.0
-            # Wide smooth fabric blend across robe hem so legs stride naturally without slicing/shearing!
-            side_mask = 1.0 / (1.0 + np.exp(-(x * side) / 0.085))
-            lower_mask = np.clip((0.50 - y) / 0.12, 0.0, 1.0)
-            w *= side_mask * lower_mask
+            # HARD side isolation below split_y so Left Foot NEVER receives Right Leg weight (and vice versa!)
+            hard_side = (x * side >= 0.0).astype(np.float32)
+            soft_side = 1.0 / (1.0 + np.exp(-(x * side) / 0.022))
+            blend_t = np.clip((y - split_y) / 0.10, 0.0, 1.0)
+            side_mask = hard_side * (1.0 - blend_t) + soft_side * blend_t
+            lower_mask = np.clip((0.48 - y) / 0.08, 0.0, 1.0)
+            if "Shin" in name:
+                # Shin owns knee-to-foot (Y < 0.27) strongly; zero influence above hip
+                shin_band = np.clip((0.29 - y) / 0.07, 0.0, 1.0)
+                w = (w + 0.65 * np.clip((0.20 - y) / 0.08, 0.0, 1.0)) * side_mask * shin_band
+            else:
+                # Thigh owns hip-to-knee (Y in 0.20..0.47)
+                thigh_band = np.clip((y - 0.18) / 0.07, 0.0, 1.0) * lower_mask
+                w *= side_mask * thigh_band
         elif name in ("Neck", "Head"):
             head_mask = np.clip((y - 0.74) / 0.06, 0.0, 1.0)
             w *= head_mask
         elif name in ("Spine", "Chest"):
-            torso_mask = np.clip((y - 0.42) / 0.10, 0.0, 1.0) * np.clip((0.86 - y) / 0.08, 0.0, 1.0)
+            torso_mask = np.clip((y - 0.44) / 0.08, 0.0, 1.0) * np.clip((0.86 - y) / 0.08, 0.0, 1.0)
             torso_mask *= np.clip((0.15 - np.abs(x)) / 0.06, 0.15, 1.0)
             w *= torso_mask
         elif name == "Hips":
-            # Soft robe-drape anchor through mid-thigh keeps cloth cohesive while legs step underneath
-            hip_mask = np.clip((0.66 - y) / 0.14, 0.0, 1.0) * np.clip((y - 0.16) / 0.20, 0.22, 1.0)
+            # Hips fades cleanly to ZERO below Y=0.34 so feet/shins are 100% controlled by leg bones!
+            hip_mask = np.clip((0.64 - y) / 0.12, 0.0, 1.0) * np.clip((y - 0.34) / 0.10, 0.0, 1.0)
             w *= hip_mask
 
         weights_all[:, bi] = w
 
-    # Ensure every vertex has non-zero total weight (fallback to Hips=1)
+    # Ensure every vertex has non-zero total weight (fallback to nearest leg below Y=0.34, else Hips)
     row_sums = weights_all.sum(axis=1)
     zero_mask = row_sums < 1e-6
-    weights_all[zero_mask, 1] = 1.0
+    if np.any(zero_mask):
+        z_idx = np.where(zero_mask)[0]
+        for vi in z_idx:
+            if y[vi] < 0.24:
+                weights_all[vi, 11 if x[vi] >= 0.0 else 13] = 1.0
+            elif y[vi] < 0.44:
+                weights_all[vi, 10 if x[vi] >= 0.0 else 12] = 1.0
+            else:
+                weights_all[vi, 1] = 1.0
 
-    # Keep top 4 influences per vertex & normalize
     top4_idx = np.argsort(-weights_all, axis=1)[:, :4]
     top4_w = np.take_along_axis(weights_all, top4_idx, axis=1)
     top4_w = top4_w / np.maximum(top4_w.sum(axis=1, keepdims=True), 1e-8)
@@ -145,63 +203,63 @@ def build_animations(bone_specs, is_sarai=False):
         ch_idle.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(-0.08 - s1 * 0.04, 0.0, 0.0))
     anims.append(("Idle", dur_idle, times_idle, ch_idle))
 
-    # 2. Walk (natural 3D biomechanical stride: lateral weight shift, double-bounce, pelvis/chest counter-twist, knee lift)
+    # 2. Walk (natural 3D biomechanical stride: separated feet, forward thigh swing +X, backward knee bend -X!)
     n_w = 25
-    dur_walk = 1.04
+    dur_walk = 0.96
     times_walk = np.linspace(0.0, dur_walk, n_w, dtype=np.float32)
     ch_walk = {}
     hips_base = bone_specs[1][2]
     for k, t in enumerate(times_walk):
         ph = (t / dur_walk) * math.tau
         s = math.sin(ph)
-        c = math.cos(ph)
         # Double-frequency vertical stride bob + lateral weight shift onto planted foot
-        bob = -math.cos(2.0 * ph) * 0.018
-        sway_x = s * 0.022
+        bob = -math.cos(2.0 * ph) * 0.020
+        sway_x = -s * 0.020
         ch_walk.setdefault((1, "translation"), []).append([hips_base[0] + sway_x, hips_base[1] + bob, hips_base[2]])
-        # Negative X pitch leans FORWARD when character faces -Z; natural hip roll & pelvis yaw
-        ch_walk.setdefault((1, "rotation"), []).append(euler_xyz_to_quat(-0.05, s * 0.13, -s * 0.055))
-        ch_walk.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.05, -s * 0.10, s * 0.035))
-        ch_walk.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.04, -s * 0.14, s * 0.02))
-        ch_walk.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(0.06, s * 0.08, 0.0))
-        # Natural stride with smooth knee bend on swing phase (no stiff scissor-slice!)
-        l_swing = max(0.0, math.sin(ph + 0.65))
-        r_swing = max(0.0, math.sin(ph + math.pi + 0.65))
-        ch_walk.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(-s * 0.30 - l_swing * 0.14, 0.0, 0.02))
-        ch_walk.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(l_swing * 0.52, 0.0, 0.0))
-        ch_walk.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(s * 0.30 - r_swing * 0.14, 0.0, -0.02))
-        ch_walk.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(r_swing * 0.52, 0.0, 0.0))
-        # Natural relaxed counter-swinging arms with forward elbow bend (+X bends forearm forward toward -Z!)
-        ch_walk.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(s * 0.36, 0.0, -0.07))
-        ch_walk.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(0.24 + max(0.0, s) * 0.24, 0.0, 0.0))
-        ch_walk.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-s * 0.36, 0.0, 0.07))
-        ch_walk.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(0.24 + max(0.0, -s) * 0.24, 0.0, 0.0))
+        # Negative X pitch leans torso subtly forward toward -Z; natural hip counter-yaw
+        ch_walk.setdefault((1, "rotation"), []).append(euler_xyz_to_quat(-0.05, -s * 0.12, s * 0.045))
+        ch_walk.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.04, s * 0.09, -s * 0.03))
+        ch_walk.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.03, s * 0.13, -s * 0.02))
+        ch_walk.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(0.05, -s * 0.07, 0.0))
+        # Crisp alternating two-foot stride (+X swings leg forward toward -Z; -X bends knee backward toward +Z!)
+        l_swing = max(0.0, math.sin(ph + 0.55))
+        r_swing = max(0.0, math.sin(ph + math.pi + 0.55))
+        stride_amp = 0.34 if is_sarai else 0.46
+        ch_walk.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(s * stride_amp + l_swing * 0.16, 0.0, 0.025))
+        ch_walk.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(-l_swing * 0.62, 0.0, 0.0))
+        ch_walk.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(-s * stride_amp + r_swing * 0.16, 0.0, -0.025))
+        ch_walk.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(-r_swing * 0.62, 0.0, 0.0))
+        # Natural opposite-arm counter-swing (+X swings arm forward toward -Z)
+        ch_walk.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(-s * 0.38, 0.0, -0.07))
+        ch_walk.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(0.24 + max(0.0, -s) * 0.24, 0.0, 0.0))
+        ch_walk.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(s * 0.38, 0.0, 0.07))
+        ch_walk.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(0.24 + max(0.0, s) * 0.24, 0.0, 0.0))
     anims.append(("Walk", dur_walk, times_walk, ch_walk))
 
-    # 2b. Run (athletic forward sprint with high knee drive and pumping forward-bent elbows)
+    # 2b. Run (athletic forward sprint with clear alternating two-leg drive & backward knee fold)
     n_r = 25
-    dur_run = 0.68
+    dur_run = 0.66
     times_run = np.linspace(0.0, dur_run, n_r, dtype=np.float32)
     ch_run = {}
     for k, t in enumerate(times_run):
         ph = (t / dur_run) * math.tau
         s = math.sin(ph)
         bob = -math.cos(2.0 * ph) * 0.036
-        ch_run.setdefault((1, "translation"), []).append([hips_base[0] + s * 0.028, hips_base[1] + bob - 0.02, hips_base[2]])
-        ch_run.setdefault((1, "rotation"), []).append(euler_xyz_to_quat(-0.16, s * 0.18, -s * 0.06))
-        ch_run.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.12, -s * 0.16, s * 0.04))
-        ch_run.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.10, -s * 0.18, 0.0))
-        ch_run.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(0.18, s * 0.10, 0.0))
+        ch_run.setdefault((1, "translation"), []).append([hips_base[0] - s * 0.024, hips_base[1] + bob - 0.02, hips_base[2]])
+        ch_run.setdefault((1, "rotation"), []).append(euler_xyz_to_quat(-0.15, -s * 0.16, s * 0.05))
+        ch_run.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.10, s * 0.14, -s * 0.03))
+        ch_run.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.08, s * 0.16, 0.0))
+        ch_run.setdefault((5, "rotation"), []).append(euler_xyz_to_quat(0.16, -s * 0.09, 0.0))
         l_sw = max(0.0, math.sin(ph + 0.5))
         r_sw = max(0.0, math.sin(ph + math.pi + 0.5))
-        ch_run.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(-s * 0.52 - l_sw * 0.22, 0.0, 0.0))
-        ch_run.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(l_sw * 0.85, 0.0, 0.0))
-        ch_run.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(s * 0.52 - r_sw * 0.22, 0.0, 0.0))
-        ch_run.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(r_sw * 0.85, 0.0, 0.0))
-        ch_run.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(s * 0.68, 0.0, -0.10))
-        ch_run.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(0.95 + max(0.0, s) * 0.25, 0.0, 0.0))
-        ch_run.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(-s * 0.68, 0.0, 0.10))
-        ch_run.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(0.95 + max(0.0, -s) * 0.25, 0.0, 0.0))
+        ch_run.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(s * 0.60 + l_sw * 0.24, 0.0, 0.02))
+        ch_run.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(-l_sw * 0.95, 0.0, 0.0))
+        ch_run.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(-s * 0.60 + r_sw * 0.24, 0.0, -0.02))
+        ch_run.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(-r_sw * 0.95, 0.0, 0.0))
+        ch_run.setdefault((6, "rotation"), []).append(euler_xyz_to_quat(-s * 0.68, 0.0, -0.10))
+        ch_run.setdefault((7, "rotation"), []).append(euler_xyz_to_quat(0.95 + max(0.0, -s) * 0.25, 0.0, 0.0))
+        ch_run.setdefault((8, "rotation"), []).append(euler_xyz_to_quat(s * 0.68, 0.0, 0.10))
+        ch_run.setdefault((9, "rotation"), []).append(euler_xyz_to_quat(0.95 + max(0.0, s) * 0.25, 0.0, 0.0))
     anims.append(("Run", dur_run, times_run, ch_run))
 
     # 3. Pray (reverent Bronze Age Hebrew KNEELING & BOWING prayer at the altar — true 跪拜动作!)
@@ -214,11 +272,11 @@ def build_animations(bone_specs, is_sarai=False):
         sway = math.sin(ph) * 0.045
         # Drop Hips down to kneeling height (0.46 -> 0.24)
         ch_pray.setdefault((1, "translation"), []).append([hips_base[0], 0.24 + sway * 0.08, hips_base[2] - 0.04])
-        # Kneeling thighs forward, shins folded back
-        ch_pray.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(-1.15, 0.0, 0.04))
-        ch_pray.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(1.55, 0.0, 0.0))
-        ch_pray.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(-1.15, 0.0, -0.04))
-        ch_pray.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(1.55, 0.0, 0.0))
+        # Kneeling thighs forward (+X), shins folded back (-X)
+        ch_pray.setdefault((10, "rotation"), []).append(euler_xyz_to_quat(1.15, 0.0, 0.04))
+        ch_pray.setdefault((11, "rotation"), []).append(euler_xyz_to_quat(-1.55, 0.0, 0.0))
+        ch_pray.setdefault((12, "rotation"), []).append(euler_xyz_to_quat(1.15, 0.0, -0.04))
+        ch_pray.setdefault((13, "rotation"), []).append(euler_xyz_to_quat(-1.55, 0.0, 0.0))
         # Humble forward bow of Spine, Chest & Head (-X pitch leans forward for -Z facing!)
         ch_pray.setdefault((2, "rotation"), []).append(euler_xyz_to_quat(-0.34 - sway * 0.5, 0.0, 0.0))
         ch_pray.setdefault((3, "rotation"), []).append(euler_xyz_to_quat(-0.28 - sway * 0.5, 0.0, 0.0))
@@ -489,6 +547,9 @@ def rig_glb(in_path, out_path, is_sarai=False):
         (pos_r[:, 2] - cz) / h,
     ], axis=1).astype(np.float32)
 
+    # Physically separate fused left/right feet & lower legs before skinning!
+    pos_n, nrm_r, uv, idx = separate_lower_legs_mesh(pos_n, nrm_r, uv, idx, is_sarai=is_sarai)
+
     # Extract embedded baseColor image bytes & mimeType
     img_bytes = None
     img_mime = "image/png"
@@ -499,26 +560,26 @@ def rig_glb(in_path, out_path, is_sarai=False):
         ioff = ibv.get("byteOffset", 0)
         img_bytes = bin_data[ioff:ioff + ibv["byteLength"]]
 
-    # 14-bone Humanoid Skeleton (Y in [0, 1], shoulders along +-X, +Z forward)
-    # (name, parent_idx, head_xyz, tail_xyz, sigma)
+    # 14-bone Humanoid Skeleton (Y in [0, 1], shoulders along +-X, -Z forward)
+    # Tight leg bone sigmas (0.075) aligned to real foot centers (±0.075) for clean independent leg motion!
     bone_specs = [
         ("Root",       -1, [0.00, 0.00, 0.00], [0.00, 0.05, 0.00], 0.05),
-        ("Hips",        0, [0.00, 0.46, 0.00], [0.00, 0.56, 0.00], 0.14),
-        ("Spine",       1, [0.00, 0.58, 0.00], [0.00, 0.69, 0.00], 0.13),
-        ("Chest",       2, [0.00, 0.70, 0.00], [0.00, 0.80, 0.00], 0.13),
+        ("Hips",        0, [0.00, 0.46, 0.00], [0.00, 0.56, 0.00], 0.13),
+        ("Spine",       1, [0.00, 0.58, 0.00], [0.00, 0.69, 0.00], 0.12),
+        ("Chest",       2, [0.00, 0.70, 0.00], [0.00, 0.80, 0.00], 0.12),
         ("Neck",        3, [0.00, 0.81, 0.00], [0.00, 0.86, 0.00], 0.08),
         ("Head",        4, [0.00, 0.87, 0.00], [0.00, 0.99, 0.00], 0.11),
-        ("UpperArm_L",  3, [0.11, 0.75, 0.00], [0.17, 0.61, 0.00], 0.09),
-        ("Forearm_L",   6, [0.17, 0.61, 0.00], [0.22, 0.44, 0.00], 0.09),
-        ("UpperArm_R",  3, [-0.11, 0.75, 0.00], [-0.17, 0.61, 0.00], 0.09),
-        ("Forearm_R",   8, [-0.17, 0.61, 0.00], [-0.22, 0.44, 0.00], 0.09),
-        ("Thigh_L",     1, [0.06, 0.45, 0.00], [0.06, 0.24, 0.00], 0.12),
-        ("Shin_L",     10, [0.06, 0.24, 0.00], [0.06, 0.02, 0.00], 0.12),
-        ("Thigh_R",     1, [-0.06, 0.45, 0.00], [-0.06, 0.24, 0.00], 0.12),
-        ("Shin_R",     12, [-0.06, 0.24, 0.00], [-0.06, 0.02, 0.00], 0.12),
+        ("UpperArm_L",  3, [0.11, 0.75, 0.00], [0.17, 0.61, 0.00], 0.085),
+        ("Forearm_L",   6, [0.17, 0.61, 0.00], [0.22, 0.44, 0.00], 0.085),
+        ("UpperArm_R",  3, [-0.11, 0.75, 0.00], [-0.17, 0.61, 0.00], 0.085),
+        ("Forearm_R",   8, [-0.17, 0.61, 0.00], [-0.22, 0.44, 0.00], 0.085),
+        ("Thigh_L",     1, [0.075, 0.44, 0.00], [0.075, 0.24, 0.00], 0.075),
+        ("Shin_L",     10, [0.075, 0.24, 0.00], [0.075, 0.02, 0.00], 0.075),
+        ("Thigh_R",     1, [-0.075, 0.44, 0.00], [-0.075, 0.24, 0.00], 0.075),
+        ("Shin_R",     12, [-0.075, 0.24, 0.00], [-0.075, 0.02, 0.00], 0.075),
     ]
 
-    joints_u8, weights_f32 = compute_skin_weights(pos_n, bone_specs)
+    joints_u8, weights_f32 = compute_skin_weights(pos_n, bone_specs, is_sarai=is_sarai)
 
     # Inverse bind matrices (translation-only bind pose -> inverse is translate(-head_xyz), column-major!)
     ibm_list = []

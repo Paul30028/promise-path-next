@@ -74,6 +74,13 @@ var fence_status_label: Label3D
 var raider_clash_sfx_timer: float = 0.0
 var rally_cooldown: float = 0.0
 
+# Auto-Boarding State (at 0 days countdown / noah_05_board_ark)
+var family_boarded: Array[bool] = []
+var family_board_wp: Array[int] = []
+var animal_boarded: Array[bool] = []
+var animal_board_dist: Array[float] = []
+var boarding_complete_timer: float = 0.0
+
 # Simulation State
 var elapsed: float = 0.0
 var crisis_resolved: bool = false
@@ -850,12 +857,18 @@ func _enter_event(id: String) -> void:
 
 		"noah_05_board_ark":
 			world.apply_mood("dusk_raid")
-			cam_ctrl.pitch_override = NAN
-			for m in family:
-				m.show()
-			family[0].position = world.grounded(-4.0, 21.0)
-			cam_ctrl.focus_on(Vector3(0.0, 4.0, 12.0), 46.0, -0.36, preview_mode)
-			_add_hotspot("seal_door", ap + Vector3(0.0, 0.65, 12.0), "引导众活物入舱并关上舱门", "Bless")
+			world.rain.emitting = true
+			SoundManager.play_ambience("sfx_rain_loop.wav", -10.0)
+			SoundManager.play_sfx("sfx_thunder.wav", -5.0)
+			flood_countdown = 0.0
+			cam_ctrl.pitch_override = -0.26
+			_init_auto_boarding()
+			cam_ctrl.focus_on(Vector3(0.0, 2.8, 15.5), 34.0, -0.34, preview_mode)
+			if preview_mode:
+				# Advance 2.8s so screenshot shows family & pairs of animals actively streaming up the gangplank!
+				for _step in range(56):
+					_update_auto_boarding(0.05)
+			_add_hotspot("seal_door", ap + Vector3(0.0, 0.65, 12.0), "立即关上舱门起航（全员入舱亦将自动封门）", "Bless")
 
 		"noah_06_flood_dove":
 			world.apply_mood("flood")
@@ -950,18 +963,28 @@ func _refresh_whisper_hud() -> void:
 			else:
 				fence_cmd_btn.text = "木栅防线已完工 (%d/%d)" % [int(fence_hp), int(fence_max_hp)]
 	if first_person_interior:
-		top_obj_label.text = "第一人称船舱巡视（第%d层）  |  WASD 行走 · 左/右键拖动或方向键 360° 环视 · [E] 检视 · [F] 退出" % (noah_deck + 1)
+		top_obj_label.text = "第一人称船舱（第%d层）  |  WASD 行走（主道直通后舱 · 靠北木梯上下层） · 左/右键拖动 360° 环视 · [F] 退出" % (noah_deck + 1)
 	elif id == "noah_06_flood_dove":
 		top_obj_label.text = "洪水滔天 · 方舟蒙神保守漂流于渊面  |  请按 [E] 放出乌鸦与鸽子探看水退"
 	elif id == "noah_05_board_ark":
-		top_obj_label.text = "方舟完工 100%%  |  众活物正成双登舟  |  请按 [E] 引导全员入舱并关上舱门"
+		var fam_in: int = 0
+		for b in family_boarded:
+			if b:
+				fam_in += 1
+		var ani_in: int = 0
+		for b in animal_boarded:
+			if b:
+				ani_in += 1
+		top_obj_label.text = "距洪水: 0天（倾盆大雨）  |  全员自动登舟: %d/%d  |  活物自动入舱: %d/%d  |  入舱完毕后自动关门" % [
+			fam_in, family.size(), ani_in, animal_root.get_child_count()
+		]
 	else:
 		var boost_tag: String = "  [宗师监造+60%]" if inspection_boost_timer > 0.0 else ""
 		var raid_tag: String = ""
 		if id == "noah_03_hull_decks" and not crisis_resolved:
 			raid_tag = "  |  木栅:%d/%d  |  强人士气:%d%%" % [int(fence_hp), int(fence_max_hp), int(roundf(_avg_raider_morale()))]
 		var alert_tag: String = ("  |  " + strategy_alert) if not strategy_alert.is_empty() else ""
-		top_obj_label.text = "距大雨: %ds  |  工程: %d%%  |  歌斐木: %d  |  松香: %d  |  粮草: %d%s%s%s" % [
+		top_obj_label.text = "距洪水: %d天  |  工程: %d%%  |  歌斐木: %d  |  松香: %d  |  粮草: %d%s%s%s" % [
 			int(maxf(flood_countdown, 0.0)),
 			int(roundf(ark_build_pct)),
 			int(timber_f),
@@ -1105,13 +1128,19 @@ func _open_flood_fail_modal() -> void:
 	world.rain.emitting = true
 	SoundManager.play_sfx("sfx_thunder.wav", -3.0)
 	modal_overlay.show()
-	modal_title.text = "暴雨已破堤 · 方舟尚未竣工"
-	modal_body.text = "洪水在方舟完工前已经倾盆而下（当前工程 %d%%，松香 %d，粮草 %d）。请重新调整家族 7 人分工：先保障东坡伐木与木栅防线，再全力建舟涂漆备粮！" % [
+	modal_title.text = "距洪水 0 天 · 倾盆大雨已至"
+	modal_body.text = "倒计时已归零（0 天），暴雨倾盆而下！当前工程 %d%%，松香 %d，粮草 %d。你可以立即下令紧急封顶，让全员与动物自动登舟入舱，或重整分工重新备料建造：" % [
 		int(roundf(ark_build_pct)), int(pitch_f), int(provisions_f)
 	]
 	for c in modal_choices.get_children():
 		modal_choices.remove_child(c)
 		c.queue_free()
+	modal_choices.add_child(_make_pill("全员与动物立刻自动登舟入舱避洪", func() -> void:
+		ark_build_pct = 100.0
+		flood_failed = false
+		modal_overlay.hide()
+		_enter_event("noah_05_board_ark")
+	))
 	modal_choices.add_child(_make_pill("重整家族分工 · 重新备料建造本幕", func() -> void:
 		flood_countdown = 240.0
 		flood_failed = false
@@ -1158,20 +1187,22 @@ func _check_act_complete() -> void:
 func _surface_height_for_noah(x: float, z: float) -> float:
 	var ap: Vector3 = world.ark_anchor.position
 	var vis_stage: int = _compute_ark_vis_stage()
-	# Exact 1:1 Biblical 102m x 17m x 10.2m Ark Interior Floors + Central Wooden Staircases with smooth deck state!
+	# Exact 1:1 Biblical 102m x 17m x 10.2m Ark Interior Floors + Side-Mounted North Staircases!
+	# Walking along the wide 4.3m Main Corridor (rel_z > -1.15) goes STRAIGHT PAST every staircase to the East Rear Cabin!
 	if vis_stage >= 2 and absf(x - ap.x) < 49.5 and z > ap.z - 8.0 and z < ap.z + 8.0:
 		var rel_x: float = x - ap.x
 		var rel_z: float = z - ap.z
-		# Central Stair 1 (X=2.5..13.5, |Z| <= 2.4): Lower Deck (0.65m) <-> Middle Deck (3.95m)
-		if rel_x >= 2.5 and rel_x <= 13.5 and absf(rel_z) <= 2.4 and noah_deck <= 1:
+		var on_north_stair_aisle: bool = (rel_z <= -1.15 and rel_z >= -3.15)
+		# North Stair 1 (X=2.5..13.5, Z in [-3.15, -1.15]): Lower Deck (0.65m) <-> Middle Deck (3.95m)
+		if on_north_stair_aisle and rel_x >= 2.5 and rel_x <= 13.5 and noah_deck <= 1:
 			var s1: float = clampf((rel_x - 2.5) / 11.0, 0.0, 1.0)
 			if s1 < 0.25:
 				noah_deck = 0
 			elif s1 > 0.75:
 				noah_deck = 1
 			return lerpf(ap.y + 0.65, ap.y + 3.95, s1)
-		# Central Stair 2 (X=18.5..29.5, |Z| <= 2.4): Middle Deck (3.95m) <-> Upper Deck (7.15m)
-		if rel_x >= 18.5 and rel_x <= 29.5 and absf(rel_z) <= 2.4 and noah_deck >= 1:
+		# North Stair 2 (X=18.5..29.5, Z in [-3.15, -1.15]): Middle Deck (3.95m) <-> Upper Deck (7.15m)
+		if on_north_stair_aisle and rel_x >= 18.5 and rel_x <= 29.5 and noah_deck >= 1:
 			var s2: float = clampf((rel_x - 18.5) / 11.0, 0.0, 1.0)
 			if s2 < 0.25:
 				noah_deck = 1
@@ -1322,7 +1353,7 @@ func _process(delta: float) -> void:
 	var noah: Node3D = family[0]
 
 	# 1. Direct-Control Noah (1.68m Eye-Level First-Person inside 3.2m-tall Ark Decks OR 3rd-Person outside!)
-	if not modal_overlay.visible and id not in ["noah_01_revelation", "noah_06_flood_dove", "noah_07_exit_altar", "noah_08_rainbow_covenant"]:
+	if not modal_overlay.visible and id not in ["noah_01_revelation", "noah_05_board_ark", "noah_06_flood_dove", "noah_07_exit_altar", "noah_08_rainbow_covenant"]:
 		var move_dir: Vector3 = Vector3.ZERO
 		if first_person_interior:
 			# WASD walks cleanly while Arrow Keys / Q-R / Left-drag / Right-drag smoothly look 360 degrees!
@@ -1429,8 +1460,14 @@ func _process(delta: float) -> void:
 			ark_completed_chime_played = true
 			SoundManager.play_sfx("sfx_covenant_chime.wav", -3.0)
 
-		if flood_countdown <= 0.0 and ark_build_pct < 98.0 and not preview_mode:
-			_open_flood_fail_modal()
+		if flood_countdown <= 0.0 and not preview_mode:
+			if ark_build_pct >= 95.0:
+				# 0 Days reached & Ark is ready -> Immediately auto-board ALL 8 family members & ALL animals!
+				ark_build_pct = 100.0
+				_enter_event("noah_05_board_ark")
+				return
+			else:
+				_open_flood_fail_modal()
 		state.timber = int(timber_f)
 		_check_act_complete()
 		_refresh_whisper_hud()
@@ -1481,9 +1518,10 @@ func _process(delta: float) -> void:
 	elif id == "noah_03_hull_decks":
 		_update_raider_conflict(delta)
 
-	# 5. Animal Boarding Procession
-	if animal_root.visible:
-		_update_animal_procession()
+	# 5. Full Automatic Boarding Sequence (0 Days / noah_05_board_ark): ALL 8 Family Members + ALL Animals Enter Ark!
+	if id == "noah_05_board_ark":
+		_update_auto_boarding(delta)
+		_refresh_whisper_hud()
 
 	# 6. Animated Rolling 3D Flood + Floating Ark + Circling Birds
 	if absf(flood_level - flood_target) > 0.02:
@@ -1577,26 +1615,119 @@ func _update_living_family(_delta: float, id: String) -> void:
 				_anim(member, "Brawl" if clashing else "Idle")
 
 
-func _update_animal_procession() -> void:
+func _init_auto_boarding() -> void:
+	family_boarded.clear()
+	family_board_wp.clear()
+	animal_boarded.clear()
+	animal_board_dist.clear()
+	boarding_complete_timer = 0.0
+	var fam_starts: Array[Vector2] = [
+		Vector2(-2.2, 22.0), Vector2(2.4, 21.6), Vector2(-6.5, 20.5), Vector2(6.8, 20.2),
+		Vector2(-10.5, 19.2), Vector2(10.2, 18.8), Vector2(-4.5, 24.5), Vector2(4.6, 24.2),
+	]
+	for i in range(family.size()):
+		family_boarded.append(false)
+		family_board_wp.append(0)
+		var m: Node3D = family[i]
+		m.show()
+		_set_actor_props(m, false, false, false)
+		var st: Vector2 = fam_starts[i]
+		m.position = world.grounded(st.x, st.y)
+		_anim(m, "Walk")
+	animal_root.show()
+	for i in range(animal_root.get_child_count()):
+		var animal: Node3D = animal_root.get_child(i) as Node3D
+		animal.show()
+		animal_boarded.append(false)
+		# Stagger pairs naturally along the approach road -> ramp -> Ark doorway
+		animal_board_dist.append(-float(i / 2) * 3.4)
+
+
+func _update_auto_boarding(delta: float) -> void:
+	var ap: Vector3 = world.ark_anchor.position
+	# 1. ALL 8 Family Members automatically walk/jog up the Wooden Gangplank & straight INSIDE the Ark!
+	var fam_wps: Array[Vector3] = [
+		world.grounded(0.0, 19.6),
+		ap + Vector3(0.0, 0.02, 14.0),
+		ap + Vector3(0.0, 0.65, 8.6),
+		ap + Vector3(0.0, 0.65, 2.2),
+	]
+	var fam_in: int = 0
+	for i in range(family.size()):
+		if i >= family_boarded.size():
+			break
+		if family_boarded[i]:
+			fam_in += 1
+			continue
+		var m: Node3D = family[i]
+		var wpi: int = family_board_wp[i]
+		var lane_x: float = (-0.75 if i % 2 == 0 else 0.75) * (0.45 if wpi >= 1 else 1.0)
+		var tg: Vector3 = fam_wps[wpi] + Vector3(lane_x, 0.0, 0.0)
+		var spd: float = 4.6 if i == 0 else (3.8 + float(i % 3) * 0.35)
+		var flat: Vector3 = Vector3(tg.x - m.position.x, 0.0, tg.z - m.position.z)
+		if flat.length() < 0.65:
+			wpi += 1
+			if wpi >= fam_wps.size():
+				family_boarded[i] = true
+				m.hide()
+				fam_in += 1
+				continue
+			family_board_wp[i] = wpi
+		else:
+			var dir: Vector3 = flat.normalized()
+			var np: Vector3 = m.position + dir * spd * delta
+			np.y = _surface_height_for_noah(np.x, np.z)
+			m.position = np
+			m.look_at(m.position + dir, Vector3.UP)
+			_anim(m, "Run" if wpi == 0 else "Walk")
+
+	# 2. ALL 8 Animals automatically march two-by-two up the gangplank and straight INSIDE the Ark!
 	var segs: Array[float] = []
 	var total: float = 0.0
 	for i in range(boarding_path.size() - 1):
 		var d: float = boarding_path[i].distance_to(boarding_path[i + 1])
 		segs.append(d)
 		total += d
+	var ani_in: int = 0
 	for i in range(animal_root.get_child_count()):
 		var animal: Node3D = animal_root.get_child(i) as Node3D
-		var dist: float = fposmod(elapsed * 1.1 + total - float(i / 2) * 2.2, total)
+		if i >= animal_boarded.size():
+			break
+		if animal_boarded[i]:
+			ani_in += 1
+			continue
+		animal_board_dist[i] += delta * 2.55
+		var dist: float = animal_board_dist[i]
+		if dist < 0.0:
+			# Waiting in pairs at the start of the valley approach road
+			var p0: Vector3 = boarding_path[0] + Vector3(-0.55 if i % 2 == 0 else 0.55, 0.0, -dist * 0.45)
+			p0.y = world.terrain_height(p0.x, p0.z)
+			animal.position = p0
+			animal.look_at(boarding_path[1], Vector3.UP)
+			continue
+		if dist >= total:
+			animal_boarded[i] = true
+			animal.hide()
+			ani_in += 1
+			continue
+		var rem: float = dist
 		for j in range(segs.size()):
-			if dist > segs[j]:
-				dist -= segs[j]
+			if rem > segs[j]:
+				rem -= segs[j]
 				continue
 			var dir: Vector3 = (boarding_path[j + 1] - boarding_path[j]).normalized()
-			var p: Vector3 = boarding_path[j].lerp(boarding_path[j + 1], dist / maxf(segs[j], 0.01))
-			p.x += -0.42 if i % 2 == 0 else 0.42
+			var p: Vector3 = boarding_path[j].lerp(boarding_path[j + 1], rem / maxf(segs[j], 0.01))
+			p.x += -0.48 if i % 2 == 0 else 0.48
 			if j < 2:
 				p.y = world.terrain_height(p.x, p.z)
 			p.y += absf(sin(elapsed * 6.5 + float(i))) * 0.05
 			animal.position = p
 			animal.look_at(p + Vector3(dir.x, 0.0, dir.z), Vector3.UP)
 			break
+
+	# 3. Once ALL 8 family members AND ALL 8 animals are safely inside -> Auto-seal Ark door & launch Flood!
+	if not preview_mode and fam_in >= family.size() and ani_in >= animal_root.get_child_count():
+		boarding_complete_timer += delta
+		if boarding_complete_timer >= 1.2:
+			SoundManager.play_sfx("sfx_covenant_chime.wav", -4.0)
+			_enter_event("noah_06_flood_dove")
