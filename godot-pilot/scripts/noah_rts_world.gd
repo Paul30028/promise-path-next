@@ -11,14 +11,16 @@ const Loader: Script = preload("res://scripts/glb_asset_loader.gd")
 var sun: DirectionalLight3D
 var environment: Environment
 var sky_material: ProceduralSkyMaterial
-var terrain_mat: StandardMaterial3D
+var terrain_mat: ShaderMaterial
 
 var ark_anchor: Node3D
 var ark: Node3D
 var god_ray: MeshInstance3D
 var flood_water: MeshInstance3D
 var river_mesh: MeshInstance3D
-var rain: CPUParticles3D
+var rain: GPUParticles3D
+var rain_splash: GPUParticles3D
+var rain_collider: GPUParticlesCollisionHeightField3D
 var rainbow: MeshInstance3D
 
 var yard_stakes: Node3D
@@ -56,9 +58,10 @@ func _box(parent: Node3D, size: Vector3, pos: Vector3, mat: Material, rot_y: flo
 
 
 func spawn_asset(file: String, height: float, pos: Vector3, parent: Node3D = self) -> Node3D:
-	var packed: PackedScene = load("res://assets/models/" + file) as PackedScene
+	var res_path: String = file if file.begins_with("res://") else ("res://assets/models/" + file)
+	var packed: PackedScene = load(res_path) as PackedScene
 	var wrapper: Node3D = Node3D.new()
-	wrapper.name = file.get_basename()
+	wrapper.name = res_path.get_file().get_basename()
 	if packed != null:
 		var model: Node3D = packed.instantiate() as Node3D
 		if model != null:
@@ -68,7 +71,7 @@ func spawn_asset(file: String, height: float, pos: Vector3, parent: Node3D = sel
 			model.position.y = -bounds.position.y * factor
 			wrapper.add_child(model)
 	else:
-		push_error("Missing model: " + file)
+		push_error("Missing model: " + res_path)
 	parent.add_child(wrapper)
 	wrapper.position = pos
 	return wrapper
@@ -126,11 +129,26 @@ func _build_sky_and_lights() -> void:
 	sky.sky_material = sky_material
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	environment.ambient_light_energy = 0.52
+	environment.ambient_light_energy = 0.48
 	environment.tonemap_mode = Environment.TONE_MAPPER_ACES
+	environment.ssao_enabled = true
+	environment.ssao_radius = 1.6
+	environment.ssao_intensity = 1.35
+	environment.glow_enabled = true
+	environment.glow_intensity = 0.42
+	environment.glow_bloom = 0.14
 	environment.fog_enabled = true
-	environment.fog_light_color = Color(0.74, 0.70, 0.63)
-	environment.fog_density = 0.0045
+	environment.fog_light_color = Color(0.76, 0.71, 0.62)
+	environment.fog_density = 0.0038
+	# True Godot 4 Volumetric Fog (auto-enabled on Forward+ desktop, gracefully ignored on Mobile!)
+	if RenderingServer.get_current_rendering_method() == "forward_plus":
+		environment.volumetric_fog_enabled = true
+		environment.volumetric_fog_density = 0.011
+		environment.volumetric_fog_albedo = Color(0.88, 0.82, 0.72)
+		environment.volumetric_fog_emission = Color(0.16, 0.13, 0.09)
+		environment.volumetric_fog_emission_energy = 0.35
+		environment.volumetric_fog_anisotropy = 0.68
+		environment.volumetric_fog_length = 95.0
 	var we: WorldEnvironment = WorldEnvironment.new()
 	we.environment = environment
 	add_child(we)
@@ -177,14 +195,14 @@ func _build_terrain() -> void:
 	st.index()
 	st.generate_normals()
 
-	terrain_mat = _mat(Color(0.76, 0.68, 0.56), 0.92)
-	terrain_mat.vertex_color_use_as_albedo = true
-	terrain_mat.albedo_texture = load("res://assets/textures/terrain_rock_albedo.png") as Texture2D
-	terrain_mat.normal_enabled = true
-	terrain_mat.normal_texture = load("res://assets/textures/terrain_rock_normal.png") as Texture2D
-	terrain_mat.normal_scale = 0.65
-	terrain_mat.uv1_triplanar = true
-	terrain_mat.uv1_scale = Vector3(0.32, 0.32, 0.32)
+	terrain_mat = ShaderMaterial.new()
+	terrain_mat.shader = load("res://shaders/VFX_HighlandTerrain.gdshader") as Shader
+	terrain_mat.set_shader_parameter("grass_albedo", load("res://assets/textures/terrain_grass_albedo.png") as Texture2D)
+	terrain_mat.set_shader_parameter("dirt_albedo", load("res://assets/textures/terrain_dirt_albedo.png") as Texture2D)
+	terrain_mat.set_shader_parameter("rock_albedo", load("res://assets/textures/terrain_rock_albedo.png") as Texture2D)
+	terrain_mat.set_shader_parameter("rock_normal", load("res://assets/textures/terrain_rock_normal.png") as Texture2D)
+	terrain_mat.set_shader_parameter("boulder_albedo", load("res://assets/textures/rock_boulder_albedo.png") as Texture2D)
+	terrain_mat.set_shader_parameter("wetness", 0.0)
 
 	var mi: MeshInstance3D = MeshInstance3D.new()
 	mi.name = "GrandHighlandTerrain"
@@ -215,33 +233,53 @@ func _build_terrain() -> void:
 	var road_mi: MeshInstance3D = MeshInstance3D.new()
 	road_mi.name = "VillageDirtRoad"
 	road_mi.mesh = rst.commit()
-	var road_mat: StandardMaterial3D = _mat(Color(0.50, 0.41, 0.30), 0.96)
-	road_mat.albedo_texture = load("res://assets/textures/terrain_rock_albedo.png") as Texture2D
+	var road_mat: StandardMaterial3D = _mat(Color(0.58, 0.49, 0.38), 0.96)
+	road_mat.albedo_texture = load("res://assets/textures/terrain_dirt_albedo.png") as Texture2D
 	road_mat.uv1_triplanar = true
 	road_mi.material_override = road_mat
 	add_child(road_mi)
 
-	# Natural limestone rock outcrops framing cliff edge and Ark shelf
-	var rock_mat: StandardMaterial3D = _mat(Color(0.62, 0.59, 0.53), 0.85)
-	rock_mat.albedo_texture = load("res://assets/textures/rock_boulder_albedo.png") as Texture2D
-	rock_mat.uv1_triplanar = true
-	for i in range(52):
-		var rx: float = -15.5 + sin(i * 1.93) * 3.2
-		var rz: float = -24.0 + float(i) * 1.15
-		if i >= 32:
-			var a: float = float(i - 32) * 0.31
-			rx = cos(a) * 13.5 + 1.0
-			rz = -4.5 + sin(a) * 4.2
-		var rm: SphereMesh = SphereMesh.new()
-		rm.radial_segments = 7
-		rm.rings = 4
-		var rock: MeshInstance3D = MeshInstance3D.new()
-		rock.mesh = rm
-		rock.material_override = rock_mat
-		rock.position = grounded(rx, rz, -0.15)
-		rock.scale = Vector3(1.1 + float(i % 4) * 0.45, 0.55 + float(i % 3) * 0.32, 0.95 + float(i % 3) * 0.35)
-		rock.rotation_degrees = Vector3(i * 11, i * 37, i * 7)
-		add_child(rock)
+	# REAL PolyHaven CC0 Photogrammetry Cliffs, Boulders & Mediterranean Shrubs (ZERO fake grey spheres!)
+	var cliff_1: String = "res://assets/cc0_models/namaqualand_cliff_01/namaqualand_cliff_01_1k.gltf"
+	var cliff_2: String = "res://assets/cc0_models/namaqualand_cliff_02/namaqualand_cliff_02_1k.gltf"
+	var bld_1: String = "res://assets/cc0_models/namaqualand_boulders_01/namaqualand_boulders_01_1k.gltf"
+	var bld_2: String = "res://assets/cc0_models/namaqualand_boulder_02/namaqualand_boulder_02_1k.gltf"
+	var shrub_1: String = "res://assets/cc0_models/shrub_01/shrub_01_1k.gltf"
+	var shrub_2: String = "res://assets/cc0_models/shrub_02/shrub_02_1k.gltf"
+	var grass_1: String = "res://assets/cc0_models/grass_medium_01/grass_medium_01_1k.gltf"
+
+	# Monumental Photogrammetry Cliffs along the Western Gorge Edge & Northern Ararat Ridge
+	var cliff_spots: Array[Array] = [
+		[cliff_1, 6.5, -16.5, -12.0, 0.4],
+		[cliff_2, 7.2, -17.5, 2.0, 1.2],
+		[cliff_1, 6.0, -16.0, 15.0, -0.5],
+		[cliff_2, 8.5, -6.0, -18.5, 2.1],
+		[cliff_1, 9.0, 11.0, -19.0, 0.8],
+		[cliff_2, 7.5, 24.0, -16.0, -1.1],
+	]
+	for cs in cliff_spots:
+		var cnode: Node3D = spawn_asset(str(cs[0]), float(cs[1]), grounded(float(cs[2]), float(cs[3]), -1.4))
+		cnode.rotation.y = float(cs[4])
+
+	# Scattered Photogrammetry Boulders around Ark shelf, cliff rim & hillside
+	for i in range(18):
+		var a: float = float(i) * 0.36
+		var bx: float = -13.0 + sin(i * 2.1) * 3.0 if i < 8 else cos(a) * 14.5 + 1.0
+		var bz: float = -12.0 + float(i) * 3.4 if i < 8 else -4.2 + sin(a) * 4.8
+		var bf: String = bld_1 if i % 2 == 0 else bld_2
+		var bn: Node3D = spawn_asset(bf, 1.3 + float(i % 3) * 0.65, grounded(bx, bz, -0.25))
+		bn.rotation.y = float(i) * 1.15
+
+	# Photogrammetry Mediterranean Shrubs & Wild Grass Tufts across the clearing rim & valley
+	for i in range(26):
+		var sx: float = -12.0 + fmod(float(i) * 7.1, 30.0)
+		var sz: float = -10.0 + fmod(float(i) * 8.9, 26.0)
+		if Vector2(sx - 1.0, sz - 0.5).length() < 6.5:
+			sx += 9.5
+		var sf: String = shrub_1 if i % 3 == 0 else (shrub_2 if i % 3 == 1 else grass_1)
+		var sh: float = 0.85 + float(i % 3) * 0.35 if i % 3 != 2 else 0.55
+		var sn: Node3D = spawn_asset(sf, sh, grounded(sx, sz, -0.04))
+		sn.rotation.y = float(i) * 1.73
 
 
 func _build_river_and_flood() -> void:
@@ -577,24 +615,67 @@ func _build_rainbow() -> void:
 
 
 func _build_rain() -> void:
-	rain = CPUParticles3D.new()
-	rain.name = "FloodRain"
-	rain.amount = 900
-	rain.lifetime = 1.6
-	rain.position = Vector3(0.0, 24.0, 4.0)
-	rain.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	rain.emission_box_extents = Vector3(36.0, 4.0, 32.0)
-	rain.direction = Vector3(-0.14, -1.0, 0.06)
-	rain.spread = 4.0
-	rain.initial_velocity_min = 18.0
-	rain.initial_velocity_max = 24.0
-	rain.gravity = Vector3(0.0, -6.0, 0.0)
-	var drop: BoxMesh = BoxMesh.new()
-	drop.size = Vector3(0.022, 0.55, 0.022)
-	drop.material = _mat(Color(0.65, 0.76, 0.84, 0.55), 0.2)
-	rain.mesh = drop
-	rain.emitting = false
+	# Hardware GPU Particles with HeightField Collision + Sub-Emitter Splash (inspired by Wojtek Pe showcase!)
+	rain_collider = GPUParticlesCollisionHeightField3D.new()
+	rain_collider.name = "RainHeightFieldCollider"
+	rain_collider.size = Vector3(90.0, 36.0, 90.0)
+	rain_collider.position = Vector3(0.0, 6.0, 2.0)
+	rain_collider.resolution = GPUParticlesCollisionHeightField3D.RESOLUTION_512
+	rain_collider.update_mode = GPUParticlesCollisionHeightField3D.UPDATE_MODE_WHEN_MOVED
+	add_child(rain_collider)
+
+	# Sub-emitter splash droplets bursting when raindrops hit the Ark roof, cliffs, or ground!
+	rain_splash = GPUParticles3D.new()
+	rain_splash.name = "RainSplashSubEmitter"
+	rain_splash.amount = 600
+	rain_splash.lifetime = 0.28
+	rain_splash.emitting = false
+	var sp_mat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	sp_mat.direction = Vector3(0.0, 1.0, 0.0)
+	sp_mat.spread = 58.0
+	sp_mat.initial_velocity_min = 1.6
+	sp_mat.initial_velocity_max = 3.2
+	sp_mat.gravity = Vector3(0.0, -9.8, 0.0)
+	sp_mat.scale_min = 0.5
+	sp_mat.scale_max = 1.1
+	rain_splash.process_material = sp_mat
+	var sp_mesh: SphereMesh = SphereMesh.new()
+	sp_mesh.radius = 0.035
+	sp_mesh.height = 0.07
+	var sp_draw_mat: StandardMaterial3D = _mat(Color(0.80, 0.88, 0.94, 0.65), 0.1)
+	sp_draw_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sp_draw_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sp_mesh.material = sp_draw_mat
+	rain_splash.draw_pass_1 = sp_mesh
+	add_child(rain_splash)
+
+	rain = GPUParticles3D.new()
+	rain.name = "FloodRainGPU"
+	rain.amount = 1400
+	rain.lifetime = 1.5
+	rain.position = Vector3(0.0, 26.0, 2.0)
 	add_child(rain)
+	rain.sub_emitter = rain.get_path_to(rain_splash)
+	var rmat: ParticleProcessMaterial = ParticleProcessMaterial.new()
+	rmat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	rmat.emission_box_extents = Vector3(34.0, 2.0, 30.0)
+	rmat.direction = Vector3(-0.14, -1.0, 0.06)
+	rmat.spread = 3.0
+	rmat.initial_velocity_min = 20.0
+	rmat.initial_velocity_max = 26.0
+	rmat.gravity = Vector3(0.0, -8.0, 0.0)
+	rmat.collision_mode = ParticleProcessMaterial.COLLISION_HIDE_ON_CONTACT
+	rmat.sub_emitter_mode = ParticleProcessMaterial.SUB_EMITTER_AT_COLLISION
+	rmat.sub_emitter_amount_at_collision = 2
+	rain.process_material = rmat
+	var drop: BoxMesh = BoxMesh.new()
+	drop.size = Vector3(0.022, 0.65, 0.022)
+	var dmat: StandardMaterial3D = _mat(Color(0.72, 0.82, 0.90, 0.52), 0.15)
+	dmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	drop.material = dmat
+	rain.draw_pass_1 = drop
+	rain.emitting = false
 
 
 func apply_mood(mode: String) -> void:
@@ -603,35 +684,50 @@ func apply_mood(mode: String) -> void:
 		"revelation":
 			rain.emitting = false
 			god_ray.show()
-			t.tween_property(sun, "light_color", Color(1.0, 0.82, 0.52), 1.4)
-			t.tween_property(sun, "light_energy", 1.35, 1.4)
-			t.tween_property(sky_material, "sky_top_color", Color(0.11, 0.14, 0.21), 1.4)
-			t.tween_property(sky_material, "sky_horizon_color", Color(0.56, 0.47, 0.36), 1.4)
+			terrain_mat.set_shader_parameter("wetness", 0.12)
+			t.tween_property(sun, "rotation_degrees", Vector3(-24.0, -48.0, 0.0), 1.6)
+			t.tween_property(sun, "light_color", Color(1.0, 0.80, 0.46), 1.4)
+			t.tween_property(sun, "light_energy", 1.55, 1.4)
+			t.tween_property(sky_material, "sky_top_color", Color(0.09, 0.12, 0.19), 1.4)
+			t.tween_property(sky_material, "sky_horizon_color", Color(0.62, 0.49, 0.34), 1.4)
+			t.tween_property(environment, "volumetric_fog_density", 0.015, 1.4)
 		"build":
 			rain.emitting = false
 			god_ray.hide()
-			t.tween_property(sun, "light_color", Color(1.0, 0.90, 0.72), 1.4)
-			t.tween_property(sun, "light_energy", 1.65, 1.4)
-			t.tween_property(sky_material, "sky_top_color", Color(0.28, 0.42, 0.60), 1.4)
-			t.tween_property(sky_material, "sky_horizon_color", Color(0.79, 0.74, 0.64), 1.4)
+			terrain_mat.set_shader_parameter("wetness", 0.0)
+			t.tween_property(sun, "rotation_degrees", Vector3(-44.0, -36.0, 0.0), 1.6)
+			t.tween_property(sun, "light_color", Color(1.0, 0.91, 0.74), 1.4)
+			t.tween_property(sun, "light_energy", 1.72, 1.4)
+			t.tween_property(sky_material, "sky_top_color", Color(0.24, 0.40, 0.62), 1.4)
+			t.tween_property(sky_material, "sky_horizon_color", Color(0.80, 0.75, 0.66), 1.4)
+			t.tween_property(environment, "volumetric_fog_density", 0.008, 1.4)
 		"dusk_raid":
 			rain.emitting = false
 			god_ray.hide()
-			t.tween_property(sun, "light_color", Color(0.75, 0.46, 0.30), 1.4)
-			t.tween_property(sun, "light_energy", 0.55, 1.4)
-			t.tween_property(sky_material, "sky_top_color", Color(0.06, 0.08, 0.15), 1.4)
-			t.tween_property(sky_material, "sky_horizon_color", Color(0.32, 0.22, 0.20), 1.4)
+			terrain_mat.set_shader_parameter("wetness", 0.18)
+			t.tween_property(sun, "rotation_degrees", Vector3(-16.0, -68.0, 0.0), 1.6)
+			t.tween_property(sun, "light_color", Color(0.88, 0.46, 0.24), 1.4)
+			t.tween_property(sun, "light_energy", 0.72, 1.4)
+			t.tween_property(sky_material, "sky_top_color", Color(0.06, 0.08, 0.16), 1.4)
+			t.tween_property(sky_material, "sky_horizon_color", Color(0.42, 0.24, 0.18), 1.4)
+			t.tween_property(environment, "volumetric_fog_density", 0.016, 1.4)
 		"flood":
 			rain.emitting = true
 			god_ray.hide()
-			t.tween_property(sun, "light_color", Color(0.58, 0.66, 0.76), 1.4)
-			t.tween_property(sun, "light_energy", 0.65, 1.4)
-			t.tween_property(sky_material, "sky_top_color", Color(0.10, 0.13, 0.18), 1.4)
-			t.tween_property(sky_material, "sky_horizon_color", Color(0.26, 0.31, 0.36), 1.4)
+			terrain_mat.set_shader_parameter("wetness", 0.92)
+			t.tween_property(sun, "rotation_degrees", Vector3(-35.0, -25.0, 0.0), 1.4)
+			t.tween_property(sun, "light_color", Color(0.56, 0.66, 0.78), 1.4)
+			t.tween_property(sun, "light_energy", 0.68, 1.4)
+			t.tween_property(sky_material, "sky_top_color", Color(0.08, 0.11, 0.16), 1.4)
+			t.tween_property(sky_material, "sky_horizon_color", Color(0.24, 0.29, 0.35), 1.4)
+			t.tween_property(environment, "volumetric_fog_density", 0.022, 1.4)
 		"ararat":
 			rain.emitting = false
 			god_ray.hide()
-			t.tween_property(sun, "light_color", Color(1.0, 0.87, 0.64), 1.6)
-			t.tween_property(sun, "light_energy", 1.75, 1.6)
-			t.tween_property(sky_material, "sky_top_color", Color(0.30, 0.46, 0.62), 1.6)
-			t.tween_property(sky_material, "sky_horizon_color", Color(0.84, 0.77, 0.65), 1.6)
+			terrain_mat.set_shader_parameter("wetness", 0.78)
+			t.tween_property(sun, "rotation_degrees", Vector3(-28.0, -42.0, 0.0), 1.6)
+			t.tween_property(sun, "light_color", Color(1.0, 0.86, 0.60), 1.6)
+			t.tween_property(sun, "light_energy", 1.85, 1.6)
+			t.tween_property(sky_material, "sky_top_color", Color(0.26, 0.44, 0.64), 1.6)
+			t.tween_property(sky_material, "sky_horizon_color", Color(0.86, 0.78, 0.64), 1.6)
+			t.tween_property(environment, "volumetric_fog_density", 0.013, 1.6)
