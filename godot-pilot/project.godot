@@ -6,7 +6,7 @@ config_version=5
 [application]
 
 config/name="Promise Path Godot Pilot"
-run/main_scene="res://scenes/overworld_prologue.tscn"
+run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.4", "Forward Plus")
 
 [autoload]
@@ -14,6 +14,7 @@ config/features=PackedStringArray("4.4", "Forward Plus")
 CampaignState="*res://scripts/campaign_state.gd"
 SoundManager="*res://scripts/sound_manager.gd"
 SceneTransition="*res://scripts/scene_transition.gd"
+SaveManager="*res://scripts/save_manager.gd"
 
 [editor_plugins]
 

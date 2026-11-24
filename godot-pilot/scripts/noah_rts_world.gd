@@ -451,7 +451,7 @@ func _build_ark() -> void:
 			ark_lanterns.append(l)
 
 
-func set_ark_stage(stage: int, cutaway: bool = false, retract_ramp: bool = false) -> void:
+func set_ark_stage(stage: int, cutaway: bool = false, retract_ramp: bool = false, show_scaffold: bool = false) -> void:
 	if ark == null:
 		return
 	for node in ark.find_children("*", "MeshInstance3D", true, false):
@@ -468,6 +468,8 @@ func set_ark_stage(stage: int, cutaway: bool = false, retract_ramp: bool = false
 			node.visible = stage >= 3 and not cutaway
 		elif n.begins_with("Stage3_Ramp"):
 			node.visible = stage >= 2 and not retract_ramp
+		elif n.begins_with("StageScaffold"):
+			node.visible = show_scaffold and not cutaway and not retract_ramp
 		else:
 			node.visible = stage >= 3
 

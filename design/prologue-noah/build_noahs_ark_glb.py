@@ -245,6 +245,20 @@ def main():
     # Ridge cap beam at Y = 10.2
     s3_roof_wood.append(box_uv([L + 2.0, 0.52, 0.85], [0.0, 10.18, 0.0]))
 
+    # --- PROGRESSIVE TIMBER SCAFFOLDING (Visible while 5%..99% built, dismantled at 100%!) ---
+    s_scaff_wood = []
+    for sx in np.linspace(-44.0, 44.0, 11):
+        if abs(sx) < 5.5:
+            continue  # Keep boarding doorway clear
+        for sz in (HW + 1.35, -HW - 1.35):
+            # Vertical timber scaffold poles
+            s_scaff_wood.append(box_uv([0.24, 9.8, 0.24], [sx, 4.9, sz]))
+            s_scaff_wood.append(box_uv([0.22, 9.8, 0.22], [sx, 4.9, sz + (1.2 if sz > 0 else -1.2)]))
+            # Horizontal plank catwalks at Deck 2 (3.9m) & Deck 3 (7.2m)
+            for cy in (3.8, 7.1):
+                s_scaff_wood.append(box_uv([8.6, 0.14, 1.15], [sx, cy, sz + (0.6 if sz > 0 else -0.6)]))
+                s_scaff_wood.append(box_uv([0.16, 0.16, 1.45], [sx, cy - 0.1, sz + (0.6 if sz > 0 else -0.6)]))
+
     # Wide Boarding Gangplank Ramp (+Z side, descending from Z=+8.5 Y=0.65 down to Z=+19.5 Y=-0.90)
     ramp_steps = 22
     for i in range(ramp_steps):
@@ -273,6 +287,7 @@ def main():
         ("Interior_Bitumen_Mesh", int_pitch, pitch_img, 0.66),
         ("Stage3_RoofCutaway_Mesh", s3_roof_wood, roof_img, 0.86),
         ("Stage3_Ramp_Mesh", s3_ramp_wood, wood_img, 0.90),
+        ("StageScaffold_Mesh", s_scaff_wood, wood_img, 0.92),
     ]
     total_tris = 0
     for name, mlist, tex, rough in groups:

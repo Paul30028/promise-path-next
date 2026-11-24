@@ -379,20 +379,18 @@ func _spawn_cast_and_animals() -> void:
 	animal_root = Node3D.new()
 	animal_root.name = "AnimalProcession"
 	add_child(animal_root)
-	# 10 Photorealistic CC0 Grab3D Animals (5 distinct Biblical pairs: Sheep, Bull, Horse, Deer, Lion!)
-	# flip_y=true rotates +Z-facing Grab3D meshes 180 deg so ALL animals face -Z (forward with look_at!)
+	# 10 Photorealistic 9-Bone Rigged CC0 Grab3D Animals (all natively -Z forward with Walk/Idle/StallRest anims!)
 	var species: Array[Dictionary] = [
-		{"file": "CC0_Sheep_Grab3D.glb", "h": 0.92, "flip": false}, {"file": "CC0_Sheep_Grab3D.glb", "h": 0.88, "flip": false},
-		{"file": "CC0_Bull_Grab3D.glb", "h": 1.48, "flip": true}, {"file": "CC0_Bull_Grab3D.glb", "h": 1.40, "flip": true},
-		{"file": "CC0_Horse_Grab3D.glb", "h": 1.62, "flip": true}, {"file": "CC0_Horse_Grab3D.glb", "h": 1.54, "flip": true},
-		{"file": "CC0_Deer_Grab3D.glb", "h": 1.32, "flip": true}, {"file": "CC0_Deer_Grab3D.glb", "h": 1.24, "flip": true},
-		{"file": "CC0_Lion_Grab3D.glb", "h": 1.12, "flip": true}, {"file": "CC0_Lion_Grab3D.glb", "h": 1.04, "flip": true},
+		{"file": "CC0_Sheep_Grab3D.glb", "h": 0.92}, {"file": "CC0_Sheep_Grab3D.glb", "h": 0.88},
+		{"file": "CC0_Bull_Grab3D.glb", "h": 1.48}, {"file": "CC0_Bull_Grab3D.glb", "h": 1.40},
+		{"file": "CC0_Horse_Grab3D.glb", "h": 1.62}, {"file": "CC0_Horse_Grab3D.glb", "h": 1.54},
+		{"file": "CC0_Deer_Grab3D.glb", "h": 1.32}, {"file": "CC0_Deer_Grab3D.glb", "h": 1.24},
+		{"file": "CC0_Lion_Grab3D.glb", "h": 1.12}, {"file": "CC0_Lion_Grab3D.glb", "h": 1.04},
 	]
 	for i in range(species.size()):
 		var ani: Node3D = world.spawn_asset(str(species[i].file), float(species[i].h), Vector3.ZERO, animal_root)
 		ani.name = "Animal_%d" % i
-		if bool(species[i].flip) and ani.get_child_count() > 0:
-			(ani.get_child(0) as Node3D).rotation_degrees.y = 180.0
+		_anim(ani, "Idle")
 		animals.append(ani)
 	animal_root.hide()
 
@@ -660,14 +658,14 @@ func _toggle_first_person() -> void:
 		noah_deck = 0
 		noah_fp_local = Vector3(-25.0, 0.65, 0.4) if id in ["noah_05_board_ark", "noah_06_flood_dove"] else Vector3(-16.0, 0.65, 0.4)
 		family[0].global_position = world.ark_anchor.to_global(noah_fp_local)
-		cam_ctrl.first_person_mode = true
+		cam_ctrl.set_first_person(true, preview_mode)
 		cam_ctrl.fp_yaw = -PI * 0.48
 		cam_ctrl.fp_pitch = 0.02
 		cam_ctrl.fp_eye_pos = world.ark_anchor.to_global(noah_fp_local + Vector3(0.0, 1.68, 0.0))
 		cam_ctrl._apply_camera_transform()
 		family[0].hide()
 	else:
-		cam_ctrl.first_person_mode = false
+		cam_ctrl.set_first_person(false, preview_mode)
 		fp_exit_cooldown = 1.6
 		noah_deck = 0
 		if id == "noah_06_flood_dove":
@@ -720,7 +718,8 @@ func _apply_ark_visibility() -> void:
 	var id: String = str(current_event.get("id", ""))
 	var vis_stage: int = _compute_ark_vis_stage()
 	last_ark_vis_stage = vis_stage
-	world.set_ark_stage(vis_stage, interior_cutaway, id == "noah_06_flood_dove")
+	var show_scaffold: bool = (vis_stage >= 1 and ark_build_pct < 99.0 and id in ["noah_02_keel_mortise", "noah_03_hull_decks", "noah_04_pitch_provisions"])
+	world.set_ark_stage(vis_stage, interior_cutaway, id == "noah_06_flood_dove", show_scaffold)
 
 
 func _enter_event(id: String) -> void:
@@ -915,7 +914,7 @@ func _enter_event(id: String) -> void:
 				noah_deck = 0
 				noah_fp_local = Vector3(-26.0, 0.65, 0.4)
 				family[0].hide()
-				cam_ctrl.first_person_mode = true
+				cam_ctrl.set_first_person(true, true)
 				cam_ctrl.fp_yaw = -PI * 0.48
 				cam_ctrl.fp_pitch = 0.01
 				cam_ctrl.fp_eye_pos = world.ark_anchor.to_global(noah_fp_local + Vector3(0.0, 1.68, 0.0))
@@ -1153,6 +1152,8 @@ func _trigger_hotspot(h: Dictionary) -> void:
 	noah_busy_timer = 1.1
 	noah_busy_clip = str(h.get("clip", "Hammer"))
 	SoundManager.play_sfx("sfx_hammer.wav" if noah_busy_clip == "Hammer" else "sfx_ui_click.wav", -4.0)
+	if noah_busy_clip == "Hammer":
+		cam_ctrl.add_trauma(0.16)
 	# Pure +60% Master Shipwright efficiency boost — NO magic free timber/progress handout!
 	inspection_boost_timer = 22.0
 	if family[0].visible:
@@ -1440,7 +1441,9 @@ func _process(delta: float) -> void:
 			if can_exit_door and lp.z > 8.6:
 				_toggle_first_person()
 		noah.global_position = world.ark_anchor.to_global(noah_fp_local)
-		var bob_y: float = sin(elapsed * 6.0) * (0.03 if move_dir.length_squared() > 0.01 else 0.0)
+		var moving_fp: bool = move_dir.length_squared() > 0.01
+		cam_ctrl.fp_move_intensity = lerpf(cam_ctrl.fp_move_intensity, 1.0 if moving_fp else 0.0, delta * 8.0)
+		var bob_y: float = (sin(elapsed * 6.0) * 0.03) if (moving_fp and cam_ctrl.fp_head_bob_enabled) else 0.0
 		cam_ctrl.fp_eye_pos = world.ark_anchor.to_global(noah_fp_local + Vector3(0.0, 1.68 + bob_y, 0.0))
 	elif not modal_overlay.visible and id not in ["noah_01_revelation", "noah_05_board_ark", "noah_06_flood_dove", "noah_07_exit_altar", "noah_08_rainbow_covenant"]:
 		var move_dir: Vector3 = Vector3.ZERO
@@ -1739,6 +1742,7 @@ func _place_animal_inside_ark(i: int) -> void:
 		ani.reparent(world.ark_anchor, false)
 	ani.position = cfg[0] as Vector3
 	ani.look_at(world.ark_anchor.to_global(cfg[1] as Vector3), Vector3.UP)
+	_anim(ani, "StallRest")
 	ani.show()
 
 
@@ -1858,9 +1862,10 @@ func _update_auto_boarding(delta: float) -> void:
 			p.x += -0.68 if i % 2 == 0 else 0.68
 			if j < 2:
 				p.y = world.terrain_height(p.x, p.z)
-			p.y += absf(sin(elapsed * 6.5 + float(i))) * 0.04
+			p.y += absf(sin(elapsed * 6.5 + float(i))) * 0.02
 			animal.position = p
 			animal.look_at(p + Vector3(dir.x, 0.0, dir.z), Vector3.UP)
+			_anim(animal, "Walk")
 			break
 
 	# 3. Once ALL 8 family members AND ALL 10 animals are settled inside -> Auto-seal Ark door & launch Flood!

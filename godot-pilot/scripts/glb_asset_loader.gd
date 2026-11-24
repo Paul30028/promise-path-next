@@ -1,15 +1,9 @@
 class_name GlbAssetLoader
 extends RefCounted
 
-static var _cache: Dictionary = {}
-
-
+## Zero-leak asset loader: uses Godot's pre-imported PackedScene cache (VRAM ETC2/ASTC safe, 0 ObjectDB leaks).
 static func clear_cache() -> void:
-	for k in _cache.keys():
-		var n: Node = _cache[k]
-		if is_instance_valid(n):
-			n.free()
-	_cache.clear()
+	pass
 
 
 static func _compute_combined_aabb(node: Node3D, root_inv: Transform3D) -> AABB:
@@ -94,29 +88,15 @@ static func load_glb_instance(
 	roughness_min: float = 0.62,
 	albedo_boost: Color = Color(1.15, 1.12, 1.06)
 ) -> Node3D:
-	if not FileAccess.file_exists(res_path):
+	if not ResourceLoader.exists(res_path):
 		return null
-
-	var proto: Node3D = null
-	if _cache.has(res_path):
-		proto = _cache[res_path]
-	else:
-		var bytes: PackedByteArray = FileAccess.get_file_as_bytes(res_path)
-		if bytes.is_empty():
-			return null
-		var gltf := GLTFDocument.new()
-		var state := GLTFState.new()
-		var err: int = gltf.append_from_buffer(bytes, "", state)
-		if err != OK:
-			push_warning("GlbAssetLoader: failed to parse %s (err=%d)" % [res_path, err])
-			return null
-		var scene_node: Node = gltf.generate_scene(state)
-		if scene_node == null or not (scene_node is Node3D):
-			return null
-		proto = scene_node as Node3D
-		_cache[res_path] = proto
-
-	var inst: Node3D = proto.duplicate() as Node3D
+	var packed: Resource = ResourceLoader.load(res_path)
+	if packed == null or not (packed is PackedScene):
+		return null
+	var inst_raw: Node = (packed as PackedScene).instantiate()
+	if inst_raw == null or not (inst_raw is Node3D):
+		return null
+	var inst: Node3D = inst_raw as Node3D
 	_tune_materials(inst, roughness_min, albedo_boost)
 
 	var aabb: AABB = _compute_local_aabb(inst)
