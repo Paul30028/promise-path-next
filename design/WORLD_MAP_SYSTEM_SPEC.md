@@ -1,6 +1,7 @@
-# 《应许之路》(Path of Promise) — 三层圣经脉络史诗地图与救赎史剧情系统设计规范（v2.0 定案版）
+# 《应许之路》(Path of Promise) — 三层圣经脉络史诗地图与救赎史剧情系统设计规范（v3.0 同步定案版）
 
-> **版本状态**：v2.0（经 Codex 圣经救赎史系统完整性复核定案）  
+> **全章策划与玩法总纲（v6.0）**：[FULL_CAMPAIGN_DESIGN_SPEC_V6.md](file:///c:/AI/gemini/promise-path-next/design/FULL_CAMPAIGN_DESIGN_SPEC_V6.md)  
+> **全章通用引擎架构总案（v6.0）**：[FULL_CAMPAIGN_TECHNICAL_ARCHITECTURE_V6.md](file:///c:/AI/gemini/promise-path-next/design/FULL_CAMPAIGN_TECHNICAL_ARCHITECTURE_V6.md)  
 > **核心原则**：按《圣经·旧约》真实地理与救赎历史脉络构建地图系统；采用「**12 个重度 3D 主章 + 1 个可玩交互画卷序章（`P01`）+ 7 个轻量纪年画卷桥接节点（`B01–B07`）**」消除历史断层；严格区分「经文正典锚点（`Canon Anchor`）」与「策略玩法改编（`Adaptation`）」；所有地图、剧情与存档均为纯数据驱动（Zero Hardcoding）。
 
 ---

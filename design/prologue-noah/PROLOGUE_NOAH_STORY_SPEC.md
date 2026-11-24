@@ -1,5 +1,7 @@
-# 序章《诺亚方舟与彩虹之约》（创 6–9）终版策划与建舟细节规范（v2.1 定案）
+# 序章《诺亚方舟与彩虹之约》（创 6–9）终版策划与建舟细节规范（v3.0 同步定案）
 
+> **V6 全面重构主规范**：[V6_MASTER_OVERHAUL_MODIFICATION_SPEC.md](file:///c:/AI/gemini/promise-path-next/design/V6_MASTER_OVERHAUL_MODIFICATION_SPEC.md)  
+> **Godot 4.7 技术架构规范**：[GODOT_TECHNICAL_ARCHITECTURE_SPEC.md](file:///c:/AI/gemini/promise-path-next/design/GODOT_TECHNICAL_ARCHITECTURE_SPEC.md)  
 > **视觉定稿对照**：[00_prologue_noah_ark_final.png](file:///c:/AI/gemini/promise-path-next/design/season-01-art-pack/00_prologue_noah_ark_final.png)  
 > **3D 资产三视图**：[BLD_NoahsArk_sheet.png](file:///c:/AI/gemini/promise-path-next/design/prologue-noah/BLD_NoahsArk_sheet.png) / [CHR_Noah_sheet.png](file:///c:/AI/gemini/promise-path-next/design/prologue-noah/CHR_Noah_sheet.png)  
 > **数据驱动真源**：[ch00_noah_ark.json](file:///c:/AI/gemini/promise-path-next/godot-pilot/data/ch00_noah_ark.json)
