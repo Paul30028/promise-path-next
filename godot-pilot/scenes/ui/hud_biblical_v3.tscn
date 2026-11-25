@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/prologue_ui_v3.gd" id="1_uiv3"]
+
+[node name="HudBiblicalV3" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_uiv3")

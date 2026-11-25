@@ -1,0 +1,98 @@
+keys,zh_CN,en_US
+MENU_TITLE,应 许 之 路,PATH OF PROMISE
+MENU_SUBTITLE,圣经历史策略叙事史诗 · 第一季（公有领域经文版）,Biblical Historical Strategy & Narrative Epic · Season I
+MENU_CONTINUE,继续立约之旅（读取最近存档）,Continue Covenant Journey (Load Save)
+MENU_CH00,序章 · 诺亚方舟与彩虹之约（创 6–9）,Prologue · Noah's Ark & Rainbow Covenant (Gen 6–9)
+MENU_P01,宏观战役画卷 · 巴别与出吾珥（创 11–12）,Campaign Scroll · Babel & Call from Ur (Gen 11–12)
+MENU_CH01,第一章 · 示剑与伯特利筑坛（创 13）,Chapter I · Shechem & Bethel Altar (Gen 13)
+MENU_SETTINGS,音画、语言与防晕设置,Audio, Graphics & Language Settings
+MENU_QUIT,退出游戏,Quit to Desktop
+MENU_FOOTER,第一人称晃动：%s  |  画质：%s  |  圣约石已点亮：%d / 12,1P Head-Bob: %s  |  Quality: %s  |  Covenant Stones: %d / 12
+QUAL_HIGH,高画质 Forward+,High (Forward+)
+QUAL_BALANCED,均衡画质,Balanced
+QUAL_MOBILE,移动省电,Mobile Saver
+ON_TXT,开启,On
+OFF_TXT,关闭,Off
+UI_LOADING_SCROLL,正在展开立约长卷...,Unrolling the Covenant Scroll...
+BTN_FP_ENTER,第一人称 [F],1st Person [F]
+BTN_FP_EXIT,退出1P [F],Exit 1P [F]
+BTN_TACTICAL_ENTER,沙盘 [Space],Tactical [Space]
+BTN_TACTICAL_EXIT,退出沙盘 [Space],Exit Map [Space]
+BTN_CUTAWAY_ON,剖面 [V],Cutaway [V]
+BTN_CUTAWAY_OFF,关剖面 [V],Solid [V]
+BTN_CODEX,手卷 [J],Codex [J]
+BTN_MENU,菜单 [Esc],Menu [Esc]
+BTN_CLOSE,关闭,Close
+TACTICAL_BANNER,【沙盘战术俯瞰 · 时间 0.35x】WASD 平移镜头 · 点击 3D 区域气泡派工 · 再按 [Space] 返回亲临,[Tactical Overview · 0.35x Time] WASD Pan · Click 3D Station Bubbles · Press [Space] to Return
+RES_TIMBER,歌斐木,Timber
+RES_PITCH,松香,Pitch
+RES_FOOD,粮草,Provisions
+RES_WATER,活水,Spring Water
+RES_WOOD,橄榄薪木,Firewood
+RES_FLOCK,牛羊牧群,Flocks
+RES_FAITH,家族信心,Family Faith
+FIRE_TAG, [起火!], [ON FIRE!]
+WTH_SUNNY,晴空暖阳,Clear Sunshine
+WTH_WINDY,高云起风,Rising Wind
+WTH_THUNDER,积云闷雷,Thunderheads
+WTH_STORM,狂风暴雨,Torrential Storm
+HUD_DAYS_LEFT,%s · 距洪水 %d 天,%s · %d Days to Flood
+HUD_ARK_STEPS,三百肘工程 %d%%（%d/30 段构件）,300-Cubit Ark %d%% (%d/30 Segments)
+HUD_FP_TITLE,第一人称提灯巡礼 · 第 %d 层,1st-Person Oil-Lamp Walk · Deck %d
+HUD_FP_SUB,WASD / 左下摇杆行走 · 鼠标/右屏环视 · [F] 退出,WASD / Left Stick Walk · Mouse/Right-Drag Look · [F] Exit
+HUD_BOARD_TITLE,距洪水 0 天 · 倾盆大雨登舟,0 Days Left · Boarding in Torrential Rain
+HUD_BOARD_SUB,八口登舟 %d/%d  ·  众活物入舱 %d/%d,Family Aboard %d/%d  ·  Animals in Stalls %d/%d
+HUD_FLOOD_TITLE,浩大洪水漂流 · 亚拉腊众山（创 8:4）,Adrift on the Great Flood · Mountains of Ararat (Gen 8:4)
+HUD_FLOOD_SUB,按 [F] 提陶油灯巡视三层船舱 · 登三层透光窗按 [E] 放飞白鸽,Press [F] for Oil-Lamp Walk · Release Dove at Deck 3 Window [E]
+HUD_BETHEL_TITLE,迦南高地 · 草场承载压力 %d%%,Canaan Highland · Pasture Pressure %d%%
+HUD_BETHEL_SUB,营地整备 %d%%  |  按 [F] 提灯入主帐 · [Space] 沙盘调度两家牧人,Camp Readiness %d%%  |  [F] Enter Main Tent · [Space] Assign Herdsmen
+ST_LOG,东坡伐木 %d人,East Logging (%d)
+ST_BUILD,船坞建舟 %d人,Ark Builders (%d)
+ST_PITCH,松香储粮 %d人,Pitch & Food (%d)
+ST_GUARD,南坡盾卫 %d人,Shield Watch (%d)
+ST_WELL,西谷汲水 %d人,West Well (%d)
+ST_ALTAR,修坛筑帐 %d人,Altar & Tents (%d)
+ST_GROVE,东坡采薪 %d人,Olive Grove (%d)
+ST_PASTURE,南坡轮牧 %d人,Pasture Watch (%d)
+BTN_FENCE_BUILD,修筑木栅 (-40木),Build Palisade (-40)
+BTN_FENCE_BUILDING,修筑中 %d%%,Building %d%%
+BTN_FENCE_REPAIR,抢修木栅 (-20木),Repair Fence (-20)
+BTN_FENCE_OK,木栅完好 %d,Palisade %d HP
+BTN_DOUSE_FIRE,山泉提水扑救火情!,Douse Timber Fire!
+HUD_FENCE_BUILDING,正在修筑木栅,Building Palisade
+HUD_FENCE_HP,木栅耐久,Palisade HP
+HUD_FENCE_NONE,南坡无木栅（按 Space 筑栅）,No Palisade (Press Space)
+HUD_RAIDER_ROUTED,士气溃散 · 退走!,Morale Broken · Fleeing!
+HUD_RAIDER_MORALE,来犯士气,Raider Morale
+CODEX_HEADER,正典经文与历史工程考据手卷 [J],Biblical Canon & Historical Codex [J]
+PAUSE_TITLE,行旅菜单 · 缩略图存档与音画设置,Journey Menu · Visual Saves & Settings
+PAUSE_HINT,原子级防坏档写入 · 公有领域经文（和合本 CUV / WEB）,Atomic Crash-Safe Saves · Public Domain Scripture (CUV / WEB)
+SLOT_EMPTY,空槽位（尚无记录）,Empty Save Slot
+BTN_SAVE,保存槽位 %d,Save Slot %d
+BTN_LOAD,读取槽位 %d,Load Slot %d
+LBL_VOL_MASTER,主音量,Master Vol
+LBL_VOL_AMB,环境风雷,Ambience
+LBL_VOL_SFX,动作音效,SFX Vol
+BTN_LANG_SWITCH,语言 / Language：简体中文 (CUV) ↔ English (WEB),Language / 语言: English (WEB) ↔ 简体中文 (CUV)
+BTN_QUALITY_CYCLE,画质档位：%s,Graphics: %s
+BTN_HEADBOB_TOGGLE,防晕3D步伐晃动：%s,1P Head-Bob: %s
+BTN_JOYSTICK_TOGGLE,触屏虚拟摇杆：%s,Touch Virtual Stick: %s
+BTN_RESUME,继续立约之旅 [Esc],Resume Journey [Esc]
+BTN_MAIN_MENU,返回标题主菜单,Return to Main Menu
+HS_ACCEPT_CALL,领受三百肘造舟天启,Receive the 300-Cubit Ark Blueprint
+HS_KEEL_WEST,检查西段三百肘龙骨榫卯,Inspect West Keel Mortise Joints
+HS_KEEL_EAST,敲紧东段肋骨木楔,Hammer East Rib Timber Wedges
+HS_TIMBER_CHECK,验收东坡歌斐木料堆,Inspect Gopher-Wood Depot
+HS_INSIDE_LOWER,检查下层龙骨与大型畜栏,Inspect Lower Deck Stalls
+HS_INSIDE_MID,沿北侧木梯上中层检查分舱,Inspect Middle Deck Rooms via North Stairs
+HS_DEFEND_YARD,亲临南坡盾阵止戈喝退强人,Rally Shield-Wall to Deter Raiders
+HS_DOUSE_FIRE,山泉提水扑救料堆火情 (-50%火势),Draw Spring Water to Douse Fire (-50%)
+HS_PITCH_IN,入舱检查内壁松香防水缝,Inspect Inner Pitch Caulking
+HS_PITCH_OUT,熬漆里外厚涂防水松香,Coat Hull Inside & Out with Pitch
+HS_PROV_CHECK,清点干湿分区粮草陶罐,Verify Grain Jars & Fodder
+HS_SEAL_DOOR,加速引导全员入舱（耶和华亲自封门）,Guide All Aboard (Yahweh Shuts the Door)
+HS_RELEASE_DOVE,于三层一肘透光窗放飞白鸽,Release Dove from Deck 3 Window
+HS_OFFER_ALTAR,一家八口筑坛献祭感恩,Offer Thanksgiving at Stone Altar
+HS_TO_OVERWORLD,仰望彩虹永约 · 展开宏观战役画卷,Behold Rainbow Covenant · Open Campaign Map
+OW_HEADER,近东历史长卷 · 闪的后裔与出吾珥（创 11–12）,Near East Scroll · Line of Shem & Call from Ur
+OW_ENTER_CH01,踏入迦南高地 · 进入第一章：示剑与伯特利,Enter Canaan · Start Chapter I: Bethel

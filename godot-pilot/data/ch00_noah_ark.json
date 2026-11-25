@@ -125,46 +125,56 @@
     {
       "id": "codex_dimensions",
       "titleZh": "方舟三百肘规制与三层分舱",
-      "canonRef": "创世记 6:14–16（CUV / WEB）",
+      "titleEn": "300-Cubit Ark Dimensions & Three Decks",
+      "canonRef": "Gen 6:14–16 (CUV / WEB)",
       "canonTextZh": "“你要用歌斐木造一只方舟，分一间一间地造，里外抹上松香。方舟的造法乃是这样：要长三百肘，宽五十肘，高三十肘。方舟上边要留透光处，高一肘。方舟的门要开在旁边。方舟要分上、中、下三层。”",
       "canonTextEn": "\"Make a ship of gopher wood. You shall make rooms in the ship, and shall seal it inside and outside with pitch... The length of the ship shall be three hundred cubits, its breadth fifty cubits, and its height thirty cubits.\" (Gen 6:14–15 WEB)",
-      "adaptationNoteZh": "【历史工程还原与改编】按古近东短肘（约 0.34 米）1:1 建模为 102×17×10.2 米巨型木构船体；30 段渐进榫卯拼装、外围可拆卸原木脚手架与跨季采木入库属于合理工程推演。"
+      "adaptationNoteZh": "【历史工程还原与改编】按古近东短肘（约 0.34 米）1:1 建模为 102×17×10.2 米巨型木构船体；30 段渐进榫卯拼装、外围可拆卸原木脚手架与跨季采木入库属于合理工程推演。",
+      "adaptationNoteEn": "[Historical & Gameplay Adaptation] Modeled 1:1 at ~0.34m/cubit (102×17×10.2m). The 30-step mortise assembly, removable log scaffolding, and physical logging logistics are historical engineering adaptations."
     },
     {
       "id": "codex_family_names",
       "titleZh": "挪亚一家八口尊称考据",
-      "canonRef": "创世记 6:10, 7:7, 7:13",
+      "titleEn": "Reverent Titles of Noah's Eight-Member Family",
+      "canonRef": "Gen 6:10, 7:7, 7:13",
       "canonTextZh": "“挪亚生了三个儿子，就是闪、含、雅弗……正当那日，挪亚和他三个儿子闪、含、雅弗，并挪亚的妻子和三个儿妇，都进入方舟。”",
       "canonTextEn": "\"Noah became the father of three sons: Shem, Ham, and Japheth... Noah, and Shem, Ham, and Japheth, the sons of Noah, and Noah's wife, and the three wives of his sons with them, entered into the ship.\" (Gen 6:10, 7:13 WEB)",
-      "adaptationNoteZh": "【正典严谨性说明】圣经正典明确记载挪亚与三子（闪、含、雅弗）之名，未记妻子与三位儿妇本名。本作拒绝引用次经或伪经杜撰人名，统一采用庄重尊称「挪亚之妻 / 闪之妻 / 含之妻 / 雅弗之妻」。"
+      "adaptationNoteZh": "【正典严谨性说明】圣经正典明确记载挪亚与三子（闪、含、雅弗）之名，未记妻子与三位儿妇本名。本作拒绝引用次经或伪经杜撰人名，统一采用庄重尊称「挪亚之妻 / 闪之妻 / 含之妻 / 雅弗之妻」。",
+      "adaptationNoteEn": "[Canonical Fidelity] Genesis names Noah, Shem, Ham, and Japheth, without naming their wives. Refusing apocryphal invention, we honor them as Noah's Wife, Shem's Wife, Ham's Wife, and Japheth's Wife."
     },
     {
       "id": "codex_nonlethal_watch",
       "titleZh": "地上强暴与义人止戈护料",
-      "canonRef": "创世记 6:9, 6:11; 希伯来书 11:7",
+      "titleEn": "Corrupt Violence & Righteous Non-Lethal Watch",
+      "canonRef": "Gen 6:9, 6:11; Heb 11:7",
       "canonTextZh": "“挪亚是个义人，在当时的世代是个完全人……世界在神面前败坏，地上满了强暴。”",
       "canonTextEn": "\"Noah was a righteous man, blameless among the people of his time... The earth was corrupt before God, and the earth was filled with violence.\" (Gen 6:9, 11 WEB)",
-      "adaptationNoteZh": "【玩法改编边界】南坡强人持火把袭扰木料场、木栅盾阵士气威慑与山泉提水救火均为策略玩法改编；严格恪守义人「止戈不杀、零流血处决、零击杀奖励」底线。"
+      "adaptationNoteZh": "【玩法改编边界】南坡强人持火把袭扰木料场、木栅盾阵士气威慑与山泉提水救火均为策略玩法改编；严格恪守义人「止戈不杀、零流血处决、零击杀奖励」底线。",
+      "adaptationNoteEn": "[Gameplay Boundary] Torch raiders, palisade shield deterrence, and spring-water fire dousing are tactical adaptations strictly upholding zero bloodshed and zero kill rewards."
     },
     {
       "id": "codex_divine_seal_covenant",
       "titleZh": "耶和华封门、亚拉腊筑坛与彩虹永约",
-      "canonRef": "创世记 7:16, 8:4, 8:20, 9:13",
+      "titleEn": "Shut In by Yahweh, Ararat Altar & Rainbow Covenant",
+      "canonRef": "Gen 7:16, 8:4, 8:20, 9:13",
       "canonTextZh": "“凡有血肉进入方舟的，都是有公有母，正如神所吩咐挪亚的。耶和华就把他关在方舟里头……七月十七日，方舟停在亚拉腊山上……挪亚为耶和华筑了一座坛……我把虹放在云彩中，这就可作我与地立约的记号。”",
       "canonTextEn": "\"Yahweh shut him in... The ship rested in the seventh month, on the seventeenth day of the month, on the mountains of Ararat... I set my rainbow in the cloud, and it will be a sign of a covenant between me and the earth.\" (Gen 7:16, 8:4, 9:13 WEB)",
-      "adaptationNoteZh": "【敬虔留白原则】封门瞬间采用 5 秒无操作静默演出；出舟筑坛献祭与仰望彩虹永约不设任何功利数值加分。"
+      "adaptationNoteZh": "【敬虔留白原则】封门瞬间采用 5 秒无操作静默演出；出舟筑坛献祭与仰望彩虹永约不设任何功利数值加分。",
+      "adaptationNoteEn": "[Reverent Stillness] Sealing the door features a 5-second silent reflection; worship at the Ararat altar and the Rainbow Covenant grant zero utilitarian score points."
     }
   ],
   "dramaticMoments": {
     "dm_01_drought_mockery": {
       "titleZh": "名场面一 · 晴空下的嘲笑与焦渴",
       "titleEn": "Scene I · Mockery Under a Cloudless Sky",
-      "canonRef": "创 6:14, 22 · 来 11:7",
+      "canonRef": "Gen 6:14, 22 · Heb 11:7",
       "bodyZh": "烈日炙烤着滴雨未见的山脊。坡下村民指着百米龙骨哄笑，两名雇工摔下木槌摇头离去。次子【含】抹去额头汗水，低声问：“父亲，万里无云，这旱地巨舟究竟要造到何年？”【挪亚之妻】默默端来山泉水递给众人。",
+      "bodyEn": "Beneath a blazing, cloudless sky, villagers mock the 100-meter keel on dry rock as two hired laborers throw down their mallets. Ham wipes his brow: \"Father, not a drop of rain falls — how many years must we labor?\" Noah's Wife quietly brings cool spring water.",
       "choices": [
         {
           "id": "dm01_encourage_rotation",
           "labelZh": "接过水碗温言重申立约应许，排定全家树荫轮歇（家族信心 +8）",
+          "labelEn": "Share water, reaffirm the covenant promise, and rotate shade rest (Faith +8)",
           "deltaHarmony": 8,
           "deltaTimber": 0,
           "toastZh": "挪亚温言抚慰三子与儿妇，全家同心轮班，劳作工效显著提升！"
@@ -172,6 +182,7 @@
         {
           "id": "dm01_trade_estate_timber",
           "labelZh": "倾尽家中蓄产向远方林场换购风干歌斐木，减轻儿女肩担（歌斐木 +36 · 信心 +4）",
+          "labelEn": "Trade family savings for seasoned gopher timber to ease their burden (Timber +36 · Faith +4)",
           "deltaHarmony": 4,
           "deltaTimber": 36,
           "toastZh": "以家产换回整批风干歌斐大木，次子含与长子闪重振精神投入凿榫！"
@@ -181,12 +192,14 @@
     "dm_02_stay_the_blade": {
       "titleZh": "名场面二 · 义人按剑止戈",
       "titleEn": "Scene II · Stay the Bronze Blade",
-      "canonRef": "创 6:9, 11（非杀伐护料改编）",
+      "canonRef": "Gen 6:9, 11",
       "bodyZh": "暮色中五名强暴之徒举着火把分两路逼近，侧翼火星已溅向歌斐木料堆！次子【含】怒目按住腰间青铜短剑欲冲出搏命，【挪亚】一把按住儿子剑柄喝止：\n“神正因地上的强暴降罚，我们造救命的方舟，手岂可染强暴的血？举起木盾、守住木栅、提水护住木料，把他们惊退就够了！”",
+      "bodyEn": "At dusk, five torch-bearing raiders close in from two prongs! Ham grips his bronze sword to strike, but Noah stays his hand:\n\"God judges the earth because of violence — shall we stain our hands with blood while building the Ark of life? Raise wooden shields, hold the palisade, and douse any fire!\"",
       "choices": [
         {
           "id": "dm02_shield_and_water",
           "labelZh": "收剑举盾结阵！令闪与含守南栅，儿妇备山泉水瓮防备火攻（信心 +6 · 木栅加固）",
+          "labelEn": "Sheathe blades & form the wooden shield wall! Ready spring water jars (Faith +6 · Palisade +60 HP)",
           "deltaHarmony": 6,
           "deltaTimber": 0,
           "bonusFenceHp": 60,
@@ -195,6 +208,7 @@
         {
           "id": "dm02_torch_vigil",
           "labelZh": "点亮船坞四周火盆高声劝诫威慑，集中人力抢护核心木堆（强人士气 -20% · 信心 +4）",
+          "labelEn": "Light shipyard braziers and warn them off with righteous resolve (Raider Morale -20% · Faith +4)",
           "deltaHarmony": 4,
           "deltaTimber": 0,
           "moraleDrop": 20,

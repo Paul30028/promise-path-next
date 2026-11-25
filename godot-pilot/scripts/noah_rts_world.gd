@@ -14,6 +14,7 @@ var terrain_mat: ShaderMaterial
 
 var ark_anchor: Node3D
 var ark: Node3D
+var ark_static_body: StaticBody3D
 var ark_lanterns: Array[OmniLight3D] = []
 var god_ray: MeshInstance3D
 var flood_water: MeshInstance3D
@@ -230,6 +231,7 @@ func _build_terrain_and_photogrammetry() -> void:
 	mi.mesh = st.commit()
 	mi.material_override = terrain_mat
 	add_child(mi)
+	WorldPhysicsBuilder.attach_terrain_collider(mi)
 
 	# Smooth winding village dirt road (hidden post-flood in Ararat!)
 	var rst: SurfaceTool = SurfaceTool.new()
@@ -446,6 +448,18 @@ func _build_ark() -> void:
 			ark.add_child(m)
 	ark_anchor.add_child(ark)
 	ark_scale = 1.0
+	ark_static_body = WorldPhysicsBuilder.build_ark_walkable_collider(ark_anchor)
+	WorldPhysicsBuilder.build_interior_acoustic_zone(ark_anchor, Vector3(96.0, 9.4, 15.2), Vector3(0.0, 5.0, 0.0))
+
+	# 3D Spatial Cedar-Hull Creak & Livestock Breathing Audio Emitters (SFX_Interior Reverb Bus!)
+	var sm_node: Node = get_node_or_null("/root/SoundManager") if is_inside_tree() else null
+	if sm_node != null and sm_node.has_method("make_spatial_loop_3d"):
+		var creak_sp: AudioStreamPlayer3D = sm_node.call("make_spatial_loop_3d", "sfx_ark_wood_creak.wav", Vector3(0.0, 3.8, 0.0), 38.0, -9.0, true) as AudioStreamPlayer3D
+		if creak_sp != null:
+			ark_anchor.add_child(creak_sp)
+		var breath_sp: AudioStreamPlayer3D = sm_node.call("make_spatial_loop_3d", "sfx_animals_breath.wav", Vector3(-14.0, 1.4, 0.0), 22.0, -10.0, true) as AudioStreamPlayer3D
+		if breath_sp != null:
+			ark_anchor.add_child(breath_sp)
 
 	# Warm hanging oil-lanterns along all 3 cathedral-scale decks (hidden during Flood!)
 	ark_lanterns.clear()
@@ -477,6 +491,11 @@ func set_ark_progress(pct: float, cutaway: bool = false, retract_ramp: bool = fa
 		return
 	var clamped: float = clampf(pct, 0.0, 100.0)
 	var unlocked_step: int = 0 if clamped <= 0.01 else clampi(int(ceil(clamped / 100.0 * 30.0)), 1, 30)
+	if ark_static_body != null:
+		ark_static_body.collision_layer = 2 if unlocked_step >= 11 else 0
+		var ramp_cs: CollisionShape3D = ark_static_body.get_node_or_null("GangplankRampCollider") as CollisionShape3D
+		if ramp_cs != null:
+			ramp_cs.disabled = retract_ramp or unlocked_step < 12
 	for node in ark.find_children("*", "MeshInstance3D", true, false):
 		var mi: MeshInstance3D = node as MeshInstance3D
 		if mi == null:

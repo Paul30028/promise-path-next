@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="ChapterBalanceResource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/chapter_balance_resource.gd" id="1_bal"]
+
+[resource]
+script = ExtResource("1_bal")
+chapter_id = "ch01_bethel"
+total_countdown_days = 180.0
+tree_count = 18
+tree_chop_hits = 3
+chop_interval_sec = 1.0
+primary_yield_per_trip = 10.0
+stump_regrow_sec = 40.0
+progressive_steps = 12
+build_primary_cost_per_worker_sec = 1.6
+build_pct_per_worker_sec = 1.85
+secondary_rate_per_worker_sec = 1.8
+tertiary_rate_per_worker_sec = 1.5
+inspection_boost_mul = 1.5
+inspection_boost_sec = 20.0
+palisade_build_cost = 24.0
+palisade_repair_cost = 12.0
+palisade_max_hp = 220.0
+fire_burn_per_sec = 2.5
+water_douse_pct = 55.0
+tactical_time_scale = 0.35
+rain_mud_speed_mul = 1.0

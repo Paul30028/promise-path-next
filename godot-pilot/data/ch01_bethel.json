@@ -1,199 +1,138 @@
 {
+  "schemaVersion": 3,
   "id": "ch01_bethel",
-  "saveSchemaVersion": 1,
+  "titleZh": "第一章 · 示剑与伯特利高脊筑坛",
+  "titleEn": "Chapter I · Shechem & The Altar Between Bethel and Ai",
+  "canonRef": "创 13:1–18 / Gen 13:1–18",
+  "firstEventId": "act1_return_bethel",
   "initialState": {
-    "water": 12,
-    "harmony": 75,
+    "water": 28,
+    "firewood": 16,
+    "flock": 64,
+    "harmony": 82,
     "pressure": 35
   },
-  "ui": {
-    "eventButtonZh": "📜 章节事件",
-    "canonZh": "正典锚点 · 含改编抉择",
-    "adaptationZh": "玩法改编 · 经文锚点见出处",
-    "hudZh": "第 %d / 5 幕  |  草场承载压力：%d",
-    "actionHintZh": "请先完成：%s",
-    "actions": {
-      "water": "西谷取水",
-      "pray": "坛前求告",
-      "camp": "归营整备，启程南迁"
+  "familyCast": [
+    {"index": 0, "id": "abram", "nameZh": "亚伯兰", "nameEn": "Abram", "roleZh": "族长 · 筑坛守约"},
+    {"index": 1, "id": "sarai", "nameZh": "撒莱", "nameEn": "Sarai", "roleZh": "主帐调度 · 款待家眷"},
+    {"index": 2, "id": "lot", "nameZh": "侄儿·罗得", "nameEn": "Lot", "roleZh": "亲族牧群领队"},
+    {"index": 3, "id": "eliezer", "nameZh": "管家·以利以谢", "nameEn": "Eliezer", "roleZh": "西谷活水与商道"},
+    {"index": 4, "id": "herdsman_a", "nameZh": "亚伯兰牧长", "nameEn": "Abram's Herdsman", "roleZh": "南坡轮牧 · 夜守"},
+    {"index": 5, "id": "herdsman_l", "nameZh": "罗得牧长", "nameEn": "Lot's Herdsman", "roleZh": "东坡采薪 · 饮畜"}
+  ],
+  "codexEntries": [
+    {
+      "id": "codex_bethel_altar",
+      "titleZh": "伯特利与艾之间起初筑坛之处",
+      "titleEn": "The First Altar Between Bethel and Ai",
+      "canonRef": "Gen 13:3–4 (CUV / WEB)",
+      "canonTextZh": "“他从南地渐渐往伯特利去，到了伯特利和艾的中间，就是从前支搭帐棚的地方，也是他起初筑坛的地方；亚伯兰又在那里求告耶和华的名。”",
+      "canonTextEn": "\"He went on his journeys from the South even to Bethel, to the place where his tent had been at the beginning, between Bethel and Ai, to the place of the altar, which he had made there at the first. There Abram called on the name of Yahweh.\" (Gen 13:3–4 WEB)",
+      "adaptationNoteZh": "【历史地理还原】128×96m 七区高地按迦南中央山地地貌建模：北脊十二石未凿原石坛、中央羊毛织锦大帐、西谷石井与东坡干垒石梯田橄榄林。",
+      "adaptationNoteEn": "[Historical Geography] Modeled as a 128×96m 7-zone Central Canaanite highland ridge with an unhewn stone altar, woven Levant pavilion tent, west spring well, and dry-stone olive terraces."
     },
-    "closeZh": "收起",
-    "continueZh": "继续",
-    "completedZh": "第一章已完成"
-  },
-  "completion": {
-    "titleZh": "第一章终 · 幔利橡树下",
-    "canonRef": "创 13:18",
-    "bodyZh": "亚伯兰搬了帐棚，来到希伯仑幔利的橡树那里居住，在那里为耶和华筑了一座坛。\n从富足中的克制，到向亲族谦让，旅程在应许与敬拜中收束。",
-    "previewZh": "已解锁第二章预告：创14 · 亲族遇险，亚伯兰将踏上救援之路。"
-  },
+    {
+      "id": "codex_pasture_strife",
+      "titleZh": "两家财物甚多与草场承载之争",
+      "titleEn": "Abundant Flocks & Herdsmen's Pasture Strife",
+      "canonRef": "Gen 13:5–7",
+      "canonTextZh": "“与亚伯兰同行的罗得也有牛群、羊群、帐棚。那地容不下他们，因为他们的财物甚多，使他们不能同居。当时，迦南人与比利洗人在那地居住。亚伯兰的牧人和罗得的牧人相争。”",
+      "canonTextEn": "\"Lot also, who went with Abram, had flocks, herds, and tents. The land was not able to bear them, that they might live together... There was strife between the herdsmen of Abram's livestock and the herdsmen of Lot's livestock.\" (Gen 13:5–7 WEB)",
+      "adaptationNoteZh": "【玩法改编说明】西谷汲水排班、草场承载压力表与西南驿道迦南商队换水均为策略玩法改编，不改变两家因土地承载极限而平和分离的经文主干。",
+      "adaptationNoteEn": "[Gameplay Adaptation] Well-drawing shifts, pasture pressure meters, and Canaanite road trading are strategy adaptations preserving the canonical parting."
+    },
+    {
+      "id": "codex_abram_yields",
+      "titleZh": "骨肉不可相争 · 亚伯兰谦让先选",
+      "titleEn": "We Are Relatives · Abram Yields First Choice",
+      "canonRef": "Gen 13:8–11",
+      "canonTextZh": "“亚伯兰就对罗得说：你我不可相争，你的牧人和我的牧人也不可相争，因为我们是骨肉。遍地不都在你眼前吗？请你离开我：你向左，我就向右；你向右，我就向左。”",
+      "canonTextEn": "\"Abram said to Lot: Please, let there be no strife between me and you, and between my herdsmen and your herdsmen; for we are relatives. Isn't the whole land before you? If you go to the left hand, then I will go to the right.\" (Gen 13:8–9 WEB)",
+      "adaptationNoteZh": "【叙事伦理锚点】在近东族长传统中长辈本握优先权，亚伯兰却凭对神应许的信靠主动让权；此抉择体现立约信心而非功利算计。",
+      "adaptationNoteEn": "[Narrative Ethic] Though elder patriarch, Abram yields first choice out of faith in God's promise rather than grasping fertile land."
+    },
+    {
+      "id": "codex_four_directions",
+      "titleZh": "举目东西南北四望与幔利橡树筑坛",
+      "titleEn": "Lift Up Your Eyes & The Oaks of Mamre",
+      "canonRef": "Gen 13:14–18",
+      "canonTextZh": "“罗得离别亚伯兰以后，耶和华对亚伯兰说：从你所在的地方，你举目向东西南北观看；凡你所看见的一切地，我都要赐给你和你的后裔直到永远……亚伯兰就搬了帐棚，来到希伯仑幔利的橡树那里居住，在那里为耶和华筑了一座坛。”",
+      "canonTextEn": "\"Yahweh said to Abram, after Lot was separated from him: Now, lift up your eyes, and look from the place where you are, northward and southward and eastward and westward; for all the land which you see, I will give to you and to your offspring forever.\" (Gen 13:14–15 WEB)",
+      "adaptationNoteZh": "【敬虔留白原则】应许之颁布完全出于神的主权恩典，不以任务积分兑换。",
+      "adaptationNoteEn": "[Sovereign Grace] God's covenant promise is bestowed purely by grace, never bought with performance points."
+    }
+  ],
   "events": [
     {
       "id": "act1_return_bethel",
       "act": 1,
-      "titleZh": "归回伯特利 · 修井安营",
+      "actBannerZh": "第一幕 · 北返高脊与西谷活水",
+      "actBannerEn": "Act I · Return to the Ridge & West Valley Well",
       "speakerZh": "撒莱",
+      "speakerEn": "Sarai",
       "canonRef": "创 13:1–3",
-      "isAdaptation": true,
-      "bodyZh": "我们带着财物、牲畜与罗得从埃及上南地，回到伯特利在西、艾在东的旧营地。先修缮旧井、安顿帐棚，再取水照顾众人。修井与本段对话为玩法改编。",
-      "requiredAction": "water",
+      "bodyZh": "我们带着牛羊与帐棚从南地回到伯特利与艾之间的高脊营地。请先前往【西谷活水石井】清理井口汲水，并整顿【中央主帐】（按 [F] 可提陶油灯步入主帐内部巡视）。",
+      "bodyEn": "We have returned from the Negev to the highland ridge between Bethel and Ai. Visit the West Valley Stone Well to draw fresh water and inspect the Central Pavilion Tent (press [F] to walk inside by clay oil-lamp).",
       "choices": [
-        {
-          "id": "share",
-          "labelZh": "先为家人与幼畜分水",
-          "resultZh": "众人依次饮水，营地渐渐安定。",
-          "deltaWater": -2,
-          "deltaHarmony": 4,
-          "deltaPressure": 5,
-          "nextEventId": "act2_restore_altar",
-          "isAdaptation": true
-        },
-        {
-          "id": "store",
-          "labelZh": "整备储水器皿再分水",
-          "resultZh": "储水有序，众人预备重新安营。",
-          "deltaWater": 1,
-          "deltaHarmony": 2,
-          "deltaPressure": 5,
-          "nextEventId": "act2_restore_altar",
-          "isAdaptation": true
-        }
+        {"id": "c1_next", "labelZh": "活水入营，前往北脊重修起初之坛", "nextEventId": "act2_restore_altar"}
       ]
     },
     {
       "id": "act2_restore_altar",
       "act": 2,
-      "titleZh": "重修旧坛 · 求告主名",
+      "actBannerZh": "第二幕 · 重修旧坛与求告主名",
+      "actBannerEn": "Act II · Restoring the First Altar",
       "speakerZh": "亚伯兰",
+      "speakerEn": "Abram",
       "canonRef": "创 13:4",
-      "isAdaptation": true,
-      "bodyZh": "这里是起初筑坛的地方。我们清理坛基，回到坛前求告耶和华的名。清理旧坛及对话为玩法改编；求告的经文锚点见创13:4。",
-      "requiredAction": "pray",
+      "bodyZh": "北面岩脊正是我们起初支搭帐棚、立石筑坛的地方。登上【北脊十二石旧坛】重整未凿原石，率全家安静求告耶和华的名。",
+      "bodyEn": "On the northern rocky rise stands the unhewn stone altar we built at the beginning. Ascend the North Altar Ridge and call upon the name of Yahweh.",
       "choices": [
-        {
-          "id": "together",
-          "labelZh": "邀家人一同安静求告",
-          "resultZh": "家人安静聚集；亚伯兰求告耶和华的名。",
-          "deltaWater": 0,
-          "deltaHarmony": 6,
-          "deltaPressure": 4,
-          "nextEventId": "act3_herdsmen_strife",
-          "isAdaptation": true
-        },
-        {
-          "id": "prepare",
-          "labelZh": "先安排牧人照料羊群，再求告",
-          "resultZh": "羊群有人看顾，众人安静等候。",
-          "deltaWater": 0,
-          "deltaHarmony": 4,
-          "deltaPressure": 3,
-          "nextEventId": "act3_herdsmen_strife",
-          "isAdaptation": true
-        }
+        {"id": "c2_next", "labelZh": "坛烟升起，下坡调解南牧场争水之急", "nextEventId": "act3_herdsmen_strife"}
       ]
     },
     {
       "id": "act3_herdsmen_strife",
       "act": 3,
-      "titleZh": "富足成压 · 牧人争水",
-      "speakerZh": "两家牧人",
+      "actBannerZh": "第三幕 · 富足成压与两家牧人争水",
+      "actBannerEn": "Act III · Abundant Flocks & Herdsmen's Strife",
+      "speakerZh": "以利以谢与罗得牧长",
+      "speakerEn": "Eliezer & Lot's Herdsman",
       "canonRef": "创 13:5–7",
-      "isAdaptation": true,
-      "bodyZh": "罗得也有牛群、羊群和帐棚。两家的财物甚多，那地容不下他们同居，牧人之间起了争执。不是罗得存心作恶；水草承载已到极限。以下轮牧安排为改编，只能缓和摩擦，不能消除土地的限制。",
+      "bodyZh": "亚伯兰与罗得两家的牛群羊群甚多，高地水草承载逼近极限，两家牧人在【南坡合牧草场】与【东坡梯田】起了争执！按 [Space] 调配汲水与轮牧人手，并亲自前往南坡安抚两家牧人。",
+      "bodyEn": "Both Abram and Lot possess great flocks and tents; the land cannot bear them together, and strife has broken out in the South Pasture! Press [Space] to balance well/pasture crews and calm the herdsmen.",
       "choices": [
-        {
-          "id": "rotate",
-          "labelZh": "克制争辩，安排轮流饮羊",
-          "resultZh": "牧人暂按次序取水，争执缓和，草场压力仍在。",
-          "deltaWater": -2,
-          "deltaHarmony": 8,
-          "deltaPressure": 15,
-          "nextEventId": "act4_canaan_caravan",
-          "isAdaptation": true
-        },
-        {
-          "id": "protect",
-          "labelZh": "先护送幼弱畜群到水边",
-          "resultZh": "弱小牲畜得到照料，两家仍需商议长远出路。",
-          "deltaWater": -3,
-          "deltaHarmony": 6,
-          "deltaPressure": 18,
-          "nextEventId": "act4_canaan_caravan",
-          "isAdaptation": true
-        }
+        {"id": "c3_rotate", "labelZh": "克制争竞，排定两家分时轮流饮畜（信心 +8）", "deltaHarmony": 8, "nextEventId": "act4_canaan_caravan"},
+        {"id": "c3_well", "labelZh": "增派家仆自西谷挑水优先照料幼畜（活水 -4 · 信心 +6）", "deltaWater": -4, "deltaHarmony": 6, "nextEventId": "act4_canaan_caravan"}
       ]
     },
     {
       "id": "act4_canaan_caravan",
       "act": 4,
-      "titleZh": "艾城驿道 · 迦南商队",
-      "speakerZh": "商队领队",
-      "canonRef": "创 13:7（当地居民背景；商队为原创）",
-      "isAdaptation": true,
-      "bodyZh": "驿道商队愿以器物换取淡水。经文提及迦南人与比利洗人住在那地；商队、交易及本段对话均为原创支线，不是经文记载。",
+      "actBannerZh": "第四幕 · 西南驿道与商旅善意",
+      "actBannerEn": "Act IV · The Southwest Caravan Road",
+      "speakerZh": "管家·以利以谢",
+      "speakerEn": "Eliezer",
+      "canonRef": "创 13:7",
+      "bodyZh": "【西南艾城驿道】上一支迦南行商驼马队驻足求水，愿以陶瓮与干粮交换清泉。前往西南驿道石阶接待行旅，见证立约族长的公义与慷慨。",
+      "bodyEn": "Along the Southwest Caravan Road, passing merchants seek spring water in exchange for storage amphorae and grain. Meet them at the road terrace.",
       "choices": [
-        {
-          "id": "trade",
-          "labelZh": "公平换取储水器皿",
-          "resultZh": "商队按约取水，营地获得储水器皿。",
-          "deltaWater": -2,
-          "deltaHarmony": 3,
-          "deltaPressure": 2,
-          "nextEventId": "act5_parting_promise",
-          "isAdaptation": true
-        },
-        {
-          "id": "give",
-          "labelZh": "赠少量水，结下善意",
-          "resultZh": "旅人感谢相助，营地仍保留基本饮水。",
-          "deltaWater": -3,
-          "deltaHarmony": 5,
-          "deltaPressure": 2,
-          "nextEventId": "act5_parting_promise",
-          "isAdaptation": true
-        },
-        {
-          "id": "decline",
-          "labelZh": "婉拒交易，保留饮水",
-          "resultZh": "商队理解营地的困难，继续沿驿道前行。",
-          "deltaWater": 0,
-          "deltaHarmony": 0,
-          "deltaPressure": 3,
-          "nextEventId": "act5_parting_promise",
-          "isAdaptation": true
-        }
+        {"id": "c4_fair", "labelZh": "公道易物换取储水陶瓮与草料（粮草 +18 · 信心 +4）", "deltaHarmony": 4, "nextEventId": "act5_parting_promise"},
+        {"id": "c4_gift", "labelZh": "慷慨赠饮清泉结下和平见证（活水 -4 · 信心 +7）", "deltaWater": -4, "deltaHarmony": 7, "nextEventId": "act5_parting_promise"}
       ]
     },
     {
       "id": "act5_parting_promise",
       "act": 5,
-      "titleZh": "谦让分地 · 应许与幔利",
-      "speakerZh": "亚伯兰",
+      "actBannerZh": "终幕 · 谦让分地、举目四望与迁往幔利",
+      "actBannerEn": "Finale · Yielding the Plain & Lifting Up Your Eyes",
+      "speakerZh": "亚伯兰 / 经文启示",
+      "speakerEn": "Abram / Scripture",
       "canonRef": "创 13:8–18",
-      "isAdaptation": false,
-      "bodyZh": "亚伯兰对罗得说：我们不可相争，因为我们是骨肉。遍地不都在你眼前吗？请你先选。罗得举目看见滋润的约旦全平原，便选择那里，向东迁移；亚伯兰住在迦南地。罗得离别以后，耶和华才吩咐亚伯兰向东西南北观看，应许将这地赐给他和他的后裔。应许出于恩典，不以数值或任务兑换。如今收拾帐棚，迁往希伯仑幔利橡树，在那里为耶和华筑坛。以下送别安排为玩法改编。",
-      "requiredAction": "camp",
+      "bodyZh": "与罗得一同登上【东南约旦平原眺望崖】：“我们是骨肉，不可相争……你向左，我就向右。”罗得举目择定滋润的约旦平原东迁；耶和华随即向亚伯兰颁布东西南北四境之永约！",
+      "bodyEn": "Stand with Lot on the Southeast Jordan Overlook: \"We are relatives — if you take the left, I will go to the right.\" After Lot departs east, Yahweh bids Abram lift up his eyes north, south, east, and west in everlasting promise!",
       "choices": [
-        {
-          "id": "water_gift",
-          "labelZh": "赠水送别，南迁幔利橡树筑坛",
-          "resultZh": "罗得向东离去。亚伯兰在分离后领受应许，迁到希伯仑幔利橡树，为耶和华筑坛（创13:18）。",
-          "deltaWater": -3,
-          "deltaHarmony": 8,
-          "deltaPressure": -35,
-          "nextEventId": "",
-          "isAdaptation": true
-        },
-        {
-          "id": "escort",
-          "labelZh": "安排送行，南迁幔利橡树筑坛",
-          "resultZh": "两家平和分离。亚伯兰领受四望之应许，迁到希伯仑幔利橡树，为耶和华筑坛（创13:18）。",
-          "deltaWater": -1,
-          "deltaHarmony": 6,
-          "deltaPressure": -35,
-          "nextEventId": "",
-          "isAdaptation": true
-        }
+        {"id": "c5_finish", "labelZh": "领受四境应许，点亮第二枚圣约石并迁往希伯仑幔利橡树（创 13:18）", "nextEventId": ""}
       ]
     }
   ]

@@ -32,6 +32,14 @@ window/handheld/orientation=0
 
 pointing/emulate_touch_from_mouse=true
 
+[layer_names]
+
+3d_physics/layer_1="TerrainGround"
+3d_physics/layer_2="ArkAndStructures"
+3d_physics/layer_3="Actors"
+3d_physics/layer_4="Animals"
+3d_physics/layer_5="InteractAreas"
+
 [rendering]
 
 renderer/rendering_method="forward_plus"

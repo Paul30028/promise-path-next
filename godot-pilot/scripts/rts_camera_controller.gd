@@ -1,7 +1,11 @@
 class_name RTSCameraController
 extends Node3D
-## Reusable Free 3D RTS Camera: WASD pan, Mouse-wheel zoom (close-up to grand overview),
-## Right-drag orbit rotation, Middle-drag pan, and smooth cinematic focus_on().
+## Universal 3-Modal Camera Rig (RTS Tactical Overview <-> 3P Anti-Clip Hero Follow <-> CS2 1P Oil-Lamp):
+## - Instantiates `res://scenes/prefabs/fp_oil_lamp.tscn` with spatial wick-crackle audio
+## - Physics ray spring-arm anti-wall-clipping on Layer 2 (`ArkAndStructures`) during close 3P follow
+## - Supports Mouse-Captured 1P look, Right-Drag 3P orbit, AND Right-Half Touchscreen Drag on Mobile!
+
+const LAMP_PREFAB: PackedScene = preload("res://scenes/prefabs/fp_oil_lamp.tscn")
 
 @export var min_distance: float = 7.5
 @export var max_distance: float = 115.0
@@ -32,6 +36,7 @@ var current_pitch: float = -0.62
 var camera: Camera3D
 var fp_oil_lamp: Node3D
 var fp_lamp_light: OmniLight3D
+var fp_lamp_audio: AudioStreamPlayer3D
 var _lamp_time: float = 0.0
 var _orbiting: bool = false
 var _panning: bool = false
@@ -39,6 +44,9 @@ var _last_mouse: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
+	var sv_node: Node = get_node_or_null("/root/SaveManager") if is_inside_tree() else null
+	if sv_node != null and sv_node.get("head_bob_enabled") != null:
+		fp_head_bob_enabled = bool(sv_node.get("head_bob_enabled"))
 	camera = Camera3D.new()
 	camera.name = "RTSCamera3D"
 	camera.fov = 42.0
@@ -53,52 +61,15 @@ func _ready() -> void:
 
 
 func _build_fp_oil_lamp() -> void:
-	fp_oil_lamp = Node3D.new()
-	fp_oil_lamp.name = "HandheldClayOilLamp"
-	fp_oil_lamp.position = Vector3(0.34, -0.22, -0.58)
+	fp_oil_lamp = LAMP_PREFAB.instantiate() as Node3D
 	camera.add_child(fp_oil_lamp)
-
-	# Ancient terracotta oil lamp saucer + pinched spout
-	var clay := StandardMaterial3D.new()
-	clay.albedo_color = Color(0.54, 0.33, 0.20)
-	clay.roughness = 0.88
-	var bowl := MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = 0.072
-	cm.bottom_radius = 0.044
-	cm.height = 0.046
-	bowl.mesh = cm
-	bowl.material_override = clay
-	fp_oil_lamp.add_child(bowl)
-
-	var spout := MeshInstance3D.new()
-	var sm := BoxMesh.new()
-	sm.size = Vector3(0.040, 0.024, 0.068)
-	spout.mesh = sm
-	spout.position = Vector3(0.0, 0.006, -0.056)
-	spout.material_override = clay
-	fp_oil_lamp.add_child(spout)
-
-	var flame := MeshInstance3D.new()
-	var fm_mesh := SphereMesh.new()
-	fm_mesh.radius = 0.011
-	fm_mesh.height = 0.032
-	flame.mesh = fm_mesh
-	var fmat := StandardMaterial3D.new()
-	fmat.albedo_color = Color(1.0, 0.82, 0.36)
-	fmat.emission_enabled = true
-	fmat.emission = Color(1.0, 0.62, 0.16)
-	fmat.emission_energy_multiplier = 1.65
-	flame.material_override = fmat
-	flame.position = Vector3(0.0, 0.030, -0.074)
-	fp_oil_lamp.add_child(flame)
-
-	fp_lamp_light = OmniLight3D.new()
-	fp_lamp_light.position = Vector3(0.0, 0.08, -0.08)
-	fp_lamp_light.light_color = Color(1.0, 0.74, 0.36)
-	fp_lamp_light.light_energy = 1.65
-	fp_lamp_light.omni_range = 11.5
-	fp_oil_lamp.add_child(fp_lamp_light)
+	fp_lamp_light = fp_oil_lamp.get_node_or_null("LampLight") as OmniLight3D
+	var sm_node: Node = get_node_or_null("/root/SoundManager") if is_inside_tree() else null
+	if sm_node != null and sm_node.has_method("make_spatial_loop_3d"):
+		fp_lamp_audio = sm_node.call("make_spatial_loop_3d", "sfx_oil_lamp_crackle.wav", Vector3(0, 0.04, -0.06), 4.0, -16.0, true) as AudioStreamPlayer3D
+		if fp_lamp_audio != null:
+			fp_lamp_audio.autoplay = false
+			fp_oil_lamp.add_child(fp_lamp_audio)
 	fp_oil_lamp.hide()
 
 
@@ -106,6 +77,11 @@ func set_first_person(enabled: bool, is_preview: bool = false) -> void:
 	first_person_mode = enabled
 	if fp_oil_lamp != null:
 		fp_oil_lamp.visible = enabled
+	if fp_lamp_audio != null:
+		if enabled and not fp_lamp_audio.playing:
+			fp_lamp_audio.play()
+		elif not enabled and fp_lamp_audio.playing:
+			fp_lamp_audio.stop()
 	if not is_preview and DisplayServer.get_name() != "headless":
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED if enabled else Input.MOUSE_MODE_VISIBLE)
 	var sm_node: Node = get_node_or_null("/root/SoundManager") if is_inside_tree() else null
@@ -131,7 +107,7 @@ func focus_on(pos: Vector3, distance: float = -1.0, yaw: float = NAN, instant: b
 		position = target_focus
 		current_distance = target_distance
 		current_yaw = target_yaw
-		current_pitch = _pitch_for_distance(current_distance)
+		current_pitch = pitch_override if not is_nan(pitch_override) else _pitch_for_distance(current_distance)
 		_apply_camera_transform()
 
 
@@ -141,29 +117,30 @@ func _pitch_for_distance(dist: float) -> float:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventScreenDrag:
+		var sd: InputEventScreenDrag = event
+		var vp_w: float = get_viewport().get_visible_rect().size.x
+		# Right half of touchscreen rotates camera smoothly in both 1P and 3P!
+		if sd.position.x >= vp_w * 0.42:
+			if first_person_mode:
+				fp_yaw = wrapf(fp_yaw - sd.relative.x * orbit_sensitivity * 1.35, -PI, PI)
+				fp_pitch = clampf(fp_pitch - sd.relative.y * orbit_sensitivity * 1.05, -1.22, 1.25)
+			else:
+				target_yaw -= sd.relative.x * orbit_sensitivity
+		return
+
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event
-		if mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed:
-			target_distance = clampf(target_distance - zoom_speed, min_distance, max_distance)
-		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed:
-			target_distance = clampf(target_distance + zoom_speed, min_distance, max_distance)
-		elif mb.button_index == MOUSE_BUTTON_RIGHT:
+		if mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed and not first_person_mode:
+			target_distance = clampf(target_distance - zoom_speed * maxf(target_distance * 0.08, 1.0), min_distance, max_distance)
+		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed and not first_person_mode:
+			target_distance = clampf(target_distance + zoom_speed * maxf(target_distance * 0.08, 1.0), min_distance, max_distance)
+		elif mb.button_index == MOUSE_BUTTON_RIGHT or (first_person_mode and mb.button_index == MOUSE_BUTTON_LEFT):
 			_orbiting = mb.pressed
 			_last_mouse = mb.position
-		elif mb.button_index == MOUSE_BUTTON_LEFT:
-			if first_person_mode:
-				# In First-Person mode, BOTH Left-drag AND Right-drag smoothly look 360 degrees!
-				_orbiting = mb.pressed
-				_last_mouse = mb.position
-			elif not mb.pressed:
-				_orbiting = false
-		elif mb.button_index == MOUSE_BUTTON_MIDDLE:
+		elif mb.button_index == MOUSE_BUTTON_MIDDLE and not first_person_mode:
 			_panning = mb.pressed
 			_last_mouse = mb.position
-	elif event is InputEventScreenDrag and first_person_mode:
-		var sd: InputEventScreenDrag = event
-		fp_yaw = wrapf(fp_yaw - sd.relative.x * orbit_sensitivity * 1.4, -PI, PI)
-		fp_pitch = clampf(fp_pitch - sd.relative.y * orbit_sensitivity * 1.1, -1.22, 1.25)
 	elif event is InputEventMouseMotion:
 		var mm: InputEventMouseMotion = event
 		var rel: Vector2 = mm.relative if mm.relative.length_squared() > 0.0 else (mm.position - _last_mouse)
@@ -175,11 +152,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				target_yaw -= rel.x * orbit_sensitivity
 		elif _panning:
-			var scale: float = current_distance * 0.0022
+			var sc: float = current_distance * 0.0022
 			var right: Vector3 = Vector3(cos(current_yaw), 0.0, -sin(current_yaw))
 			var fwd: Vector3 = Vector3(-sin(current_yaw), 0.0, -cos(current_yaw))
-			target_focus -= right * rel.x * scale
-			target_focus += fwd * rel.y * scale
+			target_focus -= right * rel.x * sc
+			target_focus += fwd * rel.y * sc
 			_clamp_focus()
 
 
@@ -188,14 +165,10 @@ func _process(delta: float) -> void:
 	if trauma > 0.0:
 		trauma = maxf(0.0, trauma - delta * 2.2)
 	if first_person_mode:
-		# Holding ALT temporarily unlocks mouse cursor to click HUD pills; releasing re-locks for CS2 free-look!
 		if DisplayServer.get_name() != "headless":
 			if Input.is_key_pressed(KEY_ALT):
 				if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 					Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-			elif Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE and not _orbiting and OS.get_cmdline_user_args().is_empty():
-				pass
-		# Smooth unlimited 360-degree yaw & vertical pitch via Mouse Move (Captured), Arrow keys, Q/R, or Left/Right drag!
 		if Input.is_key_pressed(KEY_Q) or Input.is_key_pressed(KEY_LEFT):
 			fp_yaw = wrapf(fp_yaw + delta * 2.1, -PI, PI)
 		if Input.is_key_pressed(KEY_R) or Input.is_key_pressed(KEY_RIGHT):
@@ -216,6 +189,7 @@ func _process(delta: float) -> void:
 				fp_lamp_light.light_energy = 1.75 + sin(_lamp_time * 13.0) * 0.14 + cos(_lamp_time * 7.3) * 0.09
 		_apply_camera_transform()
 		return
+
 	if Input.is_key_pressed(KEY_Q):
 		target_yaw += delta * 1.15
 	if free_pan_enabled:
@@ -260,9 +234,22 @@ func _apply_camera_transform() -> void:
 		camera.rotation = Vector3(fp_pitch, fp_yaw, 0.0)
 		return
 	camera.fov = lerpf(camera.fov, 40.0, 0.22)
-	var horiz: float = cos(-current_pitch) * current_distance
-	var vert: float = sin(-current_pitch) * current_distance
+	var eff_dist: float = current_distance
+	var horiz: float = cos(-current_pitch) * eff_dist
+	var vert: float = sin(-current_pitch) * eff_dist
 	var offset: Vector3 = Vector3(sin(current_yaw) * horiz, vert, cos(current_yaw) * horiz)
+
+	# Spring-Arm Physics Anti-Clip Raycast on Layer 2 (ArkAndStructures) during close 3P follow!
+	if is_inside_tree() and not free_pan_enabled and current_distance < 26.0:
+		var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+		if space != null:
+			var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(global_position, global_position + offset, 2)
+			var hit: Dictionary = space.intersect_ray(q)
+			if not hit.is_empty():
+				var hit_pos: Vector3 = hit["position"]
+				var safe_len: float = maxf(2.5, global_position.distance_to(hit_pos) - 0.45)
+				offset = offset.normalized() * safe_len
+
 	var shake: Vector3 = Vector3.ZERO
 	if trauma > 0.001:
 		var s2: float = trauma * trauma * 0.35
