@@ -3,7 +3,7 @@
 - **文档版本**：`v6.0`
 - **引擎基准**：Godot Engine `4.7.2-stable`（桌面端 `Forward+` Vulkan / 移动端 `Mobile` 渲染器自适应）
 - **主力工程根目录**：`c:\AI\gemini\promise-path-next\godot-pilot\`（原根目录 `src/` Web 栈冻结归档，不再修改或双写）
-- **配套业务需求单**：[V6_MASTER_OVERHAUL_MODIFICATION_SPEC.md](file:///c:/AI/gemini/promise-path-next/design/V6_MASTER_OVERHAUL_MODIFICATION_SPEC.md)
+- **配套业务需求单**：[V6_MASTER_OVERHAUL_MODIFICATION_SPEC.md](./V6_MASTER_OVERHAUL_MODIFICATION_SPEC.md)
 
 ---
 

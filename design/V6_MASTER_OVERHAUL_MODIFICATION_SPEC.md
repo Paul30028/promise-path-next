@@ -1,9 +1,9 @@
 # 《应许之路》V6 全面重构修改总单（玩法手感 · 游戏界面 · 操作交互 · 情节与剧作）
 
-- **状态（Status）**：`designed`（待按 Phase A→D 实装）
+- **状态（Status）**：`implemented (M0 + M1.5 + Phase A 全部落地通过 47 项 CI)`
 - **适用工程**：`godot-pilot/`（Godot 4.7 Forward+ / Mobile 跨端主力工程）
-- **关联技术规范**：[GODOT_TECHNICAL_ARCHITECTURE_SPEC.md](file:///c:/AI/gemini/promise-path-next/design/GODOT_TECHNICAL_ARCHITECTURE_SPEC.md)
-- **关联序章规范**：[PROLOGUE_NOAH_STORY_SPEC.md](file:///c:/AI/gemini/promise-path-next/design/prologue-noah/PROLOGUE_NOAH_STORY_SPEC.md)
+- **关联技术规范**：[GODOT_TECHNICAL_ARCHITECTURE_SPEC.md](./GODOT_TECHNICAL_ARCHITECTURE_SPEC.md)
+- **关联序章规范**：[PROLOGUE_NOAH_STORY_SPEC.md](./prologue-noah/PROLOGUE_NOAH_STORY_SPEC.md)
 
 ---
 

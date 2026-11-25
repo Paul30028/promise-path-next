@@ -1,10 +1,11 @@
 # 《应许之路》(Path of Promise) 全章总策划与全季内容设计规范（v6.0 定案）
 
-- **状态（Status）**：`designed`（全季 20 节点蓝图锁定；`Ch00`、`P01`、`Ch01` 已有实机原型待按 V6 升级）
+- **状态（Status）**：`M0 + M1.5 + Phase A (Gameplay 2.0) 已实装 (Ch00 / P01 / Ch01)` · `M2–M4 待量产`
 - **核心定位**：轻写实微缩历史策略叙事史诗（《帝国时代 IV》地标战术 ×《工人物语》道路物流 ×《冰汽时代》天象危机 × 第一人称沉浸巡礼）
-- **全章技术总案**：[FULL_CAMPAIGN_TECHNICAL_ARCHITECTURE_V6.md](file:///c:/AI/gemini/promise-path-next/design/FULL_CAMPAIGN_TECHNICAL_ARCHITECTURE_V6.md)
-- **序章深度修改单**：[V6_MASTER_OVERHAUL_MODIFICATION_SPEC.md](file:///c:/AI/gemini/promise-path-next/design/V6_MASTER_OVERHAUL_MODIFICATION_SPEC.md)
-- **宏观地理规范**：[WORLD_MAP_SYSTEM_SPEC.md](file:///c:/AI/gemini/promise-path-next/design/WORLD_MAP_SYSTEM_SPEC.md)
+- **全章技术总案**：[FULL_CAMPAIGN_TECHNICAL_ARCHITECTURE_V6.md](./FULL_CAMPAIGN_TECHNICAL_ARCHITECTURE_V6.md)
+- **序章深度修改单**：[V6_MASTER_OVERHAUL_MODIFICATION_SPEC.md](./V6_MASTER_OVERHAUL_MODIFICATION_SPEC.md)
+- **宏观地理规范**：[WORLD_MAP_SYSTEM_SPEC.md](./WORLD_MAP_SYSTEM_SPEC.md)
+- **可玩性对标与上架审计**：[STEAM_TOP10_PLAYABILITY_AND_LAUNCH_AUDIT.md](../docs/STEAM_TOP10_PLAYABILITY_AND_LAUNCH_AUDIT.md)
 
 ---
 

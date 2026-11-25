@@ -1,10 +1,10 @@
 # 《应许之路》全章通用引擎架构与工业化研发技术总案（v6.0）
 
-- **状态（Status）**：`designed`
+- **状态（Status）**：`M0 + M1.5 + Phase A 通用卡带底座已实装`
 - **引擎与目标平台**：Godot Engine `4.7.2-stable` | Steam 桌面端（Windows/Linux `Forward+`）+ 移动端（Android/iOS `Mobile` 渲染器）
-- **配套全章策划书**：[FULL_CAMPAIGN_DESIGN_SPEC_V6.md](file:///c:/AI/gemini/promise-path-next/design/FULL_CAMPAIGN_DESIGN_SPEC_V6.md)
-- **单章底层实施细则**：[GODOT_TECHNICAL_ARCHITECTURE_SPEC.md](file:///c:/AI/gemini/promise-path-next/design/GODOT_TECHNICAL_ARCHITECTURE_SPEC.md)
-- **Steam 上架专项规范**：[STEAM_RELEASE_READINESS_SPEC.md](file:///c:/AI/gemini/promise-path-next/design/STEAM_RELEASE_READINESS_SPEC.md)
+- **配套全章策划书**：[FULL_CAMPAIGN_DESIGN_SPEC_V6.md](./FULL_CAMPAIGN_DESIGN_SPEC_V6.md)
+- **单章底层实施细则**：[GODOT_TECHNICAL_ARCHITECTURE_SPEC.md](./GODOT_TECHNICAL_ARCHITECTURE_SPEC.md)
+- **Steam 上架专项规范**：[STEAM_RELEASE_READINESS_SPEC.md](./STEAM_RELEASE_READINESS_SPEC.md)
 
 ---
 

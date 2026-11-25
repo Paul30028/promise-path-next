@@ -1,7 +1,7 @@
 # 《应许之路》上架 Steam 专项优化与发行合规技术规范（v6.0）
 
-- **状态（Status）**：`designed`
-- **关联全章总案**：[FULL_CAMPAIGN_DESIGN_SPEC_V6.md](file:///c:/AI/gemini/promise-path-next/design/FULL_CAMPAIGN_DESIGN_SPEC_V6.md) · [FULL_CAMPAIGN_TECHNICAL_ARCHITECTURE_V6.md](file:///c:/AI/gemini/promise-path-next/design/FULL_CAMPAIGN_TECHNICAL_ARCHITECTURE_V6.md)
+- **状态（Status）**：`双语 WEB/CUV 经文合规、5 总线混响、缩略图存档与 Gameplay 2.0 已实装；GodotSteam / 手柄绿标待 Phase B 实装`
+- **关联全章总案**：[FULL_CAMPAIGN_DESIGN_SPEC_V6.md](./FULL_CAMPAIGN_DESIGN_SPEC_V6.md) · [FULL_CAMPAIGN_TECHNICAL_ARCHITECTURE_V6.md](./FULL_CAMPAIGN_TECHNICAL_ARCHITECTURE_V6.md) · [STEAM_TOP10_PLAYABILITY_AND_LAUNCH_AUDIT.md](../docs/STEAM_TOP10_PLAYABILITY_AND_LAUNCH_AUDIT.md)
 - **目标标准**：一次通过 Valve 商店与包体双轨审核 + 冲击 **Steam Deck Verified（绿标）** + 适配 Steam 新品节（Next Fest）高转化独立 Demo
 
 ---
