@@ -96,3 +96,51 @@ HS_OFFER_ALTAR,一家八口筑坛献祭感恩,Offer Thanksgiving at Stone Altar
 HS_TO_OVERWORLD,仰望彩虹永约 · 展开宏观战役画卷,Behold Rainbow Covenant · Open Campaign Map
 OW_HEADER,近东历史长卷 · 闪的后裔与出吾珥（创 11–12）,Near East Scroll · Line of Shem & Call from Ur
 OW_ENTER_CH01,踏入迦南高地 · 进入第一章：示剑与伯特利,Enter Canaan · Start Chapter I: Bethel
+BTN_SHOFAR_READY,羊角号 [Q],Shofar [Q]
+BTN_SHOFAR_CD,角号 %ds [Q],Shofar %ds
+BTN_ASSIST_IDLE,节拍协力 [R],Assist [R]
+BTN_ASSIST_HIT,看准金区按 [R]!,Hit Gold [R]!
+BTN_PAUSE_FREEZE,冻结 0.0x [P],Freeze 0.0x [P]
+BTN_PAUSE_FLOW,慢放 0.35x [P],Flow 0.35x [P]
+HUD_COMP_STRIP,同伴精力 %d%% · 轮休 %d人（特长生效中）,Stamina %d%% · Resting %d (Traits Active)
+HUD_DELUGE_WARN,⚠ 洪期已至！山洪正冲刷未用木料，速合龙骨！,⚠ DELUGE! Flash-flood eroding loose timber!
+HUD_PIPS_LABEL,筹备令 %d/%d,Command %d/%d
+POP_SHOFAR,羊角号集结！全员提速+30%,SHOFAR RALLY! +30% Speed
+POP_MISS,时机偏离,Off-Beat
+POP_LEAK_SEALED,松香封堵渗水缝！信心+4%,Seam Sealed with Pitch! +4% Faith
+POP_TABLET_READ,研读吾珥牧道泥板！筹备令+1,Ur Pasture Tablet Read! +1 Command
+HS_SEAL_LEAK,涂抹松香封堵船板渗水缝,Seal Hull Seam Leak with Pitch
+HS_TENT_TABLET,提灯研读《吾珥盟约与牧道泥板》,Inspect Ur Covenant & Pasture Tablet
+HUD_WOLF_PROWL,迦南野狼窥伺,Prowling Wolf
+HUD_WOLF_FLEE,受惊退入荒山,Wolf Retreating
+HUD_FLOOD_LEAK_SUB,⚠ 下层船舱 %d 处渗水！按 [F] 提油灯下舱按 [E] 涂松香堵漏,⚠ %d Hull Leaks on Deck 1! Press [F] + [E] to Seal with Pitch
+UPG_DONE,✓ 已建成,✓ Built
+UPG_CH00_0,[1] 起重滑轮,[1] Pulley Crane
+UPG_CH00_0_DESC,建舟耗木-25% 速度+22%,Hull Cost -25%, Speed +22%
+UPG_CH00_1,[2] 双联熬灶,[2] Twin Kilns
+UPG_CH00_1_DESC,松香粮草翻倍 防火+60%,2x Pitch/Food, Fire -60%
+UPG_CH00_2,[3] 遮雨粮棚,[3] Rain Canopy
+UPG_CH00_2_DESC,疲劳与口粮消耗减半,Stamina & Food Drain -50%
+UPG_CH01_0,[1] 分水石槽,[1] Water Trough
+UPG_CH01_0_DESC,两家争水压力自动消减,Auto-reduces Pasture Strife
+UPG_CH01_1,[2] 干石羊圈,[2] Stone Fold
+UPG_CH01_1_DESC,夜间野狼无法惊散牧群,Protects Flocks from Wolves
+UPG_CH01_2,[3] 迎宾凉亭,[3] Guest Tent
+UPG_CH01_2_DESC,同伴轮休加速 商队增益,Faster Rest & Better Barter
+CRD_CH00_0,引泉浸木 (1令),Wet Timber (1P)
+CRD_CH00_0_DESC,立即灭火并防火25秒 · 松香+8,Extinguish Fire 25s · +8 Pitch
+CRD_CH00_1,轮班急造 (2令),Double Shift (2P)
+CRD_CH00_1_DESC,14秒建舟速度+65% (-10粮草),+65% Build Speed 14s (-10 Food)
+CRD_CH00_2,开仓赈邻 (2令),Share Grain (2P)
+CRD_CH00_2_DESC,仁慈分粮退敌 · 敌士气-35% 信心+6%,Raider Morale -35%, Faith +6%
+CRD_CH01_0,火把驱狼 (1令),Torch Patrol (1P)
+CRD_CH01_0_DESC,以利以谢举火巡山驱散野狼,Repel Canaanite Wolves 24s
+CRD_CH01_1,划界轮牧 (2令),Split Pastures (2P)
+CRD_CH01_1_DESC,错峰饮水 · 草场压力-28% 信心+4%,Pasture Pressure -28%, Faith +4%
+CRD_CH01_2,商队易物 (2令),Caravan Barter (2P)
+CRD_CH01_2_DESC,以薪木换取 +22活水 +8牛羊,+22 Water & +8 Flocks (-8 Wood)
+TRIAL_HDR,历代志试炼词缀（可多选挑战金印章）：,Chronicle Trial Mutators (Optional Challenge):
+TRIAL_DROUGHT,示拿酷旱,Shinar Drought
+TRIAL_IMMINENT,洪水急迫,Imminent Deluge
+TRIAL_PACIFIST,止息刀兵,Covenant of Peace
+MENU_SEALS,  |  试炼金印：%d,  |  Golden Seals: %d

@@ -8,6 +8,7 @@ var muted: bool = false
 var interior_acoustics: bool = false
 var _sfx_players: Array[AudioStreamPlayer] = []
 var _ui_player: AudioStreamPlayer
+var _music_player: AudioStreamPlayer
 var _ambience_player: AudioStreamPlayer
 var _ambience_lpf: AudioEffectLowPassFilter
 var _exterior_lpf: AudioEffectLowPassFilter
@@ -72,6 +73,11 @@ func _ready() -> void:
 	_ambience_player.name = "AmbiencePlayer"
 	_ambience_player.bus = "Ambience"
 	add_child(_ambience_player)
+
+	_music_player = AudioStreamPlayer.new()
+	_music_player.name = "MusicPlayer"
+	_music_player.bus = "Music"
+	add_child(_music_player)
 
 
 func set_interior_acoustics(inside: bool) -> void:
@@ -168,6 +174,19 @@ func play_ambience(wav_name: String, volume_db: float = -10.0) -> void:
 func stop_ambience() -> void:
 	if _ambience_player != null:
 		_ambience_player.stop()
+
+
+func play_music(wav_name: String = "bgm_levant_lyre_loop.wav", volume_db: float = -11.0) -> void:
+	if muted or _music_player == null:
+		return
+	var stream: AudioStream = load_stream(wav_name, true)
+	if stream == null:
+		return
+	if _music_player.stream == stream and _music_player.playing:
+		return
+	_music_player.stream = stream
+	_music_player.volume_db = volume_db
+	_music_player.play()
 
 
 func toggle_mute() -> bool:

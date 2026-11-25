@@ -14,18 +14,8 @@ var elapsed: float = 0.0
 
 
 func _ready() -> void:
-	chapter_id = "ch01_bethel"
-	register_standard_inputs()
-	sim = DeterministicEconomySim.new(BALANCE_RES as ChapterBalanceResource)
-	story = StoryStateDirector.new()
-	add_child(story)
-	chapter = story.setup_from_json(DATA_PATH)
-
+	boot_cartridge("ch01_bethel", DATA_PATH, BALANCE_RES as ChapterBalanceResource, "water", "firewood", "flock")
 	var init_st: Dictionary = chapter.get("initialState", {})
-	sim.res_primary = float(init_st.get("water", 28.0))
-	sim.res_secondary = float(init_st.get("firewood", 16.0))
-	sim.res_tertiary = float(init_st.get("flock", 64.0))
-	sim.harmony = float(init_st.get("harmony", 82.0))
 	sim.pasture_pressure = float(init_st.get("pressure", 35.0))
 	sim.monument_pct = 20.0
 	sim.w_gather = 2; sim.w_build = 1; sim.w_craft = 1; sim.w_guard = 1
@@ -40,10 +30,9 @@ func _ready() -> void:
 	world = BethelHighlandWorld.new()
 	add_child(world)
 	world.build_all()
+	v2.build_ch01_workshop_and_wolves(world)
 
-	cam_ctrl = RTSCameraController.new()
 	cam_ctrl.bounds_xz = Rect2(-60.0, -44.0, 120.0, 88.0)
-	add_child(cam_ctrl)
 	_spawn_cast_and_flocks()
 
 	mount_hud_v3(chapter.get("codexEntries", []), 5, world.environment, world.sun)
@@ -55,6 +44,9 @@ func _ready() -> void:
 	var preview_fp: bool = false
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--preview-scene="): start_id = arg.trim_prefix("--preview-scene="); preview_mode = true
+		elif arg == "--bethel-wolves-cards":
+			preview_mode = true; preview_tactical = true; sim.upgrades_unlocked[0] = true; v2.sync_unlocked_workshop_visuals()
+			for i in range(v2.wolves.size()): v2.wolves[i].position = world.grounded(-12.0 + float(i) * 14.0, 23.0)
 		elif arg == "--bethel-tactical": preview_mode = true; preview_tactical = true
 		elif arg == "--bethel-fp": preview_mode = true; preview_fp = true
 
@@ -69,7 +61,7 @@ func _ready() -> void:
 	if preview_tactical:
 		var svt: Node = get_node_or_null("/root/SaveManager"); if svt != null: svt.call("set_locale", "zh_CN")
 		ui.lang = "zh_CN"; ui.refresh_i18n_texts(); _on_host_lang_changed("zh_CN")
-		_on_host_toggle_tactical(); cam_ctrl.focus_on(Vector3(-3, 1.5, 2), 54.0, -0.42, true)
+		_on_host_toggle_tactical(); cam_ctrl.focus_on(Vector3(-4, 1.5, 16), 46.0, -0.18, true)
 	elif preview_fp:
 		var svf: Node = get_node_or_null("/root/SaveManager"); if svf != null: svf.call("set_locale", "zh_CN")
 		ui.lang = "zh_CN"; ui.refresh_i18n_texts(); _on_host_lang_changed("zh_CN")
@@ -183,7 +175,9 @@ func _on_hotspot_triggered(h: Dictionary) -> void:
 
 
 func _process(delta: float) -> void:
-	var sim_dt: float = 0.0 if ui.is_blocking_modal_open() else (delta * (sim.cfg.tactical_time_scale if tactical_sandbox_mode else 1.0))
+	var sim_dt: float = effective_sim_dt(delta)
+	v2.tick_director(delta, sim_dt, world, hero.global_position)
+	v2_hud.sync_hud(v2, sim, true, tactical_sandbox_mode, first_person_mode)
 	elapsed += sim_dt
 	if not ui.is_blocking_modal_open() and first_person_mode:
 		var mv: Vector3 = compute_wish_move_dir(cam_ctrl.fp_yaw)
@@ -199,8 +193,9 @@ func _process(delta: float) -> void:
 		cam_ctrl.focus_on(hero.global_position + Vector3(0, 1.6, 0), -1.0, NAN, false)
 
 	if sim_dt > 0.0:
-		sim.res_primary += float(sim.w_gather) * 0.45 * sim.harmony_multiplier() * sim_dt
-		sim.res_secondary += float(sim.w_craft) * 0.35 * sim.harmony_multiplier() * sim_dt
+		sim.res_primary += float(sim.w_gather) * 0.55 * sim.harmony_multiplier() * sim_dt
+		var builders: int = sim.w_build; sim.w_build = 0
+		sim.tick(sim_dt); sim.w_build = builders
 		sim.pasture_pressure = clampf(sim.pasture_pressure + (0.35 - float(sim.w_guard) * 0.28) * sim_dt, 12.0, 95.0)
 		var zone_pts: Array[Vector3] = [world.grounded(-2.5, 1.8), world.grounded(-28.0, -5.0), world.grounded(26.0, -6.0), world.grounded(-3.0, 18.5), world.grounded(8.0, 17.5)]
 		for k in range(1, cast_nodes.size()):
@@ -231,3 +226,4 @@ func _refresh_chapter_hud() -> void:
 	else: ui.sundial_title_lbl.text = tr("HUD_BETHEL_TITLE") % int(sim.pasture_pressure); ui.sundial_sub_lbl.text = tr("HUD_BETHEL_SUB") % int(sim.monument_pct)
 	var ref_s: String = str(ev.get("canonRef", "")).replace("创 ", "Gen ") if is_en else str(ev.get("canonRef", ""))
 	ui.subtitle_label.text = "【%s · %s】%s" % [str(ev.get("speakerEn" if is_en else "speakerZh", "")), ref_s, str(ev.get("bodyEn" if is_en else "bodyZh", ""))]
+	v2_hud.sync_hud(v2, sim, true, tactical_sandbox_mode, first_person_mode)

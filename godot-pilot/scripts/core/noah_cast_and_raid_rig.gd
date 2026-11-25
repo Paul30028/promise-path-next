@@ -402,6 +402,17 @@ func tick_workers_and_raid(delta: float, elapsed: float, act_id: String, cam_ctr
 
 	for k in range(1, family.size()):
 		var member: Node3D = family[k]
+		if k < sim.companions.size() and bool(sim.companions[k].get("resting", false)):
+			var rest_pt: Vector3 = world.grounded(-19.5 + float(k % 3) * 1.3, 18.0 + float(k / 3) * 1.1)
+			if member.position.distance_to(rest_pt) > 0.75:
+				var rstep: Vector3 = HumanoidRigHelper.compute_rvo_step(member, rest_pt, 4.2, family, 0.58, delta)
+				var rnp: Vector3 = member.position + rstep; rnp.y = world.terrain_height(rnp.x, rnp.z)
+				member.position = rnp
+				if rstep.length_squared() > 0.0001: member.look_at(rnp + rstep.normalized(), Vector3.UP)
+				set_actor_props(member, false, false, false); play_simple_anim(member, "Walk")
+			else:
+				set_actor_props(member, false, false, false); play_simple_anim(member, "Pray")
+			continue
 		var role: String = "guard"
 		if assigned < sim.w_gather: role = "log"
 		elif assigned < sim.w_gather + sim.w_build: role = "build"

@@ -22,6 +22,12 @@ var sfx_db: float = 0.0
 var pending_load_slot: int = 0
 
 var covenant_stones_lit: Array[int] = []
+var golden_seals_earned: Array[String] = []
+var trial_mutators: Dictionary = {
+	"drought": false,
+	"imminent": false,
+	"pacifist": false,
+}
 var carryover_ledger: Dictionary = {
 	"noah_harmony_bonus": 0,
 	"p01_water_bonus": 0,
@@ -96,6 +102,28 @@ func light_covenant_stone(stone_id: int) -> void:
 func record_carryover(key: String, val: Variant) -> void:
 	carryover_ledger[key] = val
 	save_settings()
+
+
+func toggle_trial_mutator(key: String) -> bool:
+	if not trial_mutators.has(key):
+		return false
+	trial_mutators[key] = not bool(trial_mutators[key])
+	save_settings()
+	return bool(trial_mutators[key])
+
+
+func active_trial_count() -> int:
+	var n: int = 0
+	for k in trial_mutators.keys():
+		if bool(trial_mutators[k]):
+			n += 1
+	return n
+
+
+func award_golden_seal(seal_id: String) -> void:
+	if not golden_seals_earned.has(seal_id):
+		golden_seals_earned.append(seal_id)
+		save_settings()
 
 
 func save_slot(slot_idx: int, payload: Dictionary, viewport: Viewport = null) -> bool:
@@ -204,6 +232,8 @@ func save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("general", "locale", current_locale)
 	cfg.set_value("general", "stones", covenant_stones_lit)
+	cfg.set_value("general", "seals", golden_seals_earned)
+	cfg.set_value("general", "trials", trial_mutators)
 	cfg.set_value("general", "carryover", carryover_ledger)
 	cfg.set_value("comfort", "head_bob", head_bob_enabled)
 	cfg.set_value("comfort", "touch_stick", touch_stick_enabled)
@@ -230,6 +260,14 @@ func load_settings() -> void:
 		var co: Variant = cfg.get_value("general", "carryover", {})
 		if co is Dictionary:
 			carryover_ledger.merge(co, true)
+		var sls: Variant = cfg.get_value("general", "seals", [])
+		if sls is Array:
+			golden_seals_earned.clear()
+			for sv_id in sls:
+				golden_seals_earned.append(str(sv_id))
+		var tr_m: Variant = cfg.get_value("general", "trials", {})
+		if tr_m is Dictionary:
+			trial_mutators.merge(tr_m, true)
 		head_bob_enabled = bool(cfg.get_value("comfort", "head_bob", true))
 		touch_stick_enabled = bool(cfg.get_value("comfort", "touch_stick", DisplayServer.is_touchscreen_available()))
 		graphics_quality = int(cfg.get_value("graphics", "quality", 0))

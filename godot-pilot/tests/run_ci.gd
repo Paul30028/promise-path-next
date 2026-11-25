@@ -18,6 +18,7 @@ func _init() -> void:
 	_test_chapter_jsons()
 	_test_coordinator_line_limits()
 	_test_deterministic_sim_1000x()
+	_test_gameplay_v2_systems()
 	_test_i18n_bilingual_table()
 	_test_prefabs_and_resources()
 	_test_spatial_audio_wavs()
@@ -57,7 +58,7 @@ func _test_chapter_jsons() -> void:
 func _test_coordinator_line_limits() -> void:
 	for sp: String in ["res://scripts/ch00_noah_ark.gd", "res://scripts/camp_pilot.gd"]:
 		var lines: int = FileAccess.get_file_as_string(sp).split("\n").size()
-		if lines > 360:
+		if lines > 355 or FileAccess.get_file_as_string(sp).count("\n") > 350:
 			_fail("Chapter coordinator exceeds 350-line budget: %s (%d lines)" % [sp, lines])
 		else:
 			_pass("Cartridge coordinator slim budget met: %s (%d lines <= 350)" % [sp, lines])
@@ -112,7 +113,7 @@ func _test_prefabs_and_resources() -> void:
 
 
 func _test_spatial_audio_wavs() -> void:
-	for wf: String in ["sfx_ark_wood_creak.wav", "sfx_oil_lamp_crackle.wav", "sfx_animals_breath.wav"]:
+	for wf: String in ["sfx_shofar_horn.wav", "sfx_perfect_strike.wav", "sfx_hull_leak.wav", "sfx_wolf_howl.wav", "bgm_levant_lyre_loop.wav", "sfx_ark_wood_creak.wav", "sfx_oil_lamp_crackle.wav", "sfx_animals_breath.wav"]:
 		if not FileAccess.file_exists("res://assets/audio/" + wf):
 			_fail("Missing spatial audio WAV: " + wf)
 		else:
@@ -176,6 +177,8 @@ func _test_ark_30_step_glb() -> void:
 
 func _test_all_v6_scripts_compile() -> void:
 	for sp: String in [
+		"res://scripts/core/gameplay_v2_director.gd",
+		"res://scripts/ui/gameplay_v2_hud_bar.gd",
 		"res://scripts/core/chapter_runtime_host.gd",
 		"res://scripts/core/patriarch_player_3d.gd",
 		"res://scripts/core/humanoid_rig_helper.gd",
@@ -207,3 +210,38 @@ func _test_atomic_save_v3_roundtrip() -> void:
 		_fail("CampaignSaveV3 carryover roundtrip failed")
 	else:
 		_pass("CampaignSaveV3 atomic carryover & stone roundtrip PASS")
+
+
+func _test_gameplay_v2_systems() -> void:
+	var bal: ChapterBalanceResource = load("res://resources/ch00_balance.tres")
+	var snapshots: Array[Dictionary] = []
+	for repeat in range(2):
+		var econ := DeterministicEconomySim.new(bal)
+		econ.setup_companions([{"nameZh": "挪亚"}, {"nameZh": "闪"}, {"nameZh": "含"}])
+		if econ.companions.size() != 3: _fail("V2 companion setup")
+		econ.tick(1.0)
+		var drained: float = econ.companions[1]["stamina"]
+		if drained >= 100.0: _fail("V2 stamina must drain")
+		for step in range(2000):
+			econ.tick(0.1)
+			if bool(econ.companions[1]["resting"]): break
+		if not bool(econ.companions[1]["resting"]): _fail("V2 exhausted companion must rest automatically")
+		drained = float(econ.companions[1]["stamina"])
+		econ.tick(1.0)
+		if float(econ.companions[1]["stamina"]) <= drained: _fail("V2 rest must recover stamina")
+		econ.res_primary = 1000.0; econ.res_secondary = 1000.0
+		if not econ.unlock_upgrade(0) or not econ.upgrades_unlocked[0]: _fail("V2 workshop unlock")
+		if not econ.trigger_shofar() or econ.trigger_shofar(): _fail("V2 Shofar cooldown")
+		econ.command_pips = 3
+		if not econ.spend_pips(2) or econ.command_pips != 1 or econ.spend_pips(2): _fail("V2 command pip spending")
+		var days_before: float = econ.days_remaining
+		var primary_before: float = econ.res_primary
+		econ.apply_trial_mutators({"drought": true, "imminent": true})
+		if not econ.mutator_drought or not econ.mutator_imminent or econ.res_primary != roundf(primary_before * 0.75) or econ.days_remaining != roundf(days_before * 0.70): _fail("V2 trial mutator effects")
+		var snapshot: Dictionary = econ.to_dict()
+		var restored := DeterministicEconomySim.new(bal)
+		restored.from_dict(snapshot)
+		if restored.to_dict()["upgradesUnlocked"] != snapshot["upgradesUnlocked"] or restored.command_pips != int(snapshot["commandPips"]): _fail("V2 upgradesUnlocked / commandPips snapshot roundtrip")
+		snapshots.append(snapshot)
+	if snapshots[0] != snapshots[1]: _fail("V2 deterministic replay differs")
+	else: _pass("Gameplay 2.0 companions / stamina / rest / workshop / Shofar / pips / mutators deterministic")

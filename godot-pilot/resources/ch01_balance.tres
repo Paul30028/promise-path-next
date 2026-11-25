@@ -25,3 +25,6 @@ fire_burn_per_sec = 2.5
 water_douse_pct = 55.0
 tactical_time_scale = 0.35
 rain_mud_speed_mul = 1.0
+upkeep_per_worker_sec = 0.16
+upgrade_costs_primary = PackedFloat32Array(18, 0, 15)
+upgrade_costs_secondary = PackedFloat32Array(14, 18, 16)

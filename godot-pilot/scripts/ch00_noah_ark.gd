@@ -24,12 +24,12 @@ var flood_level: float = -10.5
 var flood_target: float = -10.5
 var preview_flag: String = ""
 
-
 func _ready() -> void:
 	boot_cartridge("ch00_noah_ark", DATA_PATH, BALANCE_RES as ChapterBalanceResource, "timber", "pitch", "provisions")
 	world = NoahRTSWorld.new(); add_child(world); world.build_all()
 	rig = NoahCastAndRaidRig.new(); add_child(rig)
 	hero = rig.build_cast(world, sim, chapter.get("familyCast", []))
+	wire_noah_v2(world, rig)
 	rig.timber_fire_ignited.connect(_on_fire_event)
 	rig.raid_crisis_resolved.connect(_on_raid_resolved)
 	rig.all_boarded_ready.connect(_begin_divine_seal)
@@ -42,6 +42,9 @@ func _ready() -> void:
 	var start_id: String = str(chapter.get("firstEventId", "noah_01_revelation"))
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--preview-scene="): start_id = arg.trim_prefix("--preview-scene="); preview_mode = true
+		elif arg == "--v2-tactical-cards": start_id = "noah_03_hull_decks"; preview_mode = true; preview_flag = "v2_cards"
+		elif arg == "--assist-preview": start_id = "noah_02_keel_mortise"; preview_mode = true; preview_flag = "assist"
+		elif arg == "--flood-leak-fp": start_id = "noah_06_flood_dove"; preview_mode = true; first_person_mode = true; preview_flag = "leak_fp"
 		elif arg == "--flood-fp": start_id = "noah_06_flood_dove"; preview_mode = true; first_person_mode = true
 		elif arg == "--tactical-sandbox": start_id = "noah_03_hull_decks"; preview_mode = true; preview_flag = "tactical"
 		elif arg == "--fire-crisis-preview": start_id = "noah_03_hull_decks"; preview_mode = true; preview_flag = "fire_crisis"
@@ -60,9 +63,15 @@ func _ready() -> void:
 	story.transition_to(start_id, false)
 	_apply_preview_flag()
 
-
 func _apply_preview_flag() -> void:
-	if preview_flag == "tactical":
+	if preview_flag == "v2_cards":
+		sim.upgrades_unlocked[0] = true; sim.upgrades_unlocked[1] = true; v2.sync_unlocked_workshop_visuals()
+		sim.monument_pct = 56.0; v2.tactical_paused = true; _sync_ark(); _on_host_toggle_tactical(); cam_ctrl.focus_on(Vector3(6, 2, 12), 66.0, -0.32, true)
+	elif preview_flag == "leak_fp":
+		noah_fp_local = Vector3(-19.5, 0.65, -0.2); cam_ctrl.fp_yaw = 0.0; cam_ctrl.fp_pitch = -0.16; cam_ctrl.fp_eye_pos = world.ark_anchor.to_global(noah_fp_local + Vector3(0, 1.68, 0)); cam_ctrl._apply_camera_transform()
+	elif preview_flag == "assist":
+		sim.monument_pct = 42.0; _sync_ark(); v2.assist_active = true; v2.assist_cursor = 0.48; v2.assist_timeout = 10.0; v2.cast_shofar(hero.global_position)
+	elif preview_flag == "tactical":
 		sim.monument_pct = 54.0; sim.days_remaining = 118.0; _sync_ark(); _on_host_toggle_tactical(); cam_ctrl.focus_on(Vector3(6, 2, 12), 66.0, -0.32, true)
 	elif preview_flag == "fire_crisis":
 		sim.monument_pct = 58.0; sim.days_remaining = 82.0; sim.palisade_pct = 65.0; sim.palisade_hp = 110.0; sim.fire_intensity = 0.92
@@ -86,13 +95,11 @@ func _apply_preview_flag() -> void:
 		sim.monument_pct = 32.0; _sync_ark(); ui.codex_drawer.show()
 	_refresh_chapter_hud()
 
-
 func _sync_ark() -> void:
 	var id: String = story.current_event_id
 	last_ark_step = 0 if id == "noah_01_revelation" else sim.progressive_step_index()
 	var scaf: bool = (last_ark_step >= 1 and sim.monument_pct < 99.5 and id in ["noah_02_keel_mortise", "noah_03_hull_decks", "noah_04_pitch_provisions"])
 	world.set_ark_progress(0.0 if id == "noah_01_revelation" else sim.monument_pct, interior_cutaway, id == "noah_06_flood_dove" or divine_seal_active, scaf)
-
 
 func _on_event_entered(id: String, ev: Dictionary, preserve_pos: bool) -> void:
 	divine_seal_active = false; rig.dove_flight_active = false; ui.modal_overlay.hide(); ui.hide_divine_seal(); clear_hotspots()
@@ -143,7 +150,7 @@ func _on_event_entered(id: String, ev: Dictionary, preserve_pos: bool) -> void:
 			world.apply_mood("flood"); flood_target = 6.5
 			if sm != null: sm.call("play_ambience", "sfx_rain_loop.wav", -8.0)
 			if preview_mode: flood_level = 6.2; world.flood_water.position.y = 6.2; world.ark_anchor.position.y = 5.0
-			rig.stage_all_inside_ark(first_person_mode)
+			rig.stage_all_inside_ark(first_person_mode); v2.setup_ark_flood_repairs(world.ark_anchor)
 			if first_person_mode and preview_mode:
 				noah_fp_local = Vector3(-26, 0.65, 0.4); cam_ctrl.set_first_person(true, true); cam_ctrl.fp_yaw = -PI * 0.48; cam_ctrl.fp_eye_pos = world.ark_anchor.to_global(noah_fp_local + Vector3(0, 1.68, 0)); cam_ctrl._apply_camera_transform()
 			else: cam_ctrl.focus_on(Vector3(0, 7.5, 6), 74.0, -0.48, preview_mode)
@@ -155,7 +162,6 @@ func _on_event_entered(id: String, ev: Dictionary, preserve_pos: bool) -> void:
 			rig.stage_ararat_worship(); cam_ctrl.pitch_override = -0.10 if id == "noah_08_rainbow_covenant" else -0.20; cam_ctrl.focus_on(Vector3(-1, 9, 6), 64.0, -0.24, preview_mode)
 			add_hotspot_tr("offer_altar" if id == "noah_07_exit_altar" else "to_overworld", world.altar_group.position + Vector3(0, 0, -2), "HS_OFFER_ALTAR" if id == "noah_07_exit_altar" else "HS_TO_OVERWORLD", "Bless")
 	sync_hotspots_display("release_dove"); _refresh_chapter_hud()
-
 
 func _on_host_toggle_fp() -> void:
 	var id: String = story.current_event_id
@@ -177,25 +183,20 @@ func _on_host_toggle_fp() -> void:
 	_sync_ark(); sync_hotspots_display("release_dove"); ui.fp_crosshair.visible = first_person_mode
 	ui.fp_btn.text = tr("BTN_FP_EXIT" if first_person_mode else "BTN_FP_ENTER"); _refresh_chapter_hud()
 
-
 func _on_host_toggle_tactical() -> void:
 	if story.current_event_id in ["noah_02_keel_mortise", "noah_03_hull_decks", "noah_04_pitch_provisions"]:
 		toggle_tactical_overview(Vector3(4, 2, 12), 68.0)
-
 
 func _on_host_toggle_cutaway() -> void:
 	if first_person_mode: _on_host_toggle_fp()
 	manual_cutaway_lock = not manual_cutaway_lock; interior_cutaway = manual_cutaway_lock; _sync_ark()
 	ui.cutaway_btn.text = tr("BTN_CUTAWAY_OFF" if interior_cutaway else "BTN_CUTAWAY_ON")
 
-
 func _on_host_lang_changed(lc: String) -> void:
 	rig.sync_locale_labels(lc); sync_hotspots_display("release_dove"); _refresh_chapter_hud()
 
-
 func _after_slot_loaded() -> void:
 	world.set_fence_progress(sim.palisade_pct); _sync_ark()
-
 
 func _start_fence_work() -> void:
 	if story.current_event_id != "noah_03_hull_decks" or rig.crisis_resolved or sim.palisade_building: return
@@ -203,11 +204,9 @@ func _start_fence_work() -> void:
 	if sim.res_primary < cost: sfx("sfx_alert.wav", -5.0); return
 	sim.res_primary -= cost; sim.palisade_building = true; sfx("sfx_hammer.wav", -4.0); _refresh_chapter_hud()
 
-
 func _on_fire_event() -> void:
 	if sim.fire_intensity >= 0.99: sfx("sfx_alert.wav", -3.0); add_hotspot_tr("douse_fire", world.spring_well.position + Vector3(0, 0, 1.4), "HS_DOUSE_FIRE", "Bless")
 	else: _douse_fire()
-
 
 func _douse_fire() -> void:
 	if sim.fire_intensity <= 0.01: return
@@ -220,13 +219,11 @@ func _douse_fire() -> void:
 			if str(h.id) == "douse_fire": h.done = true; (h.node as Node3D).hide()
 	_refresh_chapter_hud()
 
-
 func _on_raid_resolved() -> void:
 	sfx("sfx_covenant_chime.wav", -4.0)
 	for h in hotspots:
 		if str(h.id) == "defend_yard": h.done = true; (h.node as Node3D).hide()
 	_check_act_complete()
-
 
 func _on_hotspot_triggered(h: Dictionary) -> void:
 	if bool(h.done): return
@@ -234,6 +231,9 @@ func _on_hotspot_triggered(h: Dictionary) -> void:
 	if hid == "douse_fire": _douse_fire(); return
 	if hid == "defend_yard" and not rig.crisis_resolved:
 		if sim.palisade_hp <= 0.0 and not sim.palisade_building and sim.res_primary >= sim.cfg.palisade_build_cost: _start_fence_work()
+		if sim.mutator_pacifist:
+			if rally_cooldown <= 0.0: rally_cooldown = 5.0; sim.palisade_hp = minf(sim.cfg.palisade_max_hp, sim.palisade_hp + 30.0); hero.busy_clip = "Hammer"
+			return
 		if rally_cooldown <= 0.0:
 			rally_cooldown = 5.0; hero.busy_timer = 1.2; hero.busy_clip = "Brawl"; sfx("sfx_hammer.wav", -3.0); cam_ctrl.add_trauma(0.14)
 			for i in range(rig.raider_morale.size()): rig.raider_morale[i] = maxf(0.0, rig.raider_morale[i] - 24.0)
@@ -241,12 +241,12 @@ func _on_hotspot_triggered(h: Dictionary) -> void:
 		return
 	if hid == "seal_door": h.done = true; (h.node as Node3D).hide(); rig.stage_all_inside_ark(first_person_mode); _begin_divine_seal(); return
 	if hid == "release_dove":
+		if not preview_mode and v2.active_leak_count() > 0: return
 		h.done = true; (h.node as Node3D).hide(); rig.dove_flight_active = true; rig.dove_flight_t = 0.0; sfx("sfx_covenant_chime.wav", -4.0)
 		create_tween().tween_callback(_check_act_complete).set_delay(2.2); return
 	h.done = true; (h.node as Node3D).hide(); hero.busy_timer = 1.1; hero.busy_clip = str(h.clip); sfx("sfx_hammer.wav", -4.0)
 	cam_ctrl.add_trauma(0.14); world.spawn_hit_particles(h.pos + Vector3(0, 0.8, 0), false); sim.inspection_boost_timer = sim.cfg.inspection_boost_sec
 	_check_act_complete()
-
 
 func _begin_divine_seal() -> void:
 	if divine_seal_active: return
@@ -257,13 +257,11 @@ func _begin_divine_seal() -> void:
 	ui.show_divine_seal(str(dm3.get("titleEn" if ui.lang == "en_US" else "titleZh", "")), str(dm3.get("verseEn" if ui.lang == "en_US" else "verseZh", "")))
 	_refresh_chapter_hud()
 
-
 func _open_dm(dm_key: String) -> void:
 	open_dramatic_moment(dm_key, func(cd: Dictionary) -> void:
 		if float(cd.get("bonusFenceHp", 0.0)) > 0.0: sim.palisade_pct = maxf(sim.palisade_pct, 50.0); sim.palisade_hp = minf(sim.cfg.palisade_max_hp, sim.palisade_hp + float(cd.get("bonusFenceHp", 0.0))); world.set_fence_progress(sim.palisade_pct)
 		for ri in range(rig.raider_morale.size()): rig.raider_morale[ri] = maxf(0.0, rig.raider_morale[ri] - float(cd.get("moraleDrop", 0.0)))
 	)
-
 
 func _check_act_complete() -> void:
 	for h in hotspots:
@@ -276,9 +274,9 @@ func _check_act_complete() -> void:
 	if next_map.has(id): story.transition_to(next_map[id], id in ["noah_02_keel_mortise", "noah_03_hull_decks"])
 	elif id == "noah_08_rainbow_covenant":
 		var sv: Node = get_node_or_null("/root/SaveManager")
+		if sv != null and sv.call("active_trial_count") > 0: sv.call("award_golden_seal", "ch00_seal")
 		if sv != null: sv.call("light_covenant_stone", 1); sv.call("record_carryover", "noah_harmony_bonus", maxi(2, int(roundf((sim.harmony - 75.0) * 0.4)))); sv.call("save_slot", 1, {"chapter_id": "overworld_prologue", "monument_pct": 100.0}, get_viewport())
 		var st: Node = get_node_or_null("/root/SceneTransition"); if st != null: st.call("change_scene", "res://scenes/overworld_prologue.tscn")
-
 
 func _process(delta: float) -> void:
 	rig.update_hitstops(delta)
@@ -288,7 +286,9 @@ func _process(delta: float) -> void:
 		divine_seal_timer -= delta
 		if divine_seal_timer <= 0.0: divine_seal_active = false; ui.hide_divine_seal(); story.transition_to("noah_06_flood_dove", false)
 		return
-	var sim_dt: float = 0.0 if ui.is_blocking_modal_open() else (delta * (sim.cfg.tactical_time_scale if tactical_sandbox_mode else 1.0))
+	var sim_dt: float = effective_sim_dt(delta)
+	v2.tick_director(delta, sim_dt)
+	v2_hud.sync_hud(v2, sim, ui.badges_box.visible, tactical_sandbox_mode, first_person_mode)
 	elapsed += sim_dt; var id: String = story.current_event_id
 	for i in range(rig.family.size()):
 		rig.family_nameplates[i].visible = tactical_sandbox_mode if i == 0 else (tactical_sandbox_mode or rig.family[i].global_position.distance_to(cam_ctrl.fp_eye_pos if first_person_mode else hero.global_position) < 15.0)
@@ -326,7 +326,6 @@ func _process(delta: float) -> void:
 	flood_level = move_toward(flood_level, flood_target, delta * 2.4)
 	rig.tick_flood_and_dove(id, flood_level, elapsed, delta)
 
-
 func _refresh_chapter_hud() -> void:
 	if ui == null: return
 	var id: String = story.current_event_id; var ev: Dictionary = story.current_event()
@@ -340,3 +339,5 @@ func _refresh_chapter_hud() -> void:
 	else:
 		var wk: String = "WTH_SUNNY" if sim.days_remaining > 160 else ("WTH_WINDY" if sim.days_remaining > 90 else ("WTH_THUNDER" if sim.days_remaining > 25 else "WTH_STORM"))
 		ui.sundial_title_lbl.text = tr("HUD_DAYS_LEFT") % [tr(wk), int(sim.days_remaining)]; ui.sundial_sub_lbl.text = tr("HUD_ARK_STEPS") % [int(roundf(sim.monument_pct)), sim.progressive_step_index()]
+	if id == "noah_06_flood_dove" and v2.active_leak_count() > 0: ui.sundial_sub_lbl.text = tr("HUD_FLOOD_LEAK_SUB") % v2.active_leak_count()
+	v2_hud.sync_hud(v2, sim, ui.badges_box.visible, tactical_sandbox_mode, first_person_mode)

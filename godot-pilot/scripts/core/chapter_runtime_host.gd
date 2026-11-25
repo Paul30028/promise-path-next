@@ -1,5 +1,10 @@
 class_name ChapterRuntimeHost
 extends Node3D
+
+var _save: Node:
+	get: return get_node("/root/SaveManager")
+var _sound: Node:
+	get: return get_node("/root/SoundManager")
 ## Universal 3D Chapter Cartridge Host (`FULL_CAMPAIGN_TECHNICAL_ARCHITECTURE_V6.md` §1):
 ## Provides out-of-the-box InputMap registration, `world_hotspot.tscn` spawning & raycast picking,
 ## `hud_biblical_v3.tscn` instantiation & save/load/settings wiring, Tactical Sandbox toggle,
@@ -14,6 +19,8 @@ var sim: DeterministicEconomySim
 var story: StoryStateDirector
 var cam_ctrl: RTSCameraController
 var hero: PatriarchPlayer3D
+var v2: GameplayV2Director
+var v2_hud: GameplayV2HudBar
 var ui: PrologueUIV3
 
 var hotspots: Array[Dictionary] = []
@@ -36,17 +43,25 @@ func boot_cartridge(id_str: String, data_path: String, bal_res: ChapterBalanceRe
 	story = StoryStateDirector.new()
 	add_child(story)
 	chapter = story.setup_from_json(data_path)
+	sim.setup_companions(chapter.get("familyCast", []))
+	var sm: Node = get_node_or_null("/root/SoundManager")
+	if sm != null: sm.call("play_music", "bgm_levant_lyre_loop.wav", -13.0)
 	var init_st: Dictionary = chapter.get("initialState", {})
 	sim.res_primary = float(init_st.get(k1, 45.0))
 	sim.res_secondary = float(init_st.get(k2, 15.0))
 	sim.res_tertiary = float(init_st.get(k3, 60.0))
 	sim.harmony = float(init_st.get("harmony", 84.0))
+	var sv: Node = get_node_or_null("/root/SaveManager")
+	if sv != null: sim.apply_trial_mutators(sv.get("trial_mutators"))
 	cam_ctrl = RTSCameraController.new()
 	add_child(cam_ctrl)
+	v2 = GameplayV2Director.new(); add_child(v2); v2.setup(id_str, sim, cam_ctrl)
 
 
 func register_standard_inputs() -> void:
 	var bindings: Dictionary = {
+		"cast_shofar": [KEY_Q], "rhythmic_assist": [KEY_R], "tactical_freeze": [KEY_P],
+		"upgrade_1": [KEY_1], "upgrade_2": [KEY_2], "upgrade_3": [KEY_3],
 		"move_forward": [KEY_W], "move_back": [KEY_S], "move_left": [KEY_A], "move_right": [KEY_D],
 		"interact": [KEY_E], "toggle_first_person": [KEY_F], "toggle_tactical_map": [KEY_SPACE, KEY_TAB],
 		"toggle_cutaway": [KEY_V], "open_codex": [KEY_J], "pause_menu": [KEY_ESCAPE],
@@ -64,6 +79,12 @@ func mount_hud_v3(codex_entries: Array, max_workers: int, env: Environment, sun_
 	ui = HUD_PREFAB.instantiate() as PrologueUIV3
 	add_child(ui)
 	ui.build_ui(codex_entries)
+	v2_hud = GameplayV2HudBar.new(); ui.add_child(v2_hud); v2_hud.build_bars()
+	v2_hud.request_shofar.connect(_trigger_shofar)
+	v2_hud.request_assist.connect(_trigger_assist)
+	v2_hud.request_upgrade.connect(_unlock_workshop)
+	v2_hud.request_play_card.connect(_play_tactical_card)
+	v2_hud.request_toggle_freeze.connect(_toggle_tactical_freeze)
 	ui.request_toggle_fp.connect(_on_host_toggle_fp)
 	ui.request_toggle_tactical.connect(_on_host_toggle_tactical)
 	ui.request_toggle_cutaway.connect(_on_host_toggle_cutaway)
@@ -143,6 +164,9 @@ func update_hotspot_proximity(check_pos: Vector3, auto_single_ids: Array = []) -
 func trigger_active_hotspot() -> void:
 	if ui.is_blocking_modal_open():
 		return
+	if first_person_mode:
+		if chapter_id == "ch00_noah_ark" and story.current_event_id == "noah_06_flood_dove" and v2.try_seal_nearest_leak(cam_ctrl.fp_eye_pos): return
+		if chapter_id == "ch01_bethel" and v2.try_inspect_tent_tablet(cam_ctrl.fp_eye_pos): return
 	if not active_hotspot.is_empty():
 		_on_hotspot_triggered(active_hotspot)
 	elif hotspots.size() == 1 and not bool(hotspots[0].done):
@@ -197,6 +221,7 @@ func _on_host_load_slot(slot: int) -> void:
 		sim.from_dict(d["sim"])
 	ui.pause_overlay.hide()
 	story.transition_to(str(d.get("event_id", story.current_event_id)), false)
+	v2.sync_unlocked_workshop_visuals()
 	_after_slot_loaded()
 	_refresh_chapter_hud()
 
@@ -212,6 +237,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if ui.is_blocking_modal_open():
 		return
+	if not event.is_echo():
+		if event.is_action_pressed("cast_shofar"): _trigger_shofar(); return
+		if event.is_action_pressed("rhythmic_assist"): _trigger_assist(); return
+		if event.is_action_pressed("tactical_freeze"): _toggle_tactical_freeze(); return
+		for i in range(3):
+			if event.is_action_pressed("upgrade_%d" % (i + 1)): _unlock_workshop(i); return
 	if event.is_action_pressed("toggle_first_person") and not event.is_echo():
 		_on_host_toggle_fp()
 	elif event.is_action_pressed("toggle_tactical_map") and not event.is_echo():
@@ -283,3 +314,44 @@ func _on_host_lang_changed(_lc: String) -> void: pass
 func _on_hotspot_triggered(_h: Dictionary) -> void: pass
 func _after_slot_loaded() -> void: pass
 func _refresh_chapter_hud() -> void: pass
+
+
+func effective_sim_dt(delta: float) -> float:
+	if ui.is_blocking_modal_open() or (tactical_sandbox_mode and v2.tactical_paused): return 0.0
+	return delta * (sim.cfg.tactical_time_scale if tactical_sandbox_mode else 1.0)
+
+func _trigger_shofar() -> void:
+	if ui.is_blocking_modal_open(): return
+	v2.cast_shofar(hero.global_position); _refresh_chapter_hud()
+
+func _trigger_assist() -> void:
+	if ui.is_blocking_modal_open(): return
+	v2.press_rhythmic_assist(hero.global_position); _refresh_chapter_hud()
+
+func _unlock_workshop(i: int) -> void:
+	if ui.is_blocking_modal_open(): return
+	v2.try_unlock_workshop(i); _refresh_chapter_hud()
+
+func _play_tactical_card(ci: int) -> void:
+	if ui.is_blocking_modal_open() or not tactical_sandbox_mode: return
+	v2.play_tactical_card(ci, hero.global_position); _refresh_chapter_hud()
+
+func _toggle_tactical_freeze() -> void:
+	if ui.is_blocking_modal_open() or not tactical_sandbox_mode: return
+	v2.tactical_paused = not v2.tactical_paused; _refresh_chapter_hud()
+
+func wire_noah_v2(world: NoahRTSWorld, rig: NoahCastAndRaidRig) -> void:
+	v2.build_ch00_workshop_props(world)
+	v2.shofar_triggered.connect(func(origin: Vector3) -> void:
+		for i in range(rig.raider_morale.size()):
+			if rig.raiders[i].global_position.distance_to(origin) < 22.0: rig.raider_morale[i] = maxf(0.0, rig.raider_morale[i] - 22.0)
+	)
+	v2.tactical_card_played.connect(func(cid: String) -> void:
+		if cid == "wet_timber":
+			world.set_timber_fire_intensity(0.0)
+			for hs in hotspots:
+				if str(hs.id) == "douse_fire": hs.done = true; (hs.node as Node3D).hide()
+		elif cid == "share_grain":
+			for i in range(rig.raider_morale.size()): rig.raider_morale[i] = maxf(0.0, rig.raider_morale[i] - 35.0)
+	)
+	v2.interior_task_completed.connect(func(_task: String) -> void: _refresh_chapter_hud())

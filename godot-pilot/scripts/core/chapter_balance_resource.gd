@@ -23,3 +23,15 @@ extends Resource
 @export var water_douse_pct: float = 50.0
 @export var tactical_time_scale: float = 0.35
 @export var rain_mud_speed_mul: float = 0.85
+
+# Gameplay 2.0: Upkeep, Companion Stamina, Shofar, Command Pips & Workshop Tech Tree
+@export var upkeep_per_worker_sec: float = 0.14
+@export var stamina_drain_per_sec: float = 1.45
+@export var stamina_rest_recover_sec: float = 8.5
+@export var shofar_cooldown_sec: float = 18.0
+@export var shofar_buff_sec: float = 6.5
+@export var shofar_speed_mul: float = 1.30
+@export var command_pip_max: int = 3
+@export var command_pip_regen_sec: float = 20.0
+@export var upgrade_costs_primary: PackedFloat32Array = PackedFloat32Array([28.0, 20.0, 24.0])
+@export var upgrade_costs_secondary: PackedFloat32Array = PackedFloat32Array([0.0, 10.0, 0.0])

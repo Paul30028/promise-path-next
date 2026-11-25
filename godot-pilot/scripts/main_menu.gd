@@ -1,4 +1,11 @@
 extends Control
+
+var _save: Node:
+	get: return get_node("/root/SaveManager")
+var _sound: Node:
+	get: return get_node("/root/SoundManager")
+var _transition: Node:
+	get: return get_node("/root/SceneTransition")
 ## Commercial Main Menu with Live 3D Dawn Ararat Vista + Audio/Graphics/Bilingual Settings Drawer:
 ## - Real-time low-power 3D SubViewport background: golden morning sky over Ararat, resting 300-cubit Ark, olive trees & mist
 ## - 100% `tr()` bilingual (`zh_CN` CUV / `en_US` WEB) + Master/Ambience/SFX dB sliders + Quality presets!
@@ -13,6 +20,8 @@ var p01_btn: Button
 var ch01_btn: Button
 var settings_btn: Button
 var quit_btn: Button
+var trial_hdr: Label
+var trial_btns: Dictionary = {}
 var status_lbl: Label
 
 var settings_modal: ColorRect
@@ -25,10 +34,11 @@ var vol_labels: Array[Array] = []
 
 
 func _ready() -> void:
-	SaveManager.ensure_translations_loaded()
+	_sound.play_music("bgm_levant_lyre_loop.wav", -12.0)
+	_save.ensure_translations_loaded()
 	for arg in OS.get_cmdline_user_args():
-		if arg == "--zh-preview": SaveManager.set_locale("zh_CN")
-		elif arg == "--en-preview": SaveManager.set_locale("en_US")
+		if arg == "--zh-preview": _save.set_locale("zh_CN")
+		elif arg == "--en-preview": _save.set_locale("en_US")
 	_build_3d_ararat_vista()
 	_build_menu_ui()
 	_refresh_texts()
@@ -85,7 +95,7 @@ func _build_3d_ararat_vista() -> void:
 	sun.light_energy = 2.05
 	sun.shadow_enabled = true
 	root3d.add_child(sun)
-	SaveManager.apply_graphics_quality_to_env(env, sun)
+	_save.apply_graphics_quality_to_env(env, sun)
 	env.volumetric_fog_density = 0.0018
 	env.fog_density = 0.0012
 
@@ -197,22 +207,33 @@ func _build_menu_ui() -> void:
 	sub_lbl.add_theme_color_override("font_color", Color(0.88, 0.82, 0.70))
 	vb.add_child(sub_lbl)
 
-	var has_sv: bool = SaveManager.first_existing_slot() >= 0
+	var has_sv: bool = _save.first_existing_slot() >= 0
 	continue_btn = _make_btn(true, _on_continue)
 	continue_btn.visible = has_sv
 	vb.add_child(continue_btn)
 
-	ch00_btn = _make_btn(not has_sv, func() -> void: SceneTransition.change_scene("res://scenes/ch00_noah_ark.tscn"))
+	ch00_btn = _make_btn(not has_sv, func() -> void: _transition.change_scene("res://scenes/ch00_noah_ark.tscn"))
 	vb.add_child(ch00_btn)
-	p01_btn = _make_btn(false, func() -> void: SceneTransition.change_scene("res://scenes/overworld_prologue.tscn"))
+	p01_btn = _make_btn(false, func() -> void: _transition.change_scene("res://scenes/overworld_prologue.tscn"))
 	vb.add_child(p01_btn)
-	ch01_btn = _make_btn(false, func() -> void: SceneTransition.change_scene("res://scenes/camp_pilot.tscn"))
+	ch01_btn = _make_btn(false, func() -> void: _transition.change_scene("res://scenes/camp_pilot.tscn"))
 	vb.add_child(ch01_btn)
 	settings_btn = _make_btn(false, func() -> void: settings_modal.show())
 	vb.add_child(settings_btn)
 	quit_btn = _make_btn(false, func() -> void: get_tree().quit())
 	vb.add_child(quit_btn)
 
+	trial_hdr = Label.new()
+	trial_hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(trial_hdr)
+	var trials := HBoxContainer.new()
+	trials.alignment = BoxContainer.ALIGNMENT_CENTER
+	vb.add_child(trials)
+	for key: String in ["drought", "imminent", "pacifist"]:
+		var b := Button.new()
+		b.toggle_mode = true; b.custom_minimum_size = Vector2(120, 44)
+		b.pressed.connect(func() -> void: _save.toggle_trial_mutator(key); _refresh_texts())
+		trials.add_child(b); trial_btns[key] = b
 	status_lbl = Label.new()
 	status_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status_lbl.add_theme_font_size_override("font_size", 12)
@@ -249,9 +270,9 @@ func _build_settings_modal() -> void:
 	vb.add_child(settings_title)
 
 	for spec in [
-		["master_db", "LBL_VOL_MASTER", SaveManager.master_db],
-		["ambience_db", "LBL_VOL_AMB", SaveManager.ambience_db],
-		["sfx_db", "LBL_VOL_SFX", SaveManager.sfx_db],
+		["master_db", "LBL_VOL_MASTER", _save.master_db],
+		["ambience_db", "LBL_VOL_AMB", _save.ambience_db],
+		["sfx_db", "LBL_VOL_SFX", _save.sfx_db],
 	]:
 		var prop: String = str(spec[0])
 		var hb := HBoxContainer.new()
@@ -270,31 +291,31 @@ func _build_settings_modal() -> void:
 		sld.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		sld.custom_minimum_size = Vector2(200, 30)
 		sld.value_changed.connect(func(v: float) -> void:
-			SaveManager.set(prop, v)
-			SaveManager.save_settings()
+			_save.set(prop, v)
+			_save.save_settings()
 		)
 		hb.add_child(sld)
 
 	lang_btn = _make_btn(false, func() -> void:
-		var nxt: String = "en_US" if SaveManager.current_locale == "zh_CN" else "zh_CN"
-		SaveManager.set_locale(nxt)
-		SoundManager.play_sfx("sfx_ui_click.wav", -5.0)
+		var nxt: String = "en_US" if _save.current_locale == "zh_CN" else "zh_CN"
+		_save.set_locale(nxt)
+		_sound.play_sfx("sfx_ui_click.wav", -5.0)
 		_refresh_texts()
 	)
 	vb.add_child(lang_btn)
 
 	quality_btn = _make_btn(false, func() -> void:
-		SaveManager.graphics_quality = (SaveManager.graphics_quality + 1) % 3
-		SaveManager.save_settings()
-		SoundManager.play_sfx("sfx_ui_click.wav", -5.0)
+		_save.graphics_quality = (_save.graphics_quality + 1) % 3
+		_save.save_settings()
+		_sound.play_sfx("sfx_ui_click.wav", -5.0)
 		_refresh_texts()
 	)
 	vb.add_child(quality_btn)
 
 	headbob_btn = _make_btn(false, func() -> void:
-		SaveManager.head_bob_enabled = not SaveManager.head_bob_enabled
-		SaveManager.save_settings()
-		SoundManager.play_sfx("sfx_ui_click.wav", -5.0)
+		_save.head_bob_enabled = not _save.head_bob_enabled
+		_save.save_settings()
+		_sound.play_sfx("sfx_ui_click.wav", -5.0)
 		_refresh_texts()
 	)
 	vb.add_child(headbob_btn)
@@ -304,18 +325,18 @@ func _build_settings_modal() -> void:
 
 
 func _on_continue() -> void:
-	var s: int = SaveManager.first_existing_slot()
+	var s: int = _save.first_existing_slot()
 	if s < 0:
 		s = 1
-	var d: Dictionary = SaveManager.load_slot(s)
-	SaveManager.pending_load_slot = s
+	var d: Dictionary = _save.load_slot(s)
+	_save.pending_load_slot = s
 	var ch_id: String = str(d.get("chapter_id", "ch00_noah_ark"))
 	var target: String = "res://scenes/ch00_noah_ark.tscn"
 	if ch_id == "overworld_prologue":
 		target = "res://scenes/overworld_prologue.tscn"
 	elif ch_id == "ch01_bethel":
 		target = "res://scenes/camp_pilot.tscn"
-	SceneTransition.change_scene(target)
+	_transition.change_scene(target)
 
 
 func _refresh_texts() -> void:
@@ -330,11 +351,19 @@ func _refresh_texts() -> void:
 	settings_title.text = tr("MENU_SETTINGS")
 	lang_btn.text = tr("BTN_LANG_SWITCH")
 	var q_keys: Array[String] = ["QUAL_HIGH", "QUAL_BALANCED", "QUAL_MOBILE"]
-	var q_txt: String = tr(q_keys[clampi(SaveManager.graphics_quality, 0, 2)])
+	var q_txt: String = tr(q_keys[clampi(_save.graphics_quality, 0, 2)])
 	quality_btn.text = tr("BTN_QUALITY_CYCLE") % q_txt
-	var bob_txt: String = tr("ON_TXT" if SaveManager.head_bob_enabled else "OFF_TXT")
+	var bob_txt: String = tr("ON_TXT" if _save.head_bob_enabled else "OFF_TXT")
 	headbob_btn.text = tr("BTN_HEADBOB_TOGGLE") % bob_txt
 	close_settings_btn.text = tr("BTN_CLOSE")
 	for pair in vol_labels:
 		(pair[0] as Label).text = tr(str(pair[1]))
-	status_lbl.text = tr("MENU_FOOTER") % [bob_txt, q_txt, SaveManager.covenant_stones_lit.size()]
+	trial_hdr.text = tr("TRIAL_HDR")
+	for key in trial_btns:
+		var b: Button = trial_btns[key]
+		b.text = tr("TRIAL_" + str(key).to_upper())
+		b.set_pressed_no_signal(bool(_save.trial_mutators.get(key, false)))
+		b.add_theme_stylebox_override("normal", _style(Color(0.12, 0.09, 0.06), Color(0.6, 0.48, 0.28), 18))
+		b.add_theme_stylebox_override("pressed", _style(Color(0.28, 0.20, 0.09), Color(1.0, 0.82, 0.32), 18))
+	status_lbl.text = tr("MENU_FOOTER") % [bob_txt, q_txt, _save.covenant_stones_lit.size()] + "\n" + tr("MENU_SEALS") % _save.golden_seals_earned.size()
+

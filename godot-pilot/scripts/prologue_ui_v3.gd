@@ -980,7 +980,7 @@ func update_3d_bubbles(cam: Camera3D, show_bubbles: bool, anchors_3d: Dictionary
 		var sz: Vector2 = pc.get_combined_minimum_size()
 		pc.position = Vector2(
 			clampf(sp.x - sz.x * 0.5, 14.0, maxf(14.0, vp_size.x - sz.x - 14.0)),
-			clampf(sp.y - sz.y * 0.5, 130.0, maxf(130.0, vp_size.y - sz.y - 102.0))
+			clampf(sp.y - sz.y * 0.5, 130.0, maxf(130.0, vp_size.y - sz.y - 166.0))
 		)
 		pc.show()
 	if fire_active and not cam.is_position_behind(fire_pos_3d):
@@ -988,7 +988,7 @@ func update_3d_bubbles(cam: Camera3D, show_bubbles: bool, anchors_3d: Dictionary
 		var fsz: Vector2 = fire_bubble_panel.get_combined_minimum_size()
 		fire_bubble_panel.position = Vector2(
 			clampf(fp2.x - fsz.x * 0.5, 14.0, maxf(14.0, vp_size.x - fsz.x - 14.0)),
-			clampf(fp2.y - fsz.y - 10.0, 130.0, maxf(130.0, vp_size.y - fsz.y - 102.0))
+			clampf(fp2.y - fsz.y - 10.0, 130.0, maxf(130.0, vp_size.y - fsz.y - 166.0))
 		)
 		fire_bubble_panel.show()
 	else:

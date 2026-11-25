@@ -77,6 +77,80 @@ def main() -> None:
         s3[i] = 0.14 * bp * br + 0.03 * math.sin(tau * 88.0 * t) * br
     write_wav("sfx_animals_breath.wav", s3)
 
+    # 4. Authentic Ram's Horn Shofar Tekiah (1.75s: Bb3 -> F4 fifth leap with warm brass harmonics)
+    n4 = int(SR * 1.75)
+    s4 = [0.0] * n4
+    phase4 = 0.0
+    for i in range(n4):
+        t = i / SR
+        glide = 1.0 / (1.0 + math.exp(-(t - 0.34) * 22.0))
+        freq = (233.08 * (1.0 - glide) + 349.23 * glide) * (1.0 + 0.008 * math.sin(tau * 5.2 * t))
+        phase4 += tau * freq / SR
+        atk = min(1.0, t / 0.08) * min(1.0, (1.75 - t) / 0.22)
+        horn = (0.48 * math.sin(phase4) + 0.31 * math.sin(2.0 * phase4) + 0.19 * math.sin(3.0 * phase4) + 0.10 * math.sin(4.0 * phase4))
+        breath = rng.gauss(0.0, 0.025) * math.exp(-t * 2.5)
+        s4[i] = (horn * 0.52 + breath) * atk
+    write_wav("sfx_shofar_horn.wav", s4)
+
+    # 5. Perfect Rhythmic Assist Strike (0.65s: deep timber mortise thud + bronze harmonic ring)
+    n5 = int(SR * 0.65)
+    s5 = [0.0] * n5
+    for i in range(n5):
+        t = i / SR
+        thud = 0.62 * math.sin(tau * (128.0 * math.exp(-t * 14.0) + 52.0) * t) * math.exp(-t * 16.0)
+        chime = (0.28 * math.sin(tau * 587.33 * t) + 0.18 * math.sin(tau * 880.0 * t) + 0.10 * math.sin(tau * 1174.66 * t)) * math.exp(-t * 5.8)
+        crack = rng.gauss(0.0, 0.24) * math.exp(-t * 48.0)
+        s5[i] = thud + chime + crack
+    write_wav("sfx_perfect_strike.wav", s5)
+
+    # 6. Flood Hull Seam Water Leak Spray (2.2s spatial loop)
+    n6 = int(SR * 2.2)
+    s6 = [0.0] * n6
+    hp = 0.0
+    for i in range(n6):
+        t = i / SR
+        raw = rng.gauss(0.0, 1.0)
+        hp += 0.28 * (raw - hp)
+        surge = 0.68 + 0.32 * math.sin(tau * t / 1.1)
+        bub = 0.08 * math.sin(tau * (320.0 + 90.0 * math.sin(tau * 7.0 * t)) * t)
+        s6[i] = ((raw - hp) * 0.22 + bub) * surge
+    write_wav("sfx_hull_leak.wav", s6)
+
+    # 7. Canaanite Highland Night Wolf Howl Warning (1.45s)
+    n7 = int(SR * 1.45)
+    s7 = [0.0] * n7
+    ph7 = 0.0
+    for i in range(n7):
+        t = i / SR
+        rise = 1.0 / (1.0 + math.exp(-(t - 0.28) * 14.0))
+        fall = 0.22 * max(0.0, t - 0.85)
+        wf = (290.0 + 165.0 * rise - 140.0 * fall) * (1.0 + 0.012 * math.sin(tau * 6.0 * t))
+        ph7 += tau * wf / SR
+        env7 = min(1.0, t / 0.14) * min(1.0, (1.45 - t) / 0.28)
+        s7[i] = (0.42 * math.sin(ph7) + 0.16 * math.sin(2.0 * ph7)) * env7
+    write_wav("sfx_wolf_howl.wav", s7)
+
+    # 8. Ancient Levant 10-String Kinnor Lyre & Drone Loop (12.0s seamless D-Dorian pastoral)
+    n8 = int(SR * 12.0)
+    s8 = [0.0] * n8
+    notes = [
+        (0.0, 293.66), (0.75, 440.00), (1.5, 349.23), (2.25, 392.00),
+        (3.0, 440.00), (3.75, 523.25), (4.5, 440.00), (5.25, 392.00),
+        (6.0, 349.23), (6.75, 293.66), (7.5, 329.63), (8.25, 349.23),
+        (9.0, 392.00), (9.75, 349.23), (10.5, 329.63), (11.25, 293.66),
+    ]
+    for i in range(n8):
+        t = i / SR
+        drone = (0.075 * math.sin(tau * 146.83 * t) + 0.045 * math.sin(tau * 220.0 * t)) * (0.85 + 0.15 * math.sin(tau * t / 6.0))
+        lyre = 0.0
+        for nt, nf in notes:
+            dt = t - nt
+            if 0.0 <= dt < 2.2:
+                e = math.exp(-dt * 2.35) * min(1.0, dt / 0.012)
+                lyre += e * (0.14 * math.sin(tau * nf * dt) + 0.06 * math.sin(2.0 * tau * nf * dt) + 0.025 * math.sin(3.0 * tau * nf * dt))
+        s8[i] = drone + lyre
+    write_wav("bgm_levant_lyre_loop.wav", s8)
+
 
 if __name__ == "__main__":
     main()
