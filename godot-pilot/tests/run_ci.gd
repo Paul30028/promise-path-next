@@ -1,6 +1,6 @@
 extends SceneTree
-## Automated Headless CI Regression Suite (run via: godot --headless --path godot-pilot -s res://tests/run_ci.gd)
-## Exits 0 ONLY if all JSON graphs, 9-bone quadruped rigs, 14-bone human rigs, file budgets, and atomic saves PASS!
+## Automated Headless CI Regression Suite (M0 + M1 Gates)
+## Run via: godot --headless --path godot-pilot -s res://tests/run_ci.gd
 
 var failures: Array[String] = []
 
@@ -16,9 +16,11 @@ func _pass(msg: String) -> void:
 
 func _init() -> void:
 	_test_chapter_jsons()
+	_test_prologue_v3_schema()
 	_test_quadruped_animals()
 	_test_humanoid_rigs()
-	_test_ark_scaffolding_glb()
+	_test_ark_30_step_glb()
+	_test_m1_scripts_compile()
 	_test_atomic_save_roundtrip()
 
 	if failures.is_empty():
@@ -41,10 +43,33 @@ func _test_chapter_jsons() -> void:
 			ids[str(ev.get("id", ""))] = true
 		for ev in d["events"]:
 			for ch in ev.get("choices", []):
-				var nxt: String = str(ch.get("nextEventId", ""))
-				if not nxt.is_empty() and not ids.has(nxt):
-					_fail("%s broken nextEventId=%s" % [p, nxt])
+				var nxt: Variant = ch.get("nextEventId", "")
+				var nxt_s: String = "" if nxt == null else str(nxt)
+				if not nxt_s.is_empty() and not ids.has(nxt_s):
+					_fail("%s broken nextEventId=%s" % [p, nxt_s])
 		_pass("JSON event graph valid: %s (%d events)" % [p, ids.size()])
+
+
+func _test_prologue_v3_schema() -> void:
+	var raw: String = FileAccess.get_file_as_string("res://data/ch00_noah_ark.json")
+	var d: Dictionary = JSON.parse_string(raw)
+	if int(d.get("schemaVersion", 0)) < 3:
+		_fail("ch00_noah_ark.json must be schemaVersion >= 3")
+		return
+	var cast: Array = d.get("familyCast", [])
+	var codex: Array = d.get("codexEntries", [])
+	var dms: Dictionary = d.get("dramaticMoments", {})
+	var sim: Dictionary = d.get("simulationConfig", {})
+	if cast.size() != 8:
+		_fail("familyCast must contain all 8 named family members (got %d)" % cast.size())
+	elif codex.size() < 4:
+		_fail("codexEntries must contain >= 4 entries")
+	elif not dms.has("dm_01_drought_mockery") or not dms.has("dm_02_stay_the_blade") or not dms.has("dm_03_divine_seal"):
+		_fail("dramaticMoments missing required scenes")
+	elif int(sim.get("arkProgressiveSteps", 0)) != 30 or int(sim.get("treeCount", 0)) != 30:
+		_fail("simulationConfig missing 30-step Ark / 30-tree parameters")
+	else:
+		_pass("Prologue V3 schema verified: 8 named family, %d codex entries, 30-step sim config" % codex.size())
 
 
 func _test_quadruped_animals() -> void:
@@ -88,18 +113,37 @@ func _test_humanoid_rigs() -> void:
 		inst.free()
 
 
-func _test_ark_scaffolding_glb() -> void:
+func _test_ark_30_step_glb() -> void:
 	var ps: PackedScene = ResourceLoader.load("res://assets/models/BLD_NoahsArk.glb") as PackedScene
 	if ps == null:
 		_fail("Cannot load BLD_NoahsArk.glb")
 		return
 	var inst: Node = ps.instantiate()
+	var step_meshes: int = 0
+	for i in range(1, 26):
+		if inst.find_child("BuildStep_%02d_Mesh" % i, true, false) != null:
+			step_meshes += 1
+	for i in range(26, 30):
+		if inst.find_child("CutawayRoof_Step_%02d_Mesh" % i, true, false) != null:
+			step_meshes += 1
+	if inst.find_child("Stage3_Ramp_Mesh", true, false) != null:
+		step_meshes += 1
 	var has_scaff: bool = inst.find_child("StageScaffold_Mesh", true, false) != null
-	if not has_scaff:
-		_fail("BLD_NoahsArk.glb missing StageScaffold_Mesh")
+	var has_door: bool = inst.find_child("SealedSideDoor_Mesh", true, false) != null
+	if step_meshes < 30 or not has_scaff or not has_door:
+		_fail("BLD_NoahsArk.glb incomplete: steps=%d/30 scaff=%s door=%s" % [step_meshes, str(has_scaff), str(has_door)])
 	else:
-		_pass("BLD_NoahsArk.glb verified with StageScaffold_Mesh")
+		_pass("BLD_NoahsArk.glb verified: 30/30 progressive build steps + StageScaffold_Mesh + SealedSideDoor_Mesh")
 	inst.free()
+
+
+func _test_m1_scripts_compile() -> void:
+	for sp: String in ["res://scripts/prologue_ui_v3.gd", "res://scripts/noah_rts_world.gd", "res://scripts/ch00_noah_ark.gd"]:
+		var scr: Script = load(sp) as Script
+		if scr == null or not scr.can_instantiate():
+			_fail("Script failed to compile: " + sp)
+		else:
+			_pass("M1 Script compiled cleanly: " + sp)
 
 
 func _test_atomic_save_roundtrip() -> void:

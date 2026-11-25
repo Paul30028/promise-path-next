@@ -1,27 +1,24 @@
 """
-Build Biblical 300:50:30 Noah's Ark GLB (Genesis 6:14-16) at true monumental scale:
+Build Biblical 300:50:30 Noah's Ark GLB (Genesis 6:14-16) with 30 Progressive Construction Steps (V6 GF-02):
   - Ratio: EXACT 300 : 50 : 30 cubits (at 0.34 m/cubit -> 102.0m L x 17.0m W x 10.2m H)
-  - 3 Spacious Walkable Decks (each ~3.2m clear headroom so Noah at 1.68m eye height feels truly INSIDE a cathedral-scale wooden vessel!):
-      * Deck 1 (Lower):  Floor Y = 0.65m, Ceiling Y = 3.85m (Keel spine, twin rows of animal stalls, 6.2m wide central walkway)
-      * Deck 2 (Middle): Floor Y = 3.95m, Ceiling Y = 7.05m (Reached via wide gradual central wooden stairs, grain & clean-animal rooms)
-      * Deck 3 (Upper):  Floor Y = 7.15m, Roof Ridge Y = 10.20m (1-cubit = 0.36m continuous sunlit/vent window band under eaves, aviaries & family quarters)
-  - Side Doorway on +Z wall (X in [-2.6, +2.6], Y in [0.65, 3.65]) with sturdy handrail boarding ramp descending to Y = -0.8m (embeds cleanly into ground).
-  - Toggleable Stage & Cutaway Node Groups:
-      Stage1_KeelRibs_Mesh
-      Stage2_HullBackEnds_Mesh / Stage2_HullBackEnds_Bitumen_Mesh
-      Stage2_HullFrontCutaway_Mesh / Stage2_HullFrontCutaway_Bitumen_Mesh
-      Interior_3Decks_Mesh / Interior_Bitumen_Mesh
-      Stage3_RoofCutaway_Mesh
-      Stage3_Ramp_Mesh
+  - 3 Spacious Walkable Decks (~3.2m clear headroom each):
+      * Deck 1 (Lower):  Floor Y = 0.65m, Ceiling Y = 3.85m
+      * Deck 2 (Middle): Floor Y = 3.95m, Ceiling Y = 7.05m (North-side Stair 1 leaves 4.3m central aisle clear)
+      * Deck 3 (Upper):  Floor Y = 7.15m, Roof Ridge Y = 10.20m (1-cubit sunlit window band under eaves)
+  - 30 Progressive Structural Step Groups (every +3.3% engineering visibly nails new ribs/planks/decks/pitch/roof!):
+      * BuildStep_01_Mesh .. BuildStep_25_Mesh (+ CutawayFront_Step_XX_Mesh for +Z cutaway wall)
+      * CutawayRoof_Step_26_Mesh .. CutawayRoof_Step_29_Mesh (4 progressive roof bays)
+      * Stage3_Ramp_Mesh (Step 30 boarding gangplank)
+      * StageScaffold_Mesh (exterior log scaffolding, dismantled at 100%)
+  - Shared single 512x1536 3-band texture atlas (Wood / Pitch / Roof) -> compact ~1.1 MB GLB!
 """
 import os
 import numpy as np
 import trimesh
-from PIL import Image, ImageDraw
+from PIL import Image
 
 OUT_GLB = r"c:\AI\gemini\promise-path-next\godot-pilot\assets\models\BLD_NoahsArk.glb"
 
-# Exact Biblical 300:50:30 cubits at 0.34 m/cubit
 L = 102.0   # X in [-51.0, +51.0]
 W = 17.0    # Z in [-8.5, +8.5]
 H = 10.2    # Y in [0.0, 10.2]
@@ -29,7 +26,7 @@ HL = L * 0.5
 HW = W * 0.5
 
 
-def make_aged_cypress_texture(size=512, mode="wood"):
+def make_band_pixels(size=512, mode="wood"):
     rng = np.random.default_rng(101 if mode == "wood" else (202 if mode == "pitch" else 303))
     img = np.zeros((size, size, 3), dtype=np.float32)
     planks = 12
@@ -47,7 +44,6 @@ def make_aged_cypress_texture(size=512, mode="wood"):
         if mode == "pitch":
             base = np.array([32, 26, 22], dtype=np.float32) + rng.uniform(-4, 5, 3)
         elif mode == "roof":
-            # Distinct darker weathered cedar shingle/plank roof so finished 100% Ark reads unmistakably sealed!
             base = np.array([64, 44, 30], dtype=np.float32) + rng.uniform(-9, 9, 3)
         else:
             base = np.array([108, 76, 48], dtype=np.float32) + rng.uniform(-12, 12, 3)
@@ -57,17 +53,27 @@ def make_aged_cypress_texture(size=512, mode="wood"):
         jx = int(rng.integers(40, size - 40))
         block[:, max(0, jx - 1):min(size, jx + 2), :] *= 0.50
         img[y0:y1, :, :] = np.clip(block, 0, 255)
-    return Image.fromarray(img.astype(np.uint8), mode="RGB")
+    return img.astype(np.uint8)
 
 
-def box_uv(extents, center, rot_x=0.0, rot_z=0.0, uv_scale=0.18):
+def make_shared_atlas(size=512):
+    # Band 0 (top in image, V in [0.67..1.00]): wood
+    # Band 1 (mid in image, V in [0.34..0.66]): pitch
+    # Band 2 (bot in image, V in [0.00..0.33]): roof
+    wood = make_band_pixels(size, "wood")
+    pitch = make_band_pixels(size, "pitch")
+    roof = make_band_pixels(size, "roof")
+    atlas = np.vstack([wood, pitch, roof])
+    return Image.fromarray(atlas, mode="RGB")
+
+
+def box_uv(extents, center, rot_x=0.0, rot_z=0.0, uv_scale=0.18, mat_band="wood"):
     m = trimesh.creation.box(extents=extents)
     if rot_x != 0.0:
         m.apply_transform(trimesh.transformations.rotation_matrix(rot_x, [1, 0, 0]))
     if rot_z != 0.0:
         m.apply_transform(trimesh.transformations.rotation_matrix(rot_z, [0, 0, 1]))
     m.apply_translation(center)
-    # Clean world-box planar UVs based on dominant normal
     v = m.vertices
     n = m.vertex_normals
     uv = np.zeros((len(v), 2), dtype=np.float32)
@@ -78,229 +84,203 @@ def box_uv(extents, center, rot_x=0.0, rot_z=0.0, uv_scale=0.18):
     uv[use_yz] = v[use_yz][:, [2, 1]] * uv_scale
     uv[use_xz] = v[use_xz][:, [0, 2]] * uv_scale
     uv[use_xy] = v[use_xy][:, [0, 1]] * uv_scale
+    # Remap V cleanly into the selected atlas band (PIL top=V:1.0, bottom=V:0.0 in glTF/trimesh)
+    v_frac = np.mod(uv[:, 1], 1.0)
+    if mat_band == "wood":
+        v_low, v_span = 0.69, 0.29
+    elif mat_band == "pitch":
+        v_low, v_span = 0.36, 0.28
+    else:
+        v_low, v_span = 0.02, 0.29
+    uv[:, 1] = v_low + v_frac * v_span
     m.visual = trimesh.visual.TextureVisuals(uv=uv)
     return m
 
 
-def merge_group(meshes, img, roughness=0.88):
+def merge_group(meshes, shared_mat):
     if not meshes:
         return None
     comb = trimesh.util.concatenate(meshes)
-    mat = trimesh.visual.material.PBRMaterial(
-        baseColorTexture=img,
-        metallicFactor=0.0,
-        roughnessFactor=roughness,
-    )
-    comb.visual = trimesh.visual.TextureVisuals(uv=comb.visual.uv, material=mat)
+    comb.visual = trimesh.visual.TextureVisuals(uv=comb.visual.uv, material=shared_mat)
     return comb
 
 
 def main():
-    wood_img = make_aged_cypress_texture(512, mode="wood")
-    pitch_img = make_aged_cypress_texture(512, mode="pitch")
-    roof_img = make_aged_cypress_texture(512, mode="roof")
+    atlas_img = make_shared_atlas(512)
+    shared_mat = trimesh.visual.material.PBRMaterial(
+        name="ArkSharedPBR",
+        baseColorTexture=atlas_img,
+        metallicFactor=0.0,
+        roughnessFactor=0.84,
+    )
 
-    s1_wood = []
-    s2_back_wood, s2_back_pitch = [], []
-    s2_front_wood, s2_front_pitch = [], []
-    int_wood, int_pitch = [], []
-    s3_roof_wood = []
-    s3_ramp_wood = []
+    groups = {}  # node_name -> list of trimesh
 
-    # --- STAGE 1: Monumental Keel, Low Cribbing Blocks & 25 Inner Structural Ribs (STRICTLY INSIDE HULL!) ---
-    s1_wood.append(box_uv([L - 3.0, 0.72, 1.4], [0.0, 0.36, 0.0]))
+    def add(node_name, mesh):
+        groups.setdefault(node_name, []).append(mesh)
+
+    # --- STEPS 01..10: Monumental Keel, Cribbing & 8 Progressive Rib Bays (0% -> 35%) ---
+    add("BuildStep_01_Mesh", box_uv([L - 3.0, 0.72, 1.4], [0.0, 0.36, 0.0], mat_band="wood"))
     for sz in (-4.8, 4.8):
-        s1_wood.append(box_uv([L - 6.0, 0.55, 0.75], [0.0, 0.30, sz]))
+        add("BuildStep_01_Mesh", box_uv([L - 6.0, 0.55, 0.75], [0.0, 0.30, sz], mat_band="wood"))
+
     for cx in np.linspace(-46.0, 46.0, 19):
-        s1_wood.append(box_uv([1.2, 0.42, W - 4.4], [cx, 0.21, 0.0]))
+        add("BuildStep_02_Mesh", box_uv([1.2, 0.42, W - 4.4], [cx, 0.21, 0.0], mat_band="wood"))
 
     rib_xs = np.linspace(-47.5, 47.5, 25)
-    for rx in rib_xs:
-        # Keep structural ribs strictly INSIDE the tapered lower bilge (<= HW - 1.35) so ZERO skeleton pokes out of finished hull!
+    for ri, rx in enumerate(rib_xs):
+        step_idx = 3 + min(7, int(ri * 8 / len(rib_xs)))  # Steps 03..10
+        gname = f"BuildStep_{step_idx:02d}_Mesh"
         hz_inner = HW - 1.45
         door_zone = abs(rx) < 3.0
-        s1_wood.append(box_uv([0.50, 0.45, hz_inner * 2.0], [rx, 0.50, 0.0]))
+        add(gname, box_uv([0.50, 0.45, hz_inner * 2.0], [rx, 0.50, 0.0], mat_band="wood"))
         for side in (-1, 1):
             if side == 1 and door_zone:
-                s1_wood.append(box_uv([0.50, 4.6, 0.50], [rx, 6.4, side * hz_inner]))
+                add(gname, box_uv([0.50, 4.6, 0.50], [rx, 6.4, side * hz_inner], mat_band="wood"))
             else:
-                s1_wood.append(box_uv([0.50, 8.2, 0.50], [rx, 4.55, side * hz_inner]))
-            s1_wood.append(box_uv([0.42, 2.0, 0.42], [rx, 1.15, side * (hz_inner - 0.65)], rot_x=side * 0.45))
+                add(gname, box_uv([0.50, 8.2, 0.50], [rx, 4.55, side * hz_inner], mat_band="wood"))
+            add(gname, box_uv([0.42, 2.0, 0.42], [rx, 1.15, side * (hz_inner - 0.65)], rot_x=side * 0.45, mat_band="wood"))
 
-    # --- STAGE 2: Seamless Sealed Watertight Hull Planking + Crisp Recessed 1-Cubit Window Band ---
+    # --- STEP 11: Deck 1 (Lower Deck) Floor ---
+    add("BuildStep_11_Mesh", box_uv([L - 3.0, 0.24, W - 2.6], [0.0, 0.55, 0.0], mat_band="wood"))
+
+    # --- STEPS 12..16 & STEP 23: Outer Hull Planking Strakes + Waterproof Bilge Pitch ---
     course_ys = np.linspace(0.55, 8.15, 10)
     for ci, cy in enumerate(course_ys):
         bilge_in = (1.0 - ci / 3.0) * 0.95 if ci < 3 else 0.0
         cz = HW - bilge_in
         is_pitch_band = ci < 3
-        # Overlap plank height slightly (0.90m) so hull is 100% solid watertight with ZERO gaps!
-        (s2_back_pitch if is_pitch_band else s2_back_wood).append(
-            box_uv([L - 1.2 - bilge_in * 1.4, 0.90, 0.48], [0.0, cy, -cz])
-        )
+        band = "pitch" if is_pitch_band else "wood"
+        # Wood hull rises in Steps 12..16; bottom 3 bilge courses also appear as wood in Step 12 and pitch-coated overlay in Step 23!
+        step_back = f"BuildStep_{12 + min(4, ci // 2):02d}_Mesh"
+        step_front = f"CutawayFront_Step_{12 + min(4, ci // 2):02d}_Mesh"
+        add(step_back, box_uv([L - 1.2 - bilge_in * 1.4, 0.90, 0.48], [0.0, cy, -cz], mat_band="wood"))
+        if is_pitch_band:
+            add("BuildStep_23_Mesh", box_uv([L - 1.15 - bilge_in * 1.4, 0.91, 0.52], [0.0, cy, -cz], mat_band="pitch"))
         if cy < 3.9:
             seg_len = HL - 2.7 - bilge_in * 0.7
             for sx in (-1, 1):
-                (s2_front_pitch if is_pitch_band else s2_front_wood).append(
-                    box_uv([seg_len, 0.90, 0.48], [sx * (2.7 + seg_len * 0.5), cy, cz])
-                )
+                add(step_front, box_uv([seg_len, 0.90, 0.48], [sx * (2.7 + seg_len * 0.5), cy, cz], mat_band="wood"))
+                if is_pitch_band:
+                    add("CutawayFront_Step_23_Mesh", box_uv([seg_len, 0.91, 0.52], [sx * (2.7 + seg_len * 0.5), cy, cz], mat_band="pitch"))
         else:
-            (s2_front_pitch if is_pitch_band else s2_front_wood).append(
-                box_uv([L - 1.2 - bilge_in * 1.4, 0.90, 0.48], [0.0, cy, cz])
-            )
+            add(step_front, box_uv([L - 1.2 - bilge_in * 1.4, 0.90, 0.48], [0.0, cy, cz], mat_band="wood"))
 
     for sx in (-1, 1):
         for ci, cy in enumerate(course_ys):
             bilge_in = (1.0 - ci / 3.0) * 0.95 if ci < 3 else 0.0
-            is_pitch_band = ci < 3
-            (s2_back_pitch if is_pitch_band else s2_back_wood).append(
-                box_uv([0.60, 0.90, (HW - bilge_in) * 2.0 + 0.45], [sx * (HL - 0.65 - bilge_in * 0.7), cy, 0.0])
-            )
-        s2_back_wood.append(box_uv([1.2, 10.6, 1.4], [sx * (HL - 0.1), 5.3, 0.0], rot_z=-sx * 0.06))
+            step_back = f"BuildStep_{12 + min(4, ci // 2):02d}_Mesh"
+            add(step_back, box_uv([0.60, 0.90, (HW - bilge_in) * 2.0 + 0.45], [sx * (HL - 0.65 - bilge_in * 0.7), cy, 0.0], mat_band="wood"))
+            if ci < 3:
+                add("BuildStep_23_Mesh", box_uv([0.64, 0.91, (HW - bilge_in) * 2.0 + 0.49], [sx * (HL - 0.65 - bilge_in * 0.7), cy, 0.0], mat_band="pitch"))
+        add("BuildStep_16_Mesh", box_uv([1.2, 10.6, 1.4], [sx * (HL - 0.1), 5.3, 0.0], rot_z=-sx * 0.06, mat_band="wood"))
 
-    # Genesis 6:16 Crisp 1-Cubit (~0.50m) Window Band (Y=8.60..9.15) with bold dark shadow recess & evenly spaced mullions!
-    for mx in np.linspace(-48.0, 48.0, 33):
-        s2_back_wood.append(box_uv([0.34, 0.68, 0.36], [mx, 8.88, -HW]))
-        s2_front_wood.append(box_uv([0.34, 0.68, 0.36], [mx, 8.88, HW]))
-    # Continuous dark pitch eaves fascia framing the 1-cubit window band so it reads crisply even from 60m away!
-    s2_back_pitch.append(box_uv([L + 0.4, 0.28, 0.62], [0.0, 8.55, -HW]))
-    s2_front_pitch.append(box_uv([L + 0.4, 0.28, 0.62], [0.0, 8.55, HW]))
-    s2_back_pitch.append(box_uv([L + 0.8, 0.44, 0.82], [0.0, 9.35, -HW]))
-    s2_front_pitch.append(box_uv([L + 0.8, 0.44, 0.82], [0.0, 9.35, HW]))
-
-    # Side doorway frame (always visible on Stage 2+)
-    s2_back_wood.append(box_uv([0.55, 3.6, 0.75], [-2.75, 2.3, HW]))
-    s2_back_wood.append(box_uv([0.55, 3.6, 0.75], [2.75, 2.3, HW]))
-    s2_back_wood.append(box_uv([6.2, 0.55, 0.85], [0.0, 4.1, HW]))
-
-    # --- WALKABLE 3-DECK BIBLICAL INTERIOR (Each Deck ~3.2m Tall, Wide Central Aisle + Twin Stall Rows!) ---
-    # Deck 1 (Lower Deck Floor Y = 0.65)
-    int_wood.append(box_uv([L - 3.0, 0.24, W - 2.6], [0.0, 0.55, 0.0]))
-    # Inner bitumen pitch waterproof strips along lower deck edges
-    for sz in (-HW + 1.3, HW - 1.3):
-        int_pitch.append(box_uv([L - 3.4, 0.35, 0.35], [0.0, 0.75, sz]))
-
-    # Deck 2 (Middle Deck Floor Y = 3.95) — stairwell opening ONLY on North side aisle (Z in [-3.2, -1.15]),
-    # leaving a completely open 4.3m-wide main corridor (Z in [-1.15, +3.15]) straight past the stairs to the rear cabin!
-    int_wood.append(box_uv([52.5, 0.24, W - 1.6], [-24.25, 3.85, 0.0]))   # West half (-50.5..+2.0)
-    int_wood.append(box_uv([36.5, 0.24, W - 1.6], [32.25, 3.85, 0.0]))    # East half (+14.0..+50.5)
-    int_wood.append(box_uv([12.2, 0.24, 4.5], [8.0, 3.85, -5.45]))        # North stalls behind Stair 1
-    int_wood.append(box_uv([12.2, 0.24, 8.85], [8.0, 3.85, 3.275]))       # Wide open central+south walkway past Stair 1!
-    int_wood.append(box_uv([11.8, 0.14, 0.14], [8.0, 4.75, -1.18]))       # Deck 2 stairwell guardrail
-
-    # Deck 3 (Upper Deck Floor Y = 7.15) — stairwell opening ONLY on North side aisle (Z in [-3.2, -1.15])
-    int_wood.append(box_uv([68.5, 0.24, W - 1.4], [-16.25, 7.05, 0.0]))   # West half (-50.5..+18.0)
-    int_wood.append(box_uv([20.5, 0.24, W - 1.4], [40.25, 7.05, 0.0]))    # East half (+30.0..+50.5)
-    int_wood.append(box_uv([12.2, 0.24, 4.5], [24.0, 7.05, -5.45]))       # North stalls behind Stair 2
-    int_wood.append(box_uv([12.2, 0.24, 8.85], [24.0, 7.05, 3.275]))      # Wide open central+south walkway past Stair 2!
-    int_wood.append(box_uv([11.8, 0.14, 0.14], [24.0, 7.95, -1.18]))      # Deck 3 stairwell guardrail
-
-    # Heavy interior structural pillars & overhead deck beams + Biblical Compartment Stalls ("分一间一间地造" Gen 6:14)
+    # --- STEPS 17..21: 3-Deck Interior Pillars, Stalls ("分一间一间地造") & Side-Mounted North Stairs ---
     stall_xs = np.linspace(-44.0, 44.0, 12)
     for sx in stall_xs:
-        # Twin rows of towering interior pillars flanking the 6.4m wide central aisle (Z = ±3.2)
         for sz in (-3.2, 3.2):
-            int_wood.append(box_uv([0.46, 8.8, 0.46], [sx, 4.95, sz]))
-        # Cross ceiling beams on Deck 1, 2, 3
-        for by in (3.65, 6.85, 9.20):
-            int_wood.append(box_uv([0.42, 0.36, W - 1.4], [sx, by, 0.0]))
-        # Wooden stall divider walls & rails along Port (-Z: -8.0..-3.2) & Starboard (+Z: +3.2..+8.0)
-        for deck_y in (0.65, 3.95, 7.15):
+            add("BuildStep_17_Mesh", box_uv([0.46, 8.8, 0.46], [sx, 4.95, sz], mat_band="wood"))
+        add("BuildStep_17_Mesh", box_uv([0.42, 0.36, W - 1.4], [sx, 3.65, 0.0], mat_band="wood"))
+        add("BuildStep_19_Mesh", box_uv([0.42, 0.36, W - 1.4], [sx, 6.85, 0.0], mat_band="wood"))
+        add("BuildStep_21_Mesh", box_uv([0.42, 0.36, W - 1.4], [sx, 9.20, 0.0], mat_band="wood"))
+        for di, deck_y in enumerate((0.65, 3.95, 7.15)):
+            st_step = ("BuildStep_17_Mesh", "BuildStep_19_Mesh", "BuildStep_21_Mesh")[di]
             for side in (-1, 1):
                 if deck_y == 0.65 and side == 1 and abs(sx) < 5.0:
-                    continue  # Keep side entrance foyer wide open!
-                # Stall partition wall (timber slats)
-                int_wood.append(box_uv([0.18, 1.75, 4.4], [sx, deck_y + 0.92, side * 5.5]))
-                # Front stall horizontal corral rails facing the central walkway
+                    continue
+                add(st_step, box_uv([0.18, 1.75, 4.4], [sx, deck_y + 0.92, side * 5.5], mat_band="wood"))
                 for ry in (0.65, 1.35):
-                    int_wood.append(box_uv([7.2, 0.14, 0.14], [sx + 3.6, deck_y + ry, side * 3.2]))
-                # Pitch caulked base strip along stall wall
-                int_pitch.append(box_uv([0.24, 0.24, 4.4], [sx, deck_y + 0.14, side * 5.5]))
+                    add(st_step, box_uv([7.2, 0.14, 0.14], [sx + 3.6, deck_y + ry, side * 3.2], mat_band="wood"))
+                add("BuildStep_24_Mesh", box_uv([0.24, 0.24, 4.4], [sx, deck_y + 0.14, side * 5.5], mat_band="pitch"))
 
-    # Side-Mounted Timber Staircases along North Aisle (Z=-2.15, width 1.85m) so the 4.3m Main Corridor
-    # goes straight past every staircase into the Rear Cabin on Deck 1, Deck 2, and Deck 3!
-    # Stair 1: Lower Deck (X=2.5, Y=0.65) -> Middle Deck (X=13.5, Y=3.95)
+    # North Stair 1 (Step 17) & Deck 2 Floor (Step 18)
     for i in range(14):
         t = (i + 0.5) / 14.0
-        stx = 2.5 + t * 11.0
-        sty = 0.65 + t * 3.30
-        int_wood.append(box_uv([0.95, 0.18, 1.85], [stx, sty, -2.15]))
+        add("BuildStep_17_Mesh", box_uv([0.95, 0.18, 1.85], [2.5 + t * 11.0, 0.65 + t * 3.30, -2.15], mat_band="wood"))
     for sz in (-3.08, -1.22):
-        int_wood.append(box_uv([11.8, 0.22, 0.14], [8.0, 2.95, sz], rot_z=0.29))
+        add("BuildStep_17_Mesh", box_uv([11.8, 0.22, 0.14], [8.0, 2.95, sz], rot_z=0.29, mat_band="wood"))
 
-    # Stair 2: Middle Deck (X=18.5, Y=3.95) -> Upper Deck (X=29.5, Y=7.15)
+    add("BuildStep_18_Mesh", box_uv([52.5, 0.24, W - 1.6], [-24.25, 3.85, 0.0], mat_band="wood"))
+    add("BuildStep_18_Mesh", box_uv([36.5, 0.24, W - 1.6], [32.25, 3.85, 0.0], mat_band="wood"))
+    add("BuildStep_18_Mesh", box_uv([12.2, 0.24, 4.5], [8.0, 3.85, -5.45], mat_band="wood"))
+    add("BuildStep_18_Mesh", box_uv([12.2, 0.24, 8.85], [8.0, 3.85, 3.275], mat_band="wood"))
+    add("BuildStep_18_Mesh", box_uv([11.8, 0.14, 0.14], [8.0, 4.75, -1.18], mat_band="wood"))
+
+    # North Stair 2 (Step 19) & Deck 3 Floor (Step 20)
     for i in range(14):
         t = (i + 0.5) / 14.0
-        stx = 18.5 + t * 11.0
-        sty = 3.95 + t * 3.20
-        int_wood.append(box_uv([0.95, 0.18, 1.85], [stx, sty, -2.15]))
+        add("BuildStep_19_Mesh", box_uv([0.95, 0.18, 1.85], [18.5 + t * 11.0, 3.95 + t * 3.20, -2.15], mat_band="wood"))
     for sz in (-3.08, -1.22):
-        int_wood.append(box_uv([11.8, 0.22, 0.14], [24.0, 6.20, sz], rot_z=0.28))
+        add("BuildStep_19_Mesh", box_uv([11.8, 0.22, 0.14], [24.0, 6.20, sz], rot_z=0.28, mat_band="wood"))
 
-    # --- STAGE 3: Pitched Gabled Timber Roof (Cutaway) + Sturdy Boarding Ramp (Retractable) ---
+    add("BuildStep_20_Mesh", box_uv([68.5, 0.24, W - 1.4], [-16.25, 7.05, 0.0], mat_band="wood"))
+    add("BuildStep_20_Mesh", box_uv([20.5, 0.24, W - 1.4], [40.25, 7.05, 0.0], mat_band="wood"))
+    add("BuildStep_20_Mesh", box_uv([12.2, 0.24, 4.5], [24.0, 7.05, -5.45], mat_band="wood"))
+    add("BuildStep_20_Mesh", box_uv([12.2, 0.24, 8.85], [24.0, 7.05, 3.275], mat_band="wood"))
+    add("BuildStep_20_Mesh", box_uv([11.8, 0.14, 0.14], [24.0, 7.95, -1.18], mat_band="wood"))
+
+    # --- STEP 22: Side Doorway Frame + Genesis 6:16 1-Cubit Window Band ---
+    add("BuildStep_22_Mesh", box_uv([0.55, 3.6, 0.75], [-2.75, 2.3, HW], mat_band="wood"))
+    add("BuildStep_22_Mesh", box_uv([0.55, 3.6, 0.75], [2.75, 2.3, HW], mat_band="wood"))
+    add("BuildStep_22_Mesh", box_uv([6.2, 0.55, 0.85], [0.0, 4.1, HW], mat_band="wood"))
+    for mx in np.linspace(-48.0, 48.0, 33):
+        add("BuildStep_22_Mesh", box_uv([0.34, 0.68, 0.36], [mx, 8.88, -HW], mat_band="wood"))
+        add("CutawayFront_Step_22_Mesh", box_uv([0.34, 0.68, 0.36], [mx, 8.88, HW], mat_band="wood"))
+
+    # --- STEPS 24..25: Interior & Eaves Pitch Sealing ---
+    for sz in (-HW + 1.3, HW - 1.3):
+        add("BuildStep_24_Mesh", box_uv([L - 3.4, 0.35, 0.35], [0.0, 0.75, sz], mat_band="pitch"))
+    add("BuildStep_25_Mesh", box_uv([L + 0.4, 0.28, 0.62], [0.0, 8.55, -HW], mat_band="pitch"))
+    add("CutawayFront_Step_25_Mesh", box_uv([L + 0.4, 0.28, 0.62], [0.0, 8.55, HW], mat_band="pitch"))
+    add("BuildStep_25_Mesh", box_uv([L + 0.8, 0.44, 0.82], [0.0, 9.35, -HW], mat_band="pitch"))
+    add("CutawayFront_Step_25_Mesh", box_uv([L + 0.8, 0.44, 0.82], [0.0, 9.35, HW], mat_band="pitch"))
+
+    # --- STEPS 26..29: 4 Progressive Pitched Roof Bays (Cutaway-Compatible) ---
     roof_slope = 0.13
-    for side in (-1, 1):
-        s3_roof_wood.append(
-            box_uv([L + 1.8, 0.32, HW + 1.5], [0.0, 9.75, side * (HW * 0.5 + 0.15)], rot_x=side * roof_slope)
-        )
-    # Ridge cap beam at Y = 10.2
-    s3_roof_wood.append(box_uv([L + 2.0, 0.52, 0.85], [0.0, 10.18, 0.0]))
+    bay_len = (L + 1.8) / 4.0
+    for bi in range(4):
+        rname = f"CutawayRoof_Step_{26 + bi:02d}_Mesh"
+        bx = -0.5 * (L + 1.8) + (bi + 0.5) * bay_len
+        for side in (-1, 1):
+            add(rname, box_uv([bay_len + 0.08, 0.32, HW + 1.5], [bx, 9.75, side * (HW * 0.5 + 0.15)], rot_x=side * roof_slope, mat_band="roof"))
+        add(rname, box_uv([bay_len + 0.12, 0.52, 0.85], [bx, 10.18, 0.0], mat_band="roof"))
 
-    # --- PROGRESSIVE TIMBER SCAFFOLDING (Visible while 5%..99% built, dismantled at 100%!) ---
-    s_scaff_wood = []
-    for sx in np.linspace(-44.0, 44.0, 11):
-        if abs(sx) < 5.5:
-            continue  # Keep boarding doorway clear
-        for sz in (HW + 1.35, -HW - 1.35):
-            # Vertical timber scaffold poles
-            s_scaff_wood.append(box_uv([0.24, 9.8, 0.24], [sx, 4.9, sz]))
-            s_scaff_wood.append(box_uv([0.22, 9.8, 0.22], [sx, 4.9, sz + (1.2 if sz > 0 else -1.2)]))
-            # Horizontal plank catwalks at Deck 2 (3.9m) & Deck 3 (7.2m)
-            for cy in (3.8, 7.1):
-                s_scaff_wood.append(box_uv([8.6, 0.14, 1.15], [sx, cy, sz + (0.6 if sz > 0 else -0.6)]))
-                s_scaff_wood.append(box_uv([0.16, 0.16, 1.45], [sx, cy - 0.1, sz + (0.6 if sz > 0 else -0.6)]))
-
-    # Wide Boarding Gangplank Ramp (+Z side, descending from Z=+8.5 Y=0.65 down to Z=+19.5 Y=-0.90)
+    # --- STEP 30: Boarding Gangplank Ramp + Sliding Heavy Side Door ---
     ramp_steps = 22
     for i in range(ramp_steps):
         t = i / float(ramp_steps - 1)
-        rz = HW + t * 11.0
-        ry = 0.62 - t * 1.45
-        s3_ramp_wood.append(box_uv([5.0, 0.22, 0.62], [0.0, ry, rz]))
+        add("Stage3_Ramp_Mesh", box_uv([5.0, 0.22, 0.62], [0.0, 0.62 - t * 1.45, HW + t * 11.0], mat_band="wood"))
     for sx in (-2.55, 2.55):
-        # Sloped handrail beams + support posts
-        s3_ramp_wood.append(box_uv([0.22, 0.20, 11.4], [sx, 1.05, HW + 5.5], rot_x=0.13))
+        add("Stage3_Ramp_Mesh", box_uv([0.22, 0.20, 11.4], [sx, 1.05, HW + 5.5], rot_x=0.13, mat_band="wood"))
         for p in range(6):
             pt = p / 5.0
-            pz = HW + 0.5 + pt * 10.0
-            py = 0.62 - pt * 1.35
-            s3_ramp_wood.append(box_uv([0.24, 1.55, 0.24], [sx, py + 0.65, pz]))
+            add("Stage3_Ramp_Mesh", box_uv([0.24, 1.55, 0.24], [sx, 0.62 - pt * 1.35 + 0.65, HW + 0.5 + pt * 10.0], mat_band="wood"))
 
-    # Assemble clean named scene
+    # Sealed Side Door Leaf (visible when ramp is retracted / Yahweh shuts the door in Gen 7:16!)
+    add("SealedSideDoor_Mesh", box_uv([5.4, 3.45, 0.46], [0.0, 2.25, HW - 0.05], mat_band="pitch"))
+
+    # --- PROGRESSIVE TIMBER SCAFFOLDING (StageScaffold_Mesh) ---
+    for sx in np.linspace(-44.0, 44.0, 11):
+        if abs(sx) < 5.5:
+            continue
+        for sz in (HW + 1.35, -HW - 1.35):
+            add("StageScaffold_Mesh", box_uv([0.24, 9.8, 0.24], [sx, 4.9, sz], mat_band="wood"))
+            add("StageScaffold_Mesh", box_uv([0.22, 9.8, 0.22], [sx, 4.9, sz + (1.2 if sz > 0 else -1.2)], mat_band="wood"))
+            for cy in (3.8, 7.1):
+                add("StageScaffold_Mesh", box_uv([8.6, 0.14, 1.15], [sx, cy, sz + (0.6 if sz > 0 else -0.6)], mat_band="wood"))
+                add("StageScaffold_Mesh", box_uv([0.16, 0.16, 1.45], [sx, cy - 0.1, sz + (0.6 if sz > 0 else -0.6)], mat_band="wood"))
+
     scene = trimesh.Scene()
-    groups = [
-        ("Stage1_KeelRibs_Mesh", s1_wood, wood_img, 0.89),
-        ("Stage2_HullBackEnds_Mesh", s2_back_wood, wood_img, 0.88),
-        ("Stage2_HullBackEnds_Bitumen_Mesh", s2_back_pitch, pitch_img, 0.68),
-        ("Stage2_HullFrontCutaway_Mesh", s2_front_wood, wood_img, 0.88),
-        ("Stage2_HullFrontCutaway_Bitumen_Mesh", s2_front_pitch, pitch_img, 0.68),
-        ("Interior_3Decks_Mesh", int_wood, wood_img, 0.86),
-        ("Interior_Bitumen_Mesh", int_pitch, pitch_img, 0.66),
-        ("Stage3_RoofCutaway_Mesh", s3_roof_wood, roof_img, 0.86),
-        ("Stage3_Ramp_Mesh", s3_ramp_wood, wood_img, 0.90),
-        ("StageScaffold_Mesh", s_scaff_wood, wood_img, 0.92),
-    ]
     total_tris = 0
-    for name, mlist, tex, rough in groups:
-        m = merge_group(mlist, tex, rough)
+    for name in sorted(groups.keys()):
+        m = merge_group(groups[name], shared_mat)
         if m is not None:
             scene.add_geometry(m, node_name=name, geom_name=name.replace("_Mesh", ""))
             total_tris += len(m.faces)
 
     scene.export(OUT_GLB)
-    print(f"OK BIBLICAL ARK GLB: {OUT_GLB} ({os.path.getsize(OUT_GLB):,} bytes)")
-    print(f"   Dimensions (300:50:30 @ 0.34m/cubit): {L}m L x {W}m W x {H}m H | Tris: {total_tris:,}")
-    print(f"   Bounds: {scene.bounds.round(3).tolist()}")
-    print(f"   Nodes: {list(scene.graph.nodes_geometry)}")
+    print(f"OK 30-STEP BIBLICAL ARK GLB: {OUT_GLB} ({os.path.getsize(OUT_GLB):,} bytes)")
+    print(f"   Nodes ({len(groups)}): {total_tris:,} tris")
 
 
 if __name__ == "__main__":

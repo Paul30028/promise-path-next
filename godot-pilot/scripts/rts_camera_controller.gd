@@ -108,7 +108,9 @@ func set_first_person(enabled: bool, is_preview: bool = false) -> void:
 		fp_oil_lamp.visible = enabled
 	if not is_preview and DisplayServer.get_name() != "headless":
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED if enabled else Input.MOUSE_MODE_VISIBLE)
-	SoundManager.set_interior_acoustics(enabled)
+	var sm_node: Node = get_node_or_null("/root/SoundManager") if is_inside_tree() else null
+	if sm_node != null and sm_node.has_method("set_interior_acoustics"):
+		sm_node.call("set_interior_acoustics", enabled)
 
 
 func add_trauma(amount: float) -> void:

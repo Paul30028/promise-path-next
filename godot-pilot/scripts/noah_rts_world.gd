@@ -26,9 +26,14 @@ var rainbow: MeshInstance3D
 
 var yard_stakes: Node3D
 var timber_stacks: Node3D
+var timber_fire_root: Node3D
+var timber_fire_light: OmniLight3D
+var timber_fire_smoke: CPUParticles3D
+var spring_well: Node3D
 var guard_fence: Node3D
 var pitch_station: Node3D
 var forest_group: Node3D
+var forest_trees: Array[Dictionary] = []
 var village_group: Node3D
 var altar_group: Node3D
 var puddles_group: Node3D
@@ -36,6 +41,11 @@ var olive_shoots: Node3D
 
 var ark_base_y: float = 0.0
 var ark_scale: float = 1.0
+var _scaffold_dismantled: bool = false
+var _lightning_timer: float = 14.0
+var _chip_mesh: BoxMesh
+var _chip_wood_mat: StandardMaterial3D
+var _chip_fire_mat: StandardMaterial3D
 
 
 func _mat(color: Color, roughness: float = 0.9, metallic: float = 0.0) -> StandardMaterial3D:
@@ -452,26 +462,61 @@ func _build_ark() -> void:
 
 
 func set_ark_stage(stage: int, cutaway: bool = false, retract_ramp: bool = false, show_scaffold: bool = false) -> void:
+	var pct: float = 0.0
+	if stage == 1:
+		pct = 35.0
+	elif stage == 2:
+		pct = 74.0
+	elif stage >= 3:
+		pct = 100.0
+	set_ark_progress(pct, cutaway, retract_ramp, show_scaffold)
+
+
+func set_ark_progress(pct: float, cutaway: bool = false, retract_ramp: bool = false, show_scaffold: bool = false) -> void:
 	if ark == null:
 		return
+	var clamped: float = clampf(pct, 0.0, 100.0)
+	var unlocked_step: int = 0 if clamped <= 0.01 else clampi(int(ceil(clamped / 100.0 * 30.0)), 1, 30)
 	for node in ark.find_children("*", "MeshInstance3D", true, false):
-		var n: String = str(node.name)
-		if n.begins_with("Stage1"):
-			node.visible = stage >= 1
-		elif n.begins_with("Stage2_HullBackEnds"):
-			node.visible = stage >= 2
-		elif n.begins_with("Stage2_HullFrontCutaway"):
-			node.visible = stage >= 2 and not cutaway
-		elif n.begins_with("Interior_"):
-			node.visible = stage >= 2
-		elif n.begins_with("Stage3_RoofCutaway"):
-			node.visible = stage >= 3 and not cutaway
+		var mi: MeshInstance3D = node as MeshInstance3D
+		if mi == null:
+			continue
+		var n: String = str(mi.name)
+		if n.begins_with("BuildStep_"):
+			var s_idx: int = int(n.substr(10, 2))
+			mi.visible = unlocked_step >= s_idx
+		elif n.begins_with("CutawayFront_Step_"):
+			var f_idx: int = int(n.substr(18, 2))
+			mi.visible = (unlocked_step >= f_idx) and not cutaway
+		elif n.begins_with("CutawayRoof_Step_"):
+			var r_idx: int = int(n.substr(17, 2))
+			mi.visible = (unlocked_step >= r_idx) and not cutaway
 		elif n.begins_with("Stage3_Ramp"):
-			node.visible = stage >= 2 and not retract_ramp
+			mi.visible = (unlocked_step >= 12) and not retract_ramp
+		elif n.begins_with("SealedSideDoor"):
+			mi.visible = retract_ramp
 		elif n.begins_with("StageScaffold"):
-			node.visible = show_scaffold and not cutaway and not retract_ramp
+			if show_scaffold and not cutaway and not retract_ramp:
+				_scaffold_dismantled = false
+				mi.position.y = 0.0
+				mi.visible = true
+			elif clamped >= 99.5 and not _scaffold_dismantled and mi.visible and is_inside_tree():
+				_scaffold_dismantled = true
+				var tw: Tween = create_tween()
+				tw.tween_property(mi, "position:y", -10.5, 0.85).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+				tw.tween_callback(mi.hide)
+			else:
+				mi.visible = false
+		elif n.begins_with("Stage1"):
+			mi.visible = unlocked_step >= 1
+		elif n.begins_with("Stage2_HullFrontCutaway"):
+			mi.visible = unlocked_step >= 12 and not cutaway
+		elif n.begins_with("Stage2") or n.begins_with("Interior_"):
+			mi.visible = unlocked_step >= 12
+		elif n.begins_with("Stage3_RoofCutaway"):
+			mi.visible = unlocked_step >= 26 and not cutaway
 		else:
-			node.visible = stage >= 3
+			mi.visible = unlocked_step >= 26
 
 
 func _build_shipyard_props() -> void:
@@ -485,6 +530,14 @@ func _build_shipyard_props() -> void:
 		for sz in [-8.5, 8.5]:
 			_box(yard_stakes, Vector3(0.22, 1.2, 0.22), grounded(sx, sz, 0.55), wood)
 
+	_chip_mesh = BoxMesh.new()
+	_chip_mesh.size = Vector3(0.08, 0.04, 0.14)
+	_chip_wood_mat = _mat(Color(0.76, 0.56, 0.34), 0.85)
+	_chip_fire_mat = _mat(Color(1.0, 0.62, 0.16), 0.4)
+	_chip_fire_mat.emission_enabled = true
+	_chip_fire_mat.emission = Color(1.0, 0.48, 0.12)
+	_chip_fire_mat.emission_energy_multiplier = 3.4
+
 	timber_stacks = Node3D.new()
 	timber_stacks.name = "TimberStacks"
 	add_child(timber_stacks)
@@ -493,6 +546,70 @@ func _build_shipyard_props() -> void:
 		var tz: float = 15.0 + float(i % 4) * 0.48
 		var ty: float = float(i / 4) * 0.32 + 0.16
 		_box(timber_stacks, Vector3(5.2, 0.30, 0.34), grounded(tx, tz, ty), wood)
+
+	# Timber Stack Fire Crisis VFX (GF-04: ignited by flanking raiders if unguarded / low fence HP!)
+	timber_fire_root = Node3D.new()
+	timber_fire_root.name = "TimberStackFire"
+	timber_fire_root.position = grounded(-15.5, 16.0, 1.05)
+	timber_stacks.add_child(timber_fire_root)
+	for fi in range(3):
+		var fl: MeshInstance3D = MeshInstance3D.new()
+		var fsm: SphereMesh = SphereMesh.new()
+		fsm.radius = 0.38
+		fsm.height = 0.95
+		fl.mesh = fsm
+		fl.material_override = _chip_fire_mat
+		fl.position = Vector3(-1.2 + float(fi) * 1.2, 0.15, float(fi % 2) * 0.35)
+		timber_fire_root.add_child(fl)
+	timber_fire_light = OmniLight3D.new()
+	timber_fire_light.position = Vector3(0.0, 1.2, 0.0)
+	timber_fire_light.light_color = Color(1.0, 0.52, 0.16)
+	timber_fire_light.light_energy = 4.2
+	timber_fire_light.omni_range = 14.0
+	timber_fire_root.add_child(timber_fire_light)
+	timber_fire_smoke = CPUParticles3D.new()
+	timber_fire_smoke.amount = 22
+	timber_fire_smoke.lifetime = 2.6
+	timber_fire_smoke.direction = Vector3(0.15, 1.0, 0.05)
+	timber_fire_smoke.spread = 22.0
+	timber_fire_smoke.gravity = Vector3(0.0, 0.6, 0.0)
+	timber_fire_smoke.initial_velocity_min = 0.9
+	timber_fire_smoke.initial_velocity_max = 1.8
+	var sq: BoxMesh = BoxMesh.new()
+	sq.size = Vector3(0.42, 0.42, 0.42)
+	var smk_m: StandardMaterial3D = _mat(Color(0.14, 0.12, 0.11, 0.65), 0.98)
+	smk_m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sq.material = smk_m
+	timber_fire_smoke.mesh = sq
+	timber_fire_root.add_child(timber_fire_smoke)
+	timber_fire_root.hide()
+
+	# Highland Spring Stone Basin (GF-04: water bucket dousing station between ramp & timber stacks!)
+	spring_well = Node3D.new()
+	spring_well.name = "HighlandSpringWell"
+	spring_well.position = grounded(-5.2, 15.2)
+	add_child(spring_well)
+	var rim_mat: StandardMaterial3D = _mat(Color(0.58, 0.54, 0.47), 0.90)
+	var rim_cyl: CylinderMesh = CylinderMesh.new()
+	rim_cyl.top_radius = 1.18
+	rim_cyl.bottom_radius = 1.30
+	rim_cyl.height = 0.56
+	var rim_mi: MeshInstance3D = MeshInstance3D.new()
+	rim_mi.mesh = rim_cyl
+	rim_mi.material_override = rim_mat
+	rim_mi.position.y = 0.24
+	spring_well.add_child(rim_mi)
+	var wat_cyl: CylinderMesh = CylinderMesh.new()
+	wat_cyl.top_radius = 0.98
+	wat_cyl.bottom_radius = 0.98
+	wat_cyl.height = 0.06
+	var wat_mi: MeshInstance3D = MeshInstance3D.new()
+	wat_mi.mesh = wat_cyl
+	wat_mi.material_override = _mat(Color(0.16, 0.42, 0.54), 0.08, 0.35)
+	wat_mi.position.y = 0.50
+	spring_well.add_child(wat_mi)
+	spawn_asset("CC0_Amphora.glb", 0.78, Vector3(1.35, 0.0, 0.25), spring_well)
+	spawn_asset("CC0_Amphora.glb", 0.72, Vector3(1.15, 0.0, -0.45), spring_well)
 
 	guard_fence = Node3D.new()
 	guard_fence.name = "GuardFence"
@@ -542,15 +659,223 @@ func _build_east_forest() -> void:
 	forest_group = Node3D.new()
 	forest_group.name = "EastGopherWoodForest"
 	add_child(forest_group)
+	forest_trees.clear()
+	var stump_mat: StandardMaterial3D = _mat(Color(0.42, 0.28, 0.16), 0.92)
 	for i in range(30):
 		var fx: float = 58.0 + fmod(float(i) * 11.7, 46.0)
 		var fz: float = -34.0 + fmod(float(i) * 14.3, 68.0)
-		var tree: Node3D = spawn_asset("CC0_OliveTree_Optimized.glb", 4.5 + float(i % 4) * 1.35, grounded_embedded(fx, fz, 1.2, 0.25), forest_group)
-		tree.rotation.y = float(i) * 1.27
-	# Lush foreground & western canyon trees
+		var base_p: Vector3 = grounded_embedded(fx, fz, 1.2, 0.25)
+		var tree: Node3D = spawn_asset("CC0_OliveTree_Optimized.glb", 4.5 + float(i % 4) * 1.35, base_p, forest_group)
+		var base_ry: float = float(i) * 1.27
+		tree.rotation.y = base_ry
+		var stump: MeshInstance3D = MeshInstance3D.new()
+		var scyl: CylinderMesh = CylinderMesh.new()
+		scyl.top_radius = 0.26
+		scyl.bottom_radius = 0.34
+		scyl.height = 0.55
+		stump.mesh = scyl
+		stump.material_override = stump_mat
+		stump.position = grounded(fx, fz, 0.22)
+		stump.hide()
+		forest_group.add_child(stump)
+		forest_trees.append({
+			"node": tree,
+			"stump": stump,
+			"pos": grounded(fx, fz),
+			"base_rot_y": base_ry,
+			"hp": 4,
+			"felled": false,
+			"regrow": 0.0,
+		})
+	# Lush foreground & western canyon trees (scenic non-felled)
 	for tp: Vector2 in [Vector2(-46.0, 22.0), Vector2(-58.0, -14.0), Vector2(44.0, 22.0), Vector2(54.0, -18.0), Vector2(-70.0, 12.0), Vector2(-72.0, -8.0)]:
 		var vt: Node3D = spawn_asset("CC0_OliveTree_Optimized.glb", 5.2, grounded_embedded(tp.x, tp.y, 1.2, 0.25), forest_group)
 		vt.rotation.y = tp.x * 0.2
+
+
+func find_standing_tree_near(worker_idx: int) -> int:
+	if forest_trees.is_empty():
+		return -1
+	var start: int = (worker_idx * 5) % forest_trees.size()
+	for step in range(forest_trees.size()):
+		var idx: int = (start + step) % forest_trees.size()
+		if not bool(forest_trees[idx].felled):
+			return idx
+	return -1
+
+
+func chop_tree(tree_idx: int, chops_required: int = 4) -> bool:
+	if tree_idx < 0 or tree_idx >= forest_trees.size():
+		return false
+	var tdata: Dictionary = forest_trees[tree_idx]
+	if bool(tdata.felled):
+		return false
+	var tree_node: Node3D = tdata.node as Node3D
+	var tpos: Vector3 = tdata.pos as Vector3
+	spawn_hit_particles(tpos + Vector3(0.0, 1.0, 0.0), false)
+	tdata.hp = int(tdata.hp) - 1
+	if int(tdata.hp) > 0:
+		if tree_node != null and is_inside_tree():
+			var tw_shake: Tween = create_tween()
+			tw_shake.tween_property(tree_node, "rotation:z", 0.08, 0.06)
+			tw_shake.tween_property(tree_node, "rotation:z", -0.05, 0.06)
+			tw_shake.tween_property(tree_node, "rotation:z", 0.0, 0.06)
+		return false
+	# Tree felled! Smooth 90-degree fall + woodchip/leaf burst + stump reveal!
+	tdata.felled = true
+	tdata.hp = maxi(1, chops_required)
+	tdata.regrow = 45.0
+	var stump_node: MeshInstance3D = tdata.stump as MeshInstance3D
+	if stump_node != null:
+		stump_node.show()
+	spawn_hit_particles(tpos + Vector3(0.0, 1.6, 0.0), false)
+	if tree_node != null and is_inside_tree():
+		var tw_fall: Tween = create_tween()
+		tw_fall.tween_property(tree_node, "rotation:z", 1.48, 0.58).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw_fall.tween_callback(func() -> void:
+			if is_instance_valid(tree_node):
+				tree_node.hide()
+				tree_node.rotation.z = 0.0
+		)
+	return true
+
+
+func update_forest_regrowth(delta: float, regrow_sec: float = 45.0) -> void:
+	for tdata in forest_trees:
+		if bool(tdata.felled):
+			tdata.regrow = float(tdata.regrow) - delta
+			if float(tdata.regrow) <= 0.0:
+				tdata.felled = false
+				tdata.hp = 4
+				var stump_node: MeshInstance3D = tdata.stump as MeshInstance3D
+				if stump_node != null:
+					stump_node.hide()
+				var tree_node: Node3D = tdata.node as Node3D
+				if tree_node != null:
+					tree_node.rotation.z = 0.0
+					tree_node.scale = Vector3.ONE * 0.25
+					tree_node.show()
+					if is_inside_tree():
+						create_tween().tween_property(tree_node, "scale", Vector3.ONE, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+					else:
+						tree_node.scale = Vector3.ONE
+
+
+func spawn_hit_particles(pos: Vector3, fiery: bool = false) -> void:
+	if not is_inside_tree() or _chip_mesh == null:
+		return
+	var p: CPUParticles3D = CPUParticles3D.new()
+	p.position = pos
+	p.amount = 10 if fiery else 7
+	p.lifetime = 0.42
+	p.one_shot = true
+	p.explosiveness = 0.92
+	p.direction = Vector3(0.0, 1.0, 0.0)
+	p.spread = 68.0
+	p.gravity = Vector3(0.0, -11.5, 0.0)
+	p.initial_velocity_min = 2.4
+	p.initial_velocity_max = 4.8
+	var cm: BoxMesh = _chip_mesh.duplicate() as BoxMesh
+	cm.material = _chip_fire_mat if fiery else _chip_wood_mat
+	p.mesh = cm
+	add_child(p)
+	p.emitting = true
+	var tw: Tween = create_tween()
+	tw.tween_interval(0.55)
+	tw.tween_callback(p.queue_free)
+
+
+func pulse_fence_hit(hit_x: float) -> void:
+	if guard_fence == null or not is_inside_tree():
+		return
+	var best: Node3D = null
+	var best_d: float = 999.0
+	for c in guard_fence.get_children():
+		var seg: Node3D = c as Node3D
+		if seg != null and seg.visible and seg.get_child_count() > 0:
+			var mi: Node3D = seg.get_child(0) as Node3D
+			var d: float = absf(mi.position.x - hit_x)
+			if d < best_d:
+				best_d = d
+				best = mi
+	if best != null:
+		var tw: Tween = create_tween()
+		tw.tween_property(best, "scale", Vector3(1.12, 0.93, 1.12), 0.06)
+		tw.tween_property(best, "scale", Vector3.ONE, 0.08)
+
+
+func set_timber_fire_intensity(intensity: float) -> void:
+	if timber_fire_root == null:
+		return
+	var clamped: float = clampf(intensity, 0.0, 1.0)
+	timber_fire_root.visible = clamped > 0.02
+	if timber_fire_root.visible:
+		timber_fire_root.scale = Vector3.ONE * lerpf(0.45, 1.15, clamped)
+		if timber_fire_light != null:
+			timber_fire_light.light_energy = lerpf(1.4, 5.2, clamped)
+		if timber_fire_smoke != null:
+			timber_fire_smoke.emitting = true
+	elif timber_fire_smoke != null:
+		timber_fire_smoke.emitting = false
+
+
+func spawn_floating_text_3d(pos: Vector3, text: String, col: Color = Color(1.0, 0.90, 0.46)) -> void:
+	if not is_inside_tree():
+		return
+	var lbl: Label3D = Label3D.new()
+	lbl.text = text
+	lbl.position = pos
+	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lbl.no_depth_test = true
+	lbl.font_size = 38
+	lbl.pixel_size = 0.0044
+	lbl.modulate = col
+	lbl.outline_modulate = Color(0.06, 0.04, 0.02, 0.95)
+	lbl.outline_size = 10
+	add_child(lbl)
+	var tw: Tween = create_tween().set_parallel(true)
+	tw.tween_property(lbl, "position:y", pos.y + 2.1, 1.15).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(lbl, "modulate:a", 0.0, 1.15).set_delay(0.25)
+	tw.chain().tween_callback(lbl.queue_free)
+
+
+func update_countdown_weather(days_left: float, max_days: float, delta: float) -> void:
+	if sun == null or sky_material == null or terrain_mat == null:
+		return
+	var ratio: float = clampf(days_left / maxf(max_days, 1.0), 0.0, 1.0)  # 1.0 = 240d sunny -> 0.0 = 0d storm
+	if ratio > 0.66:
+		# 240..160 days: Golden dry-land sunshine
+		terrain_mat.set_shader_parameter("wetness", 0.0)
+	elif ratio > 0.375:
+		# 160..90 days: Gathering high clouds & rising mountain wind
+		var t1: float = (0.66 - ratio) / 0.285
+		sky_material.sky_top_color = Color(0.18, 0.31, 0.50).lerp(Color(0.13, 0.20, 0.32), t1)
+		sky_material.sky_horizon_color = Color(0.76, 0.68, 0.54).lerp(Color(0.56, 0.50, 0.44), t1)
+		sun.light_energy = lerpf(2.15, 1.45, t1)
+		terrain_mat.set_shader_parameter("wetness", lerpf(0.0, 0.14, t1))
+	elif ratio > 0.105:
+		# 90..25 days: Lead-gray thunderclouds, sheet lightning every ~18s, damp soil
+		var t2: float = (0.375 - ratio) / 0.27
+		sky_material.sky_top_color = Color(0.13, 0.20, 0.32).lerp(Color(0.08, 0.11, 0.17), t2)
+		sky_material.sky_horizon_color = Color(0.56, 0.50, 0.44).lerp(Color(0.32, 0.35, 0.40), t2)
+		sun.light_energy = lerpf(1.45, 0.88, t2)
+		terrain_mat.set_shader_parameter("wetness", lerpf(0.14, 0.48, t2))
+		_lightning_timer -= delta
+		if _lightning_timer <= 0.0:
+			_lightning_timer = 18.0
+			sun.light_energy = 3.2
+			var sm: Node = get_node_or_null("/root/SoundManager")
+			if sm != null and sm.has_method("play_sfx"):
+				sm.call("play_sfx", "sfx_thunder.wav", -10.0)
+	else:
+		# 25..0 days: Breaking squall & pouring rain
+		var t3: float = (0.105 - ratio) / 0.105
+		sky_material.sky_top_color = Color(0.07, 0.09, 0.14)
+		sky_material.sky_horizon_color = Color(0.24, 0.28, 0.34)
+		sun.light_energy = lerpf(0.85, 0.65, t3)
+		terrain_mat.set_shader_parameter("wetness", lerpf(0.48, 0.92, t3))
+		if rain != null and not rain.emitting:
+			rain.emitting = true
 
 
 func _build_south_village() -> void:

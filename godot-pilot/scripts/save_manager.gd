@@ -10,6 +10,14 @@ const SETTINGS_PATH: String = "user://settings.cfg"
 
 var current_locale: String = "zh_CN"
 var head_bob_enabled: bool = true
+var pending_load_slot: int = 0
+
+
+func first_existing_slot() -> int:
+	for s in [1, 2, 3, 0]:
+		if has_save(s):
+			return s
+	return -1
 
 
 func _ready() -> void:

@@ -81,7 +81,7 @@ func _build_menu_ui() -> void:
 	vb.add_child(sub)
 
 	continue_btn = _make_btn("继续立约之旅（读取存档）", true, _on_continue)
-	continue_btn.visible = SaveManager.has_save(0)
+	continue_btn.visible = SaveManager.first_existing_slot() >= 0
 	vb.add_child(continue_btn)
 
 	vb.add_child(_make_btn("序章 · 诺亚方舟与彩虹之约（创 6–9）", not continue_btn.visible, func() -> void:
@@ -105,8 +105,13 @@ func _build_menu_ui() -> void:
 
 
 func _on_continue() -> void:
-	var d: Dictionary = SaveManager.load_slot(0)
-	var target: String = str(d.get("currentScene", "res://scenes/ch00_noah_ark.tscn"))
+	var s: int = SaveManager.first_existing_slot()
+	if s < 0:
+		s = 1
+	var d: Dictionary = SaveManager.load_slot(s)
+	SaveManager.pending_load_slot = s
+	var ch_id: String = str(d.get("chapter_id", "ch00_noah_ark"))
+	var target: String = "res://scenes/overworld_prologue.tscn" if ch_id == "overworld_prologue" else str(d.get("currentScene", "res://scenes/ch00_noah_ark.tscn"))
 	SceneTransition.change_scene(target)
 
 
